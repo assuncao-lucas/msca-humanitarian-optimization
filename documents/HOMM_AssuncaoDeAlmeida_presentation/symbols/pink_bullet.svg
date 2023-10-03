@@ -1,0 +1,16 @@
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 50 55.333343505859375" width="50" height="55.333343505859375">
+  <!-- svg-source:excalidraw -->
+  
+  <defs>
+    <style class="style-fonts">
+      @font-face {
+        font-family: "Virgil";
+        src: url("https://excalidraw.com/Virgil.woff2");
+      }
+      @font-face {
+        font-family: "Cascadia";
+        src: url("https://excalidraw.com/Cascadia.woff2");
+      }
+    </style>
+  </defs>
+  <g stroke-linecap="round" transform="translate(10 10) rotate(0 15 17.666671752929688)"><path d="M18.82 3.6 L30.33 19.45 L19.26 32.13 L14.82 35.46 L1.17 16.03 L13.15 0.15 L16.66 0.89 L19.75 4.55" stroke="none" stroke-width="0" fill="#e64980"></path><path d="M20 4.5 M20 4.5 C23.2 8.61, 23.84 11.32, 26 13.5 M20 4.5 C21.98 7.32, 23.8 9.14, 26 13.5 M26 13.5 C30.47 19.77, 29.73 19.75, 26 22.5 M26 13.5 C30.61 15.8, 28.02 16.39, 26 22.5 M26 22.5 C23.24 24.96, 21.82 26.59, 20 30.83 M26 22.5 C24.27 25.53, 22.22 27.82, 20 30.83 M20 30.83 C17.65 33.7, 16.31 36.54, 12 30.83 M20 30.83 C17.35 33.34, 15.94 33.15, 12 30.83 M12 30.83 C10.14 27.9, 8.3 26.58, 4 22.5 M12 30.83 C9.95 28.25, 7.87 25.82, 4 22.5 M4 22.5 C-1.48 17.4, -1.46 16.7, 4 13.5 M4 22.5 C0.88 16.94, -2.26 15.7, 4 13.5 M4 13.5 C7.01 10.01, 9.75 7.62, 12 4.5 M4 13.5 C5.85 10.67, 8.97 8.76, 12 4.5 M12 4.5 C14.87 0.07, 17.72 0.66, 20 4.5 M12 4.5 C17.25 -2, 17.98 1.64, 20 4.5" stroke="#000000" stroke-width="1" fill="none"></path></g></svg>
