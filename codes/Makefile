@@ -1,0 +1,131 @@
+SYSTEM     = x86-64_linux
+LIBFORMAT  = static_pic
+CPLEXDIR      = /opt/ibm/ILOG/CPLEX_Studio2211
+CONCERTDIR    = /opt/ibm/ILOG/CPLEX_Studio2211/concert
+CPLEXLIBDIR   = $(CPLEXDIR)/cplex/lib/$(SYSTEM)/$(LIBFORMAT)
+CONCERTLIBDIR = $(CONCERTDIR)/lib/$(SYSTEM)/$(LIBFORMAT)
+CLNFLAGS  = -L$(CPLEXLIBDIR) -L$(CONCERTLIBDIR) -lilocplex -lconcert -lcplex -m64 -lm -lpthread
+
+COPT  = -m64 -O2 -fPIC -fexceptions -DNDEBUG -DIL_STD -DLONG_MAX=0x7FFFFFFFL
+GENERALINCDIR   = -I .
+CPLEXINCDIR   = -I $(CPLEXDIR)/cplex/include -I $(CPLEXDIR)/concert/include
+CFLAGS = $(COPT) $(GENERALINCDIR) -std=c++17
+CFLAGS2  = $(COPT) $(CPLEXINCDIR)
+
+CC=g++ -std=c++17
+CC_VALGRIND=g++ -std=c++17 -g -O0
+
+PROG_DIR=src
+PROG_BIN=bin
+
+MAIN_EXACT_SRC=$(PROG_DIR)/exact/main2.cpp
+
+MAIN_HEURISTIC_SRC=$(PROG_DIR)/heuristic/main.cpp
+
+ARC_SRC=$(PROG_DIR)/arc.cpp
+ARC_H=$(PROG_DIR)/arc.h
+ARC_OBJ=$(PROG_BIN)/arc.o
+
+GRAPH_SRC=$(PROG_DIR)/graph.cpp
+GRAPH_H=$(PROG_DIR)/graph.h
+GRAPH_OBJ=$(PROG_BIN)/graph.o
+
+GRAPH_ALGO_SRC=$(PROG_DIR)/graph_algorithms.cpp
+GRAPH_ALGHO_H=$(PROG_DIR)/graph_alhorithms.h
+GRAPH_ALGO_OBJ=$(PROG_BIN)/graph_algorithms.o
+
+GENERAL_SRC=$(PROG_DIR)/general.cpp
+GENERAL_H=$(PROG_DIR)/general.h
+GENERAL_OBJ=$(PROG_BIN)/general.o
+
+USERCUT_SRC=$(PROG_DIR)/user_cut.cpp
+USERCUT_H=$(PROG_DIR)/user_cut.h
+USERCUT_OBJ=$(PROG_BIN)/user_cut.o
+
+TIMER_SRC=$(PROG_DIR)/timer.cpp
+TIMER_H=$(PROG_DIR)/timer.h
+TIMER_OBJ=$(PROG_BIN)/timer.o
+
+FEASIBILITY_PUMP_SRC=$(PROG_DIR)/feasibility_pump.cpp
+FEASIBILITY_PUMP_H=$(PROG_DIR)/feasibility_pump.h
+FEASIBILITY_PUMP_OBJ=$(PROG_BIN)/feasibility_pump.o
+
+LOCAL_BRANCHING_SRC=$(PROG_DIR)/local_branching.cpp
+LOCAL_BRANCHING_H=$(PROG_DIR)/local_branching.h
+LOCAL_BRANCHING_OBJ=$(PROG_BIN)/local_branching.o
+
+ALNS_SRC=$(PROG_DIR)/ALNS.cpp
+ALNS_H=$(PROG_DIR)/ALNS.h
+ALNS_OBJ=$(PROG_BIN)/ALNS.o
+
+HEURISTIC_SOLUTION_SRC=$(PROG_DIR)/heuristic_solution.cpp
+HEURISTIC_SOLUTION_H=$(PROG_DIR)/heuristic_solution.h
+HEURISTIC_SOLUTION_OBJ=$(PROG_BIN)/heuristic_solution.o
+
+ROUTE_SRC=$(PROG_DIR)/route.cpp
+ROUTE_H=$(PROG_DIR)/route.h
+ROUTE_OBJ=$(PROG_BIN)/route.o
+
+SOLUTION_HPP=$(PROG_DIR)/solution.hpp
+SOLUTION_OBJ=$(PROG_BIN)/solution.o
+
+MATRIX_HPP=$(PROG_DIR)/matrix.hpp
+MATRIX_OBJ=$(PROG_BIN)/matrix.o
+
+INSTANCE_SRC=$(PROG_DIR)/instance.cpp
+INSTANCE_H=$(PROG_DIR)/instance.h
+INSTANCE_OBJ=$(PROG_BIN)/instance.o
+
+FORM_SRC=$(PROG_DIR)/formulations.cpp
+FORM_H=$(PROG_DIR)/formulations.h
+FORM_OBJ=$(PROG_BIN)/formulations.o
+
+arc: $(ARC_SRC) $(ARC_H)
+	$(CC) $(CFLAGS) -c $(ARC_SRC) -o $(ARC_OBJ)
+
+graph: $(GRAPH_SRC) $(GRAPH_H)
+	$(CC) $(CFLAGS) -c $(GRAPH_SRC) -o $(GRAPH_OBJ)
+
+graph_algo: $(GRAPH_ALGO_SRC) $(GRAPH_ALGO_H)
+	$(CC) $(CFLAGS) -c $(GRAPH_ALGO_SRC) -o $(GRAPH_ALGO_OBJ)
+
+GENERAL_OBJ: $(GENERAL_SRC) $(GENERAL_H)
+	$(CC) $(CFLAGS) -c $(GENERAL_SRC) -o $(GENERAL_OBJ)
+
+USERCUT_OBJ: $(USERCUT_SRC) $(USERCUT_H)
+	$(CC) $(CFLAGS) -c $(USERCUT_SRC) -o $(USERCUT_OBJ)
+
+timer: $(TIMER_SRC) $(TIMER_H)
+	$(CC) $(CFLAGS) -c $(TIMER_SRC) -o $(TIMER_OBJ)
+
+FEASIBILITY_PUMP_OBJ: $(FEASIBILITY_PUMP_SRC) $(FEASIBILITY_PUMP_H)
+	$(CC) $(CFLAGS) $(CFLAGS2) -c $(FEASIBILITY_PUMP_SRC) -o $(FEASIBILITY_PUMP_OBJ)
+
+LOCAL_BRANCHING_OBJ: $(LOCAL_BRANCHING_SRC) $(LOCAL_BRANCHING_H)
+	$(CC) $(CFLAGS) $(CFLAGS2) -c $(LOCAL_BRANCHING_SRC) -o $(LOCAL_BRANCHING_OBJ)
+
+ALNS_OBJ: $(ALNS_SRC) $(ALNS_H)
+	$(CC) $(CFLAGS) $(CFLAGS2) -c $(ALNS_SRC) -o $(ALNS_OBJ)
+
+HEURISTIC_SOLUTION_OBJ: $(HEURISTIC_SOLUTION_SRC) $(HEURISTIC_SOLUTION_H)
+	$(CC) $(CFLAGS) -c $(HEURISTIC_SOLUTION_SRC) -o $(HEURISTIC_SOLUTION_OBJ)
+
+route: $(ROUTE_SRC) $(ROUTE_H)
+	$(CC) $(CFLAGS) -c $(ROUTE_SRC) -o $(ROUTE_OBJ)
+
+instance: $(INSTANCE_SRC) $(INSTANCE_H)
+	$(CC) $(CFLAGS) -c $(INSTANCE_SRC) -o $(INSTANCE_OBJ)
+
+solution: $(SOLUTION_HPP)
+	$(CC) $(CFLAGS) -c $(SOLUTION_HPP) -o $(SOLUTION_OBJ)
+
+matrix: $(MATRIX_HPP)
+	$(CC) $(CFLAGS) -c $(MATRIX_HPP) -o $(MATRIX_OBJ)
+
+formulations: $(FORM_SRC) $(FORM_H)
+	$(CC) $(CFLAGS) $(CFLAGS2) -c $(FORM_SRC) -o $(FORM_OBJ)
+
+stop: arc graph graph_algo GENERAL_OBJ instance route matrix timer solution formulations
+	$(CC) $(CFLAGS) $(CFLAGS2) $(ARC_SRC) $(GRAPH_SRC) $(GRAPH_ALGO_SRC) $(GENERAL_SRC) $(USERCUT_SRC) $(ROUTE_SRC) $(MATRIX_HPP) $(INSTANCE_SRC) $(TIMER_SRC) $(SOLUTION_HPP) $(FORM_SRC) $(MAIN_EXACT_SRC) -o $(PROG_BIN)/stop $(CLNFLAGS)
+clean:
+	rm $(PROG_BIN)/*.o
