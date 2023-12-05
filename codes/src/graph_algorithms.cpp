@@ -144,7 +144,7 @@ Matrix<double> * FloydWarshall(const Graph * graph)
     for(int k = 0; k < dimension; k++)
     {
         (*d)[k][k] = 0.0;
-        for(const auto adj_vertex: graph->AdjVertices(k))
+        for(const auto adj_vertex: graph->AdjVerticesOut(k))
             (*d)[k][adj_vertex] = ((*graph)[k][adj_vertex])->distance();
     }
 

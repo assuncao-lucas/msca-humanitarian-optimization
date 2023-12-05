@@ -6,7 +6,8 @@ Graph::Graph(int num_vertices, VertexInfo * vertices_info)
     arcs_ = new Matrix<GArc*>(num_vertices,num_vertices, nullptr);
 	num_arcs_ = 0;
 
-	adj_lists_ = new std::vector<std::list<int>>(num_vertices);
+	adj_lists_out_ = new std::vector<std::list<int>>(num_vertices);
+    adj_lists_in_ = new std::vector<std::list<int>>(num_vertices);
 
 	vertices_info_ = vertices_info;
 	indexes_ = new Matrix<int>(num_vertices,num_vertices,-1);
@@ -26,19 +27,25 @@ Graph::~Graph()
         indexes_ = nullptr;
     }
 
-    if(adj_lists_)
+    if(adj_lists_out_)
     {
         for(int v1 = 0; v1 < num_vertices_; ++v1)
         {
-            for(std::list<int>::iterator it = ((*adj_lists_)[v1]).begin(); it != ((*adj_lists_)[v1]).end(); ++it)
+            for(std::list<int>::iterator it = ((*adj_lists_out_)[v1]).begin(); it != ((*adj_lists_out_)[v1]).end(); ++it)
             {
                 int v2 = *it;
                 delete (*arcs_)[v1][v2];
                 (*arcs_)[v1][v2] = nullptr;
             }
         }
-        delete adj_lists_;
-        adj_lists_ = nullptr;
+        delete adj_lists_out_;
+        adj_lists_out_ = nullptr;
+    }
+
+    if(adj_lists_in_)
+    {
+        delete adj_lists_in_;
+        adj_lists_in_ = nullptr;
     }
 
     if(arcs_)
@@ -57,7 +64,7 @@ std::ostream& operator<< (std::ostream &out, const Graph &g)
 {
 	GArc * arc = nullptr;
     for(int i=0; i < g.num_vertices(); ++i)
-	    out << i << ") " <<(g.vertices_info())[i].coordinates_.first << " " <<(g.vertices_info())[i].coordinates_.second << " " <<(g.vertices_info())[i].profit_  << " " << (g.vertices_info())[i].decay_ray_
+	    out << i << ") " <<(g.vertices_info())[i].coordinates_.first << " " <<(g.vertices_info())[i].coordinates_.second << " " <<(g.vertices_info())[i].profit_  << " " << (g.vertices_info())[i].decay_ratio_
             << " " << (g.vertices_info())[i].nominal_service_time_ << " " << (g.vertices_info())[i].dev_service_time_ << std::endl;
 
     for(int i=0; i < g.num_vertices(); ++i)
@@ -94,7 +101,8 @@ void Graph::AddArc(int i, int j, double dist)
 {
     GArc * curr_arc = new GArc(dist);
     (*arcs_)[i][j] = curr_arc;
-    ((*adj_lists_)[i]).push_back(j);
+    ((*adj_lists_out_)[i]).push_back(j);
+    ((*adj_lists_in_)[j]).push_back(i);
     (*indexes_)[i][j] = num_arcs_;
     arcs_map_[num_arcs_] = std::pair<int,int>(i,j);
     num_arcs_++;
@@ -102,12 +110,16 @@ void Graph::AddArc(int i, int j, double dist)
 
 void Graph::DeleteArc(int i, int j, bool remove_from_indexes_list)
 {
-    if(remove_from_indexes_list) ((*adj_lists_)[i]).remove(j);
+    if(remove_from_indexes_list)
+    {
+        ((*adj_lists_out_)[i]).remove(j);
+        ((*adj_lists_in_)[j]).remove(i);
+    }
     delete ((*arcs_)[i][j]);
     ((*arcs_)[i][j]) = nullptr;
     arcs_map_[(*indexes_)[i][j]] = std::pair<int,int>(-1,-1);
     (*indexes_)[i][j] = -1;
-    num_arcs_--;
+    --num_arcs_;
 }
 
 void Graph::AddEdge(int i, int j, double dist)

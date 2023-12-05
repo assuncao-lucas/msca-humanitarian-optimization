@@ -127,5 +127,8 @@ formulations: $(FORM_SRC) $(FORM_H)
 
 stop: arc graph graph_algo GENERAL_OBJ instance route matrix timer solution formulations
 	$(CC) $(CFLAGS) $(CFLAGS2) $(ARC_SRC) $(GRAPH_SRC) $(GRAPH_ALGO_SRC) $(GENERAL_SRC) $(USERCUT_SRC) $(ROUTE_SRC) $(MATRIX_HPP) $(INSTANCE_SRC) $(TIMER_SRC) $(SOLUTION_HPP) $(FORM_SRC) $(MAIN_EXACT_SRC) -o $(PROG_BIN)/stop $(CLNFLAGS)
+
+stop2: formulations
+	$(CC) $(CFLAGS) $(CFLAGS2) $(ARC_SRC) $(GRAPH_SRC) $(GRAPH_ALGO_SRC) $(GENERAL_SRC) $(USERCUT_SRC) $(ROUTE_SRC) $(MATRIX_HPP) $(INSTANCE_SRC) $(TIMER_SRC) $(SOLUTION_HPP) $(FORM_SRC) $(MAIN_EXACT_SRC) -o $(PROG_BIN)/stop $(CLNFLAGS)
 clean:
 	rm $(PROG_BIN)/*.o

@@ -13,7 +13,7 @@ public:
 	struct VertexInfo{
 		std::pair<double,double> coordinates_;
 		int profit_;
-		double decay_ray_;
+		double decay_ratio_;
 		double nominal_service_time_;
 		double dev_service_time_;
 	};
@@ -23,8 +23,12 @@ public:
 	virtual ~Graph();
 	int num_vertices() const {return num_vertices_;}
 	int num_arcs(void) const {return num_arcs_;}
-	std::list<int>& AdjVertices(int vertex) const{
-		return (*adj_lists_)[vertex];
+	std::list<int>& AdjVerticesOut(int vertex) const{
+		return (*adj_lists_out_)[vertex];
+	}
+
+	std::list<int>& AdjVerticesIn(int vertex) const{
+		return (*adj_lists_in_)[vertex];
 	}
 
 	VertexInfo * vertices_info() const {return vertices_info_;}
@@ -43,7 +47,8 @@ private:
 	VertexInfo * vertices_info_ = nullptr;
 	int num_vertices_ = 0;
 	int num_arcs_ = 0;
-	std::vector<std::list<int>> * adj_lists_ = nullptr;
+	std::vector<std::list<int>> * adj_lists_out_ = nullptr;
+	std::vector<std::list<int>> * adj_lists_in_ = nullptr;
 	Matrix<int> * indexes_ = nullptr;
 	std::unordered_map<int,std::pair<int,int>> arcs_map_;
 };

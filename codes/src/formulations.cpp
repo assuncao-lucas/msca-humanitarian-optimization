@@ -51,7 +51,7 @@ void setPriorityOrder(IloCplex & cplex, IloEnv & env, IloNumVarArray & x, Instan
   const Graph * graph = instance.graph();
   int v1 = 0, v2 = 0;
 
-  for(std::list<int>::iterator it = (graph->AdjVertices(v1)).begin(); it != (graph->AdjVertices(v1)).end(); ++it)
+  for(std::list<int>::iterator it = (graph->AdjVerticesOut(v1)).begin(); it != (graph->AdjVerticesOut(v1)).end(); ++it)
   {
     v2 = *it;
     cplex.setPriority(x[graph->pos(v1,v2)],1.0);
@@ -218,7 +218,7 @@ Solution<int> * CompactBaseline(Instance& inst, double * R0, double * Rn, double
   IloNumArray x_solution(env);
   cplex.getValues(x_solution,x);
   for (int i = 0; i < num_vertices; ++i)
-    for(const int &j: graph->AdjVertices(i))
+    for(const int &j: graph->AdjVerticesOut(i))
       std::cout << "x[" << i << "," << j << "]: " << x_solution[graph->pos(i,j)] << std::endl;
 
   IloNumArray a_solution(env);
@@ -263,7 +263,7 @@ Solution<double> * PrimalSubproblemCompactBaseline(Instance& inst, const int * x
   for(int i = num_mandatory + 1; i < num_vertices; ++i)
   {
     const auto& vertex_info = vertices_info[i];
-    obj -= operator*(vertex_info.decay_ray_,a[a_var_to_index(i,budget,num_vertices)]);
+    obj -= operator*(vertex_info.decay_ratio_,a[a_var_to_index(i,budget,num_vertices)]);
   }
 
   model.add(IloMaximize(env, obj));
@@ -301,10 +301,11 @@ Solution<double> * DualSubproblemCompactBaseline(Instance& inst, const int * x_v
 {
   const Graph * graph = inst.graph();
   const int num_vertices = graph->num_vertices();
-  const int num_routes = inst.num_vehicles();
   const int num_arcs = graph->num_arcs();
-  const int num_arcs_from_origin = size(graph->AdjVertices(0));
+  const int num_arcs_from_origin = size(graph->AdjVerticesOut(0));
   const int budget = inst.uncertainty_budget();
+  double route_limit = inst.limit();
+  const auto vertices_info = graph->vertices_info();
 
   IloEnv env;
   IloCplex cplex(env);
@@ -327,20 +328,47 @@ Solution<double> * DualSubproblemCompactBaseline(Instance& inst, const int * x_v
 
   PopulateByRowDualCompactBaselineContinuousSpace(env,model,u_0,u_1,u_2,u_3,x_values,y_values, inst);
 
-  // // add objective function.
-  // IloExpr obj(env);
+  // add objective function.
+  IloExpr obj(env);
 
-  // const int num_mandatory = inst.num_mandatory();
-  // const auto* vertices_info = inst.graph()->vertices_info();
+  const int num_mandatory = inst.num_mandatory();
 
-  // for(int i = num_mandatory + 1; i < num_vertices; ++i)
-  // {
-  //   const auto& vertex_info = vertices_info[i];
-  //   obj -= operator*(vertex_info.decay_ray_,a[a_var_to_index(i,budget,num_vertices)]);
-  // }
+  for (int budget_iter = 0; budget_iter <= budget; ++budget_iter)
+  {
+    for(auto j: graph->AdjVerticesOut(0))
+      obj -= operator*(u_0[u_0_var_to_index(j,budget_iter,num_vertices)], (*graph)[0][j]->distance())*(y_values[j]);
 
-  // model.add(IloMaximize(env, obj));
-  // obj.end();
+    for (int i = 0; i < num_vertices; ++i)
+    {
+      const auto vertex_info = vertices_info[i];
+      double vertex_deadline = (i <= num_mandatory)? route_limit: round_decimals(vertex_info.profit_/vertex_info.decay_ratio_,2);
+      
+      if(i <= num_mandatory)
+        obj += operator*(u_1[u_1_var_to_index(i,budget_iter,num_vertices)], route_limit);
+      else
+        obj += operator*(u_1[u_1_var_to_index(i,budget_iter,num_vertices)], vertex_deadline * y_values[i]);
+    
+      if (i > 0) // only profitable and mandatory.
+      {
+        for(auto j: graph->AdjVerticesOut(i))
+        {
+          GArc * arc = (*graph)[i][j];
+          const int arc_pos = graph->pos(i,j);
+          double coef1 = (vertex_deadline + vertex_info.nominal_service_time_ + arc->distance())*(1-x_values[arc_pos]) - vertex_info.nominal_service_time_ - arc->distance();
+          obj += operator*(u_2[u_2_var_to_index(arc_pos,budget_iter,num_arcs_from_origin,num_arcs)], coef1);
+
+          if(budget_iter > 0)
+          {
+            double coef2 = (vertex_deadline + vertex_info.nominal_service_time_ + vertex_info.dev_service_time_ + arc->distance())*(1-x_values[arc_pos]) - vertex_info.nominal_service_time_  - vertex_info.dev_service_time_ - arc->distance();
+            obj += operator*(u_3[u_3_var_to_index(arc_pos,budget_iter,num_arcs_from_origin,num_arcs)], coef2);
+          }
+        }
+      }
+    }
+  }
+
+  model.add(IloMinimize(env, obj));
+  obj.end();
 
   // add name to variables.
   // u_0.
@@ -361,21 +389,21 @@ Solution<double> * DualSubproblemCompactBaseline(Instance& inst, const int * x_v
     {
       char strnum[28];
       sprintf(strnum,"u_1(%d)(%d)",i,budget_iter);
-      u_0[u_1_var_to_index(i,budget_iter,num_vertices)].setName(strnum);
+      u_1[u_1_var_to_index(i,budget_iter,num_vertices)].setName(strnum);
     }
   }
 
   // u_2.
   for(int i = 1; i < num_vertices; ++i)
   {
-    for (int j: graph->AdjVertices(i))
+    for (int j: graph->AdjVerticesOut(i))
     {
       for (int budget_iter = 0; budget_iter <= budget; ++budget_iter)
       {
         char strnum[31];
         const int arc_pos = graph->pos(i,j);
         sprintf(strnum,"u_2(%d)(%d)(%d)",i,j,budget_iter);
-        u_0[u_2_var_to_index(arc_pos,budget_iter,num_arcs_from_origin,num_arcs)].setName(strnum);
+        u_2[u_2_var_to_index(arc_pos,budget_iter,num_arcs_from_origin,num_arcs)].setName(strnum);
       }
     }
   }
@@ -383,14 +411,14 @@ Solution<double> * DualSubproblemCompactBaseline(Instance& inst, const int * x_v
   // u_3.
   for(int i = 1; i < num_vertices; ++i)
   {
-    for (int j: graph->AdjVertices(i))
+    for (int j: graph->AdjVerticesOut(i))
     {
       for (int budget_iter = 1; budget_iter <= budget; ++budget_iter)
       {
         char strnum[31];
         const int arc_pos = graph->pos(i,j);
         sprintf(strnum,"u_3(%d)(%d)(%d)",i,j,budget_iter);
-        u_0[u_3_var_to_index(arc_pos,budget_iter,num_arcs_from_origin,num_arcs)].setName(strnum);
+        u_3[u_3_var_to_index(arc_pos,budget_iter,num_arcs_from_origin,num_arcs)].setName(strnum);
       }
     }
   }
@@ -607,7 +635,7 @@ static void PopulateByRowCommon(IloEnv& env, IloModel& model, IloNumVar& slack, 
   for(int i = 1; i < num_vertices; ++i)
   {
     IloExpr exp(env);
-    auto adj_vertices = graph->AdjVertices(i);
+    auto adj_vertices = graph->AdjVerticesOut(i);
     size_t num_adj_arc = adj_vertices.size();
 
     for (const auto j: adj_vertices)
@@ -630,7 +658,7 @@ static void PopulateByRowCommon(IloEnv& env, IloModel& model, IloNumVar& slack, 
   model.add(y[0] == 1);
 
   IloExpr expi(env);
-  for(const auto& j: graph->AdjVertices(0))
+  for(const auto& j: graph->AdjVerticesOut(0))
     expi += x[graph->pos(0,j)];
 
   expi += slack;
@@ -656,81 +684,74 @@ static void PopulateByRowCommon(IloEnv& env, IloModel& model, IloNumVar& slack, 
 
 static void PopulateByRowDualCompactBaselineContinuousSpace(IloEnv& env, IloModel& model, IloNumVarArray &u_0, IloNumVarArray &u_1, IloNumVarArray &u_2, IloNumVarArray &u_3, std::optional<const int *> x_values, std::optional<const int *> y_values, Instance& instance)
 {
-  const int num_vertices = (instance.graph())->num_vertices();
-  const int num_mandatory = instance.num_mandatory();
-  GArc * curr_arc = nullptr;
   const Graph* graph = instance.graph();
+  const int num_vertices = graph->num_vertices();
+  const int num_mandatory = instance.num_mandatory();
+  const int num_arcs = graph->num_arcs();
+  const int num_arcs_from_origin = size(graph->AdjVerticesOut(0));
   const auto* vertices_info = graph->vertices_info();
   const int budget = instance.uncertainty_budget();
-  const double route_time_limit = instance.limit();
 
-  // for(int budget_iter = 0; budget_iter <= budget; ++budget_iter)
-  // {
-  //   for (const auto &vertex : graph->AdjVertices(0))
-  //   {
-  //     curr_arc = *graph[0][vertex];
-  //     assert(curr_arc);
-  //     y_values.has_value()?
-  //       model.add(a[a_var_to_index(vertex,budget_iter,num_vertices)] >= curr_arc->distance()*(*y_values)[vertex])
-  //       : model.add(a[a_var_to_index(vertex,budget_iter,num_vertices)] >= operator*(curr_arc->distance(), y[vertex]));
-  //   }
+  IloExpr exp(env);
 
-  //   // i is zero or mandatory.
-  //   for (int i = 0; i <= num_mandatory; ++i)
-  //     model.add(a[a_var_to_index(i,budget_iter,num_vertices)] <= route_time_limit);
+  exp += u_1[u_1_var_to_index(0,0,num_vertices)];
+  for (auto j: graph->AdjVerticesIn(0))
+    exp -= u_2[u_2_var_to_index(graph->pos(j,0),0, num_arcs_from_origin, num_arcs)];
 
-  //   // i is profitable.
-  //   for (int i = num_mandatory+1; i < num_vertices; ++i)
-  //   {
-  //     const auto & vertex_info = vertices_info[i];
-  //     double vertex_deadline = round_decimals(vertex_info.profit_/vertex_info.decay_ray_,2);
-  //     y_values.has_value()?
-  //       model.add(a[a_var_to_index(i,budget_iter,num_vertices)] <= vertex_deadline * (*y_values)[i])
-  //       : model.add(a[a_var_to_index(i,budget_iter,num_vertices)] <= operator*(vertex_deadline,y[i]));
-  //   }
+  model.add(exp >= 0);
+  exp.end();
 
-  //   // robust constraints.
-  //   for (int i = 1; i < num_vertices; ++i)
-  //   {
-  //     const auto& vertex_info = vertices_info[i];
-  //     // if mandatory, the deadline of the vertex D_i is the time limit T.
-  //     const double vertex_deadline = (i <= num_mandatory)? route_time_limit: round_decimals(vertex_info.profit_/vertex_info.decay_ray_,2);
-        
-  //     for (const int& j: graph->AdjVertices(i))
-  //     {
-  //       IloExpr exp(env);
-  //       curr_arc = (*graph)[i][j];
-  //       assert(curr_arc);
-  //       exp += (a[a_var_to_index(i,budget_iter,num_vertices)] + vertex_info.nominal_service_time_
-  //           + curr_arc->distance() - a[a_var_to_index(j,budget_iter,num_vertices)]);
-        
-  //       x_values.has_value()?
-  //         exp -= (vertex_deadline + vertex_info.nominal_service_time_ + curr_arc->distance()) * (1 - ((*x_values)[graph->pos(i,j)]))
-  //         : exp -= operator*(vertex_deadline + vertex_info.nominal_service_time_ + curr_arc->distance(),1-x[graph->pos(i,j)]);
-        
-  //       model.add(exp <= 0);
-  //       exp.end();
+  for(int budget_iter = 1; budget_iter <= budget; ++budget_iter)
+  {
+    IloExpr exp(env);
+    exp += u_1[u_1_var_to_index(0,budget_iter,num_vertices)];
 
-  //       if(budget_iter > 0)
-  //       {
-  //         IloExpr exp(env);
-  //         curr_arc = (*graph)[i][j];
-  //         assert(curr_arc);
-  //         exp += (a[a_var_to_index(i,budget_iter-1,num_vertices)] + vertex_info.nominal_service_time_ + vertex_info.dev_service_time_
-  //           + curr_arc->distance() - a[a_var_to_index(j,budget_iter,num_vertices)]);
-          
-  //         x_values.has_value()?
-  //           exp -= (vertex_deadline + vertex_info.nominal_service_time_ + vertex_info.dev_service_time_ + curr_arc->distance()) * (1-(*x_values)[graph->pos(i,j)])
-  //           : exp -= operator*(vertex_deadline + vertex_info.nominal_service_time_ + vertex_info.dev_service_time_ + curr_arc->distance(),1-x[graph->pos(i,j)]);
-          
-  //         model.add(exp <= 0);
-  //         exp.end();
-  //       }
-  //     }
-  //   }
-  // }
+    for (auto j: graph->AdjVerticesIn(0))
+    {
+      exp -= u_2[u_2_var_to_index(graph->pos(j,0),budget_iter, num_arcs_from_origin, num_arcs)];
+      exp -= u_3[u_3_var_to_index(graph->pos(j,0),budget_iter, num_arcs_from_origin, num_arcs)];
+    }
+    model.add(exp >= 0);
+    exp.end();
+  }
+
+  for(int budget_iter = 0; budget_iter <= budget; ++budget_iter)
+  {
+    for (int i = 1; i < num_vertices; ++i)
+    {
+      IloExpr exp(env);
+
+      exp -= u_0[u_0_var_to_index(i,budget_iter,num_vertices)];
+      exp += u_1[u_1_var_to_index(i,budget_iter,num_vertices)];
+
+      for(auto j: graph->AdjVerticesOut(i))
+      {
+        exp += u_2[u_2_var_to_index(graph->pos(i,j),budget_iter,num_arcs_from_origin,num_arcs)];
+        if(budget_iter < budget)
+          exp += u_3[u_3_var_to_index(graph->pos(i,j),budget_iter+1,num_arcs_from_origin,num_arcs)];
+      }
+
+      for(auto j: graph->AdjVerticesIn(i))
+      {
+        if (j != 0)
+        {
+          exp -= u_2[u_2_var_to_index(graph->pos(j,i),budget_iter,num_arcs_from_origin,num_arcs)];
+          if (budget_iter > 0)
+            exp -= u_3[u_3_var_to_index(graph->pos(j,i),budget_iter,num_arcs_from_origin,num_arcs)];
+        }
+      }
+
+      const auto coef = (budget_iter == budget && i > num_mandatory)? - vertices_info[i].decay_ratio_: 0.0;
+      model.add(exp >= coef);
+      exp.end();
+
+
+      if(!(*graph)[0][i])
+        u_0[u_0_var_to_index(i,budget_iter,num_vertices)].setUB(0.0);
+    }
+  }
+
 }
-
 
 static void PopulateByRowCompactBaselineContinuousSpace(IloEnv& env, IloModel& model, IloNumVarArray & x, IloNumVarArray & y, IloNumVarArray &a, std::optional<const int *> x_values, std::optional<const int *> y_values, Instance& instance)
 {
@@ -744,7 +765,7 @@ static void PopulateByRowCompactBaselineContinuousSpace(IloEnv& env, IloModel& m
 
   for(int budget_iter = 0; budget_iter <= budget; ++budget_iter)
   {
-    for (const auto &vertex : graph->AdjVertices(0))
+    for (const auto &vertex : graph->AdjVerticesOut(0))
     {
       curr_arc = *graph[0][vertex];
       assert(curr_arc);
@@ -761,7 +782,7 @@ static void PopulateByRowCompactBaselineContinuousSpace(IloEnv& env, IloModel& m
     for (int i = num_mandatory+1; i < num_vertices; ++i)
     {
       const auto & vertex_info = vertices_info[i];
-      double vertex_deadline = round_decimals(vertex_info.profit_/vertex_info.decay_ray_,2);
+      double vertex_deadline = round_decimals(vertex_info.profit_/vertex_info.decay_ratio_,2);
       y_values.has_value()?
         model.add(a[a_var_to_index(i,budget_iter,num_vertices)] <= vertex_deadline * (*y_values)[i])
         : model.add(a[a_var_to_index(i,budget_iter,num_vertices)] <= operator*(vertex_deadline,y[i]));
@@ -772,9 +793,9 @@ static void PopulateByRowCompactBaselineContinuousSpace(IloEnv& env, IloModel& m
     {
       const auto& vertex_info = vertices_info[i];
       // if mandatory, the deadline of the vertex D_i is the time limit T.
-      const double vertex_deadline = (i <= num_mandatory)? route_time_limit: round_decimals(vertex_info.profit_/vertex_info.decay_ray_,2);
+      const double vertex_deadline = (i <= num_mandatory)? route_time_limit: round_decimals(vertex_info.profit_/vertex_info.decay_ratio_,2);
         
-      for (const int& j: graph->AdjVertices(i))
+      for (const int& j: graph->AdjVerticesOut(i))
       {
         IloExpr exp(env);
         curr_arc = (*graph)[i][j];
@@ -828,7 +849,7 @@ static void PopulateByRowCompactBaseline(IloEnv& env, IloModel& model, IloNumVar
   // IloNumArray x_values(env,graph->num_arcs());
   // for(int i  = 0; i < num_vertices; ++i)
   // {
-  //   for (const auto & j: graph->AdjVertices(i))
+  //   for (const auto & j: graph->AdjVerticesOut(i))
   //   {
   //     x_values[graph->pos(i,j)] = 0.5;
   //   }
@@ -847,7 +868,7 @@ static void PopulateByRowCompactBaseline(IloEnv& env, IloModel& model, IloNumVar
   {
     const auto& vertex_info = vertices_info[i];
     obj += operator*(vertex_info.profit_,y[i]);
-    obj -= operator*(vertex_info.decay_ray_,a[a_var_to_index(i,budget,num_vertices)]);
+    obj -= operator*(vertex_info.decay_ratio_,a[a_var_to_index(i,budget,num_vertices)]);
   }
 
   model.add(IloMaximize(env, obj));
@@ -860,7 +881,7 @@ static void PopulateByRowCompactBaseline(IloEnv& env, IloModel& model, IloNumVar
     sprintf(strnum3,"y(%d)",i);
     y[i].setName(strnum3);
 
-    for(const auto j: graph->AdjVertices(i))
+    for(const auto j: graph->AdjVerticesOut(i))
     {
       char strnum[26];
       sprintf(strnum,"x(%d)(%d)",i,j);

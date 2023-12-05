@@ -42,11 +42,11 @@ void Instance::FillInstanceFromFile(std::string dir_path, std::string file_name,
     double garbage = 0.0;
 	for(int i = 0; i < num_vertices; ++i)
     {
-		file >> vertices_info[i].coordinates_.first >> vertices_info[i].coordinates_.second >> vertices_info[i].profit_ >> vertices_info[i].decay_ray_ >> vertices_info[i].nominal_service_time_ >> garbage;
+		file >> vertices_info[i].coordinates_.first >> vertices_info[i].coordinates_.second >> vertices_info[i].profit_ >> vertices_info[i].decay_ratio_ >> vertices_info[i].nominal_service_time_ >> garbage;
         vertices_info[i].dev_service_time_ = round_decimals(vertices_info[i].nominal_service_time_ * service_time_deviation,2);
     }
     assert(vertices_info[0].profit_ == 0);
-    assert(double_equals(vertices_info[0].decay_ray_,0.0));
+    assert(double_equals(vertices_info[0].decay_ratio_,0.0));
     assert(double_equals(vertices_info[0].nominal_service_time_,0.0));
     assert(double_equals(vertices_info[0].dev_service_time_,0.0));
 
@@ -79,7 +79,7 @@ void Instance::AddMandatoryVertices(double mandatory_percentage)
             ++cont_mandatory;
             mandatory_list_.push_back(iter_mandatory);
             vertices_info[iter_mandatory].profit_ = 0;
-            vertices_info[iter_mandatory].decay_ray_ = 0;
+            vertices_info[iter_mandatory].decay_ratio_ = 0;
         }
     }
 }
@@ -106,7 +106,7 @@ void Instance::ReorderMandatoryVertices()
         reordered_vertices_info[cont] = vertices_info[mandatory_vertex];
         // as they are mandatory now, set as zero.
         reordered_vertices_info[cont].profit_ = 0;
-        reordered_vertices_info[cont].decay_ray_ = 0.0;
+        reordered_vertices_info[cont].decay_ratio_ = 0.0;
         ++cont;
     }
 
@@ -128,7 +128,7 @@ void Instance::ReorderMandatoryVertices()
     // add updated arcs to new graph.
     for(int i = 0; i < num_vertices; ++i)
     {
-        for(auto adj_vertex: graph_->AdjVertices(i))
+        for(auto adj_vertex: graph_->AdjVerticesOut(i))
         {
             GArc * curr_arc = (*graph_)[i][adj_vertex];
             new_graph->AddArc(new_pos[i],new_pos[adj_vertex],curr_arc->distance());
@@ -195,7 +195,7 @@ void Instance::GeneratePreProcessedGraph()
 
         for(v1 = 0; v1 < graph->num_vertices(); ++v1)
         {
-            for(std::list<int>::iterator it = (graph->AdjVertices(v1)).begin(); it != (graph->AdjVertices(v1)).end();)
+            for(std::list<int>::iterator it = (graph->AdjVerticesOut(v1)).begin(); it != (graph->AdjVerticesOut(v1)).end();)
             {
                 curr_arc = (*graph)[v1][v2];
                 // always remove arcs entering origin (0) or leaving destination (num_vertices -1)
@@ -204,7 +204,7 @@ void Instance::GeneratePreProcessedGraph()
                     // iterates before removing element from list!
                     it_to_remove = it;
                     ++it;
-                    (graph->AdjVertices(v1)).erase(it_to_remove);
+                    (graph->AdjVerticesOut(v1)).erase(it_to_remove);
                     // removes arc from graph, since it cannot be in any feasible solution
                     graph->DeleteArc(v1,v2,false);
                 }else ++it;
@@ -355,11 +355,11 @@ void Instance::ComputeConflictGraph()
 
     for(int i = 1; i < num_vertices-1; i++)
     {
-        if(!(graph->AdjVertices(i).empty())) // if vertice is reachable
+        if(!(graph->AdjVerticesOut(i).empty())) // if vertice is reachable
         {
             for(int j = i+1; j < num_vertices-1; j++)
             {
-                if(!( graph->AdjVertices(j).empty())) // if vertice is reachable
+                if(!( graph->AdjVerticesOut(j).empty())) // if vertice is reachable
                 {
                     dist1 = (*min_paths_dist)[0][i] + (*min_paths_dist)[i][j] + (*min_paths_dist)[j][num_vertices-1];
                     dist2 = (*min_paths_dist)[0][j] + (*min_paths_dist)[j][i] + (*min_paths_dist)[i][num_vertices-1];
@@ -436,7 +436,7 @@ void Instance::WriteToFile(std::string folder, std::string curr_file)
         output << vertices_info[i].coordinates_.first << "\t"
             << vertices_info[i].coordinates_.second << "\t"
             << vertices_info[i].profit_ << "\t"
-            << vertices_info[i].decay_ray_ << "\t"
+            << vertices_info[i].decay_ratio_ << "\t"
             << vertices_info[i].nominal_service_time_ << "\t"
             << vertices_info[i].nominal_service_time_ << std::endl;
 
