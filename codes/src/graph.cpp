@@ -105,7 +105,7 @@ void Graph::AddArc(int i, int j, double dist)
     ((*adj_lists_in_)[j]).push_back(i);
     (*indexes_)[i][j] = num_arcs_;
     arcs_map_[num_arcs_] = std::pair<int,int>(i,j);
-    num_arcs_++;
+    ++num_arcs_;
 }
 
 void Graph::DeleteArc(int i, int j, bool remove_from_indexes_list)

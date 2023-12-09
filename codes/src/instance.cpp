@@ -135,10 +135,10 @@ void Instance::ReorderMandatoryVertices()
         }
     }
 
-    std::cout << "OLD" << std::endl;
-    std::cout << *graph_ << std::endl;
-    std::cout << "NEW" << std::endl;
-    std::cout << *new_graph << std::endl;
+    // std::cout << "OLD" << std::endl;
+    // std::cout << *graph_ << std::endl;
+    // std::cout << "NEW" << std::endl;
+    // std::cout << *new_graph << std::endl;
 
     delete graph_;
     graph_ = new_graph;
