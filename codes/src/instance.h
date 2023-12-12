@@ -31,6 +31,9 @@ private:
 	void GeneratePreProcessedGraph();
 	void ReorderMandatoryVertices();
 public:
+
+	int num_opt_cuts_ = 0;
+	int num_feas_cuts_ = 0;
 	explicit Instance() = default;
 	explicit Instance(std::string dir_path, std::string file_name, int num_vehicles, double service_time_deviation, int uncertainty_budged, bool pre_process_graph);
 	virtual ~Instance();

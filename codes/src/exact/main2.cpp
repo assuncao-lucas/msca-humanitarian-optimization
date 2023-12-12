@@ -11,19 +11,20 @@
 
 int main()
 {
-	Instance inst("../instances/R-STOP-DP/","R25_1.txt",1,0.5,1,false);
-	//std::cout << inst << std::endl;
+	Instance inst("../instances/R-STOP-DP/","test.txt",4,0.25,3,false);
+	std::cout << inst << std::endl;
 	//inst.WriteToFile("../","teste.txt");
 	bool force_use_all_vehicles = true;
 	bool export_model = false;
-	// auto solution = CompactBaseline(inst,nullptr,nullptr,-1,false,false,false,nullptr,nullptr,force_use_all_vehicles,export_model);
-	// solution->is_optimal_? std::cout <<  " optimal: " << solution->lb_ << std::endl
-	// : std::cout <<  " non optimal: [" << solution->lb_ << ", " << solution->ub_ << "]" << std::endl;
-	// delete solution;
-	auto solution = BendersCompactBaseline(inst,nullptr,nullptr,-1,false,true,false,nullptr,nullptr,force_use_all_vehicles,export_model);
+	auto solution = CompactBaseline(inst,nullptr,nullptr,-1,false,false,false,nullptr,nullptr,force_use_all_vehicles,export_model);
 	solution->is_optimal_? std::cout <<  " optimal: " << solution->lb_ << std::endl
 	: std::cout <<  " non optimal: [" << solution->lb_ << ", " << solution->ub_ << "]" << std::endl;
-
+	delete solution;
+	solution = BendersCompactBaseline(inst,nullptr,nullptr,-1,false,true,false,nullptr,nullptr,force_use_all_vehicles,export_model);
+	solution->is_optimal_? std::cout <<  " optimal: " << solution->lb_ << std::endl
+	: std::cout <<  " non optimal: [" << solution->lb_ << ", " << solution->ub_ << "]" << std::endl;
+	std::cout << "# opt cuts: " << inst.num_opt_cuts_ << std::endl;
+	std::cout << "# feas cuts: " << inst.num_feas_cuts_ << std::endl;
 	// IloEnv env;
 	// IloNumArray y_values(env,inst.graph()->num_vertices());
 	// // for(int i = 0; i < inst.graph()->num_vertices(); ++i)
