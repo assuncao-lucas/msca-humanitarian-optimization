@@ -17,12 +17,13 @@ double * Dijkstra(const Graph * graph, bool inverse, bool unit_dist)
 {
 	std::priority_queue<pp,std::vector<pp>,pri> q;
     int s = 0, u = 0, v = 0;
-	double w = 0.0;
+	double w = 0.0, vertex_nominal_time = 0.0, new_dist = 0.0;
 	GArc * curr_arc = NULL;
 	int dimension = graph->num_vertices();
     double * d = new double[dimension];
+	const auto * vertices_info = graph->vertices_info();
 
-	if(inverse) s = dimension - 1;
+	// if(inverse) s = dimension - 1; // because, here, source == destination.
 
 	// init
 	for(int i = 0 ;i < dimension; ++i) d[i] = std::numeric_limits<double>::infinity();
@@ -37,28 +38,32 @@ double * Dijkstra(const Graph * graph, bool inverse, bool unit_dist)
 
 		if(inverse) v = u;
 
-        for(int i=0; i < dimension; i++)
+        for(int i=0; i < dimension; ++i)
         {
 			if(inverse) u = i;
 			else v = i;
 
 			curr_arc = (*graph)[u][v];
-			if(curr_arc != NULL)
+			if(curr_arc)
 			{
 			    if(unit_dist) w = 1;
 				else w = curr_arc->distance();
 				if(inverse)
 				{
-					if(double_greater(d[u],d[v] + w))
+					vertex_nominal_time = v == 0 ? 0.0 : vertices_info[v].nominal_service_time_;
+					new_dist = d[v] + w + vertex_nominal_time;
+					if(double_greater(d[u],new_dist))
 					{
-						d[u] = d[v] + w;
+						d[u] = new_dist;
 						q.push(pp(u,d[u]));
 					}
 				}else
 				{
-					if(double_greater(d[v], d[u] + w))
+					vertex_nominal_time = u == 0 ? 0.0 : vertices_info[u].nominal_service_time_;
+					new_dist = d[u] + w + vertex_nominal_time;
+					if(double_greater(d[v], new_dist))
 					{
-						d[v] = d[u] + w;
+						d[v] = new_dist;
 						q.push(pp(v,d[v]));
 					}
 				}
@@ -140,6 +145,8 @@ Matrix<double> * FloydWarshall(const Graph * graph)
 
     int dimension = graph->num_vertices();
     Matrix<double> * d = new Matrix<double>(dimension, dimension, std::numeric_limits<double>::infinity());
+	const auto * vertices_info = graph->vertices_info();
+	double vertex_nominal_time = 0.0, new_dist = 0.0;
 
     for(int k = 0; k < dimension; k++)
     {
@@ -150,15 +157,15 @@ Matrix<double> * FloydWarshall(const Graph * graph)
 
     for(int k = 0; k < dimension; ++k)
     {
+		vertex_nominal_time = k == 0? 0 : vertices_info[k].nominal_service_time_;
         //std::cout << "* "<<  k << std::endl;
         for(int i = 0; i < dimension; ++i)
         {
             for(int j = 0; j < dimension; ++j)
             {
-                if(double_greater((*d)[i][j],(*d)[i][k] + (*d)[k][j]))
-                {
-                    (*d)[i][j] = (*d)[i][k] + (*d)[k][j];
-                }
+				new_dist = (*d)[i][k] + vertex_nominal_time + (*d)[k][j];
+                if(double_greater((*d)[i][j],new_dist))
+					(*d)[i][j] = new_dist;
             }
         }
     }

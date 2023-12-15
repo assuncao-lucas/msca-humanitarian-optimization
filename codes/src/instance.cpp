@@ -181,46 +181,53 @@ void Instance::GeneratePreProcessedGraph()
     timer->Clock(ti);
     Matrix<double> * min_dists = nullptr;
     Graph * graph = graph_;
-    std::vector<std::list<int>> * adj_lists = nullptr;
     int v1 = 0, v2 = 0;
     int num_vertices = 0;
     int cont = 0;
     GArc * curr_arc =  nullptr;
+    const auto * vertices_info = graph->vertices_info();
+    double route_length = 0.0;
 
     if(graph)
     {
         num_vertices = graph->num_vertices();
         min_dists = FloydWarshall(graph);
+
         std::list<int>::iterator it_to_remove;
 
         for(v1 = 0; v1 < graph->num_vertices(); ++v1)
         {
             for(std::list<int>::iterator it = (graph->AdjVerticesOut(v1)).begin(); it != (graph->AdjVerticesOut(v1)).end();)
             {
+                v2 = *it;
                 curr_arc = (*graph)[v1][v2];
-                // always remove arcs entering origin (0) or leaving destination (num_vertices -1)
-                if(double_greater( (*min_dists)[0][v1] + curr_arc->distance() + (*min_dists)[v2][num_vertices-1],limit_))
+                route_length = (*min_dists)[0][v1] + vertices_info[v1].nominal_service_time_ + curr_arc->distance() + vertices_info[v2].nominal_service_time_ + (*min_dists)[v2][0];
+                if(double_greater(route_length,limit_))
                 {
                     // iterates before removing element from list!
                     it_to_remove = it;
                     ++it;
                     (graph->AdjVerticesOut(v1)).erase(it_to_remove);
+                    (graph->AdjVerticesIn(v2)).remove(v1);
                     // removes arc from graph, since it cannot be in any feasible solution
                     graph->DeleteArc(v1,v2,false);
+                    //std::cout << "removeu arco (" << v1 << "," << v2 << "): " << route_length << std::endl;
+                    ++cont;
                 }else ++it;
             }
         }
 
         delete min_dists;
         min_dists = nullptr;
-        //std::cout << "# arcs deleted: " << cont << std::endl;
+        std::cout << "# arcs deleted: " << cont << std::endl;
         cont = 0;
         graph->set_indexes(new Matrix<int>(num_vertices,num_vertices,-1));
 
         //updates positions of arcs
         for(v1 = 0; v1 < graph->num_vertices(); ++v1)
         {
-            for(std::list<int>::iterator it = ((*adj_lists)[v1]).begin(); it != ((*adj_lists)[v1]).end(); ++it)
+            auto& adj_vertices = graph->AdjVerticesOut(v1);
+            for(std::list<int>::iterator it = adj_vertices.begin(); it != adj_vertices.end(); ++it)
             {
                 v2 = *it;
                 graph->SetArcIndex(v1,v2,cont);

@@ -141,13 +141,11 @@ template <class T> T* Matrix<T>::operator[](int i) const
 
 template <class T> std::ostream& operator<< (std::ostream &out, Matrix<T> &matrix)
 {
-	if(matrix){
-		for(int i=0;i<matrix.lines(); ++i){
-			for(int j=0;j<matrix.columns(); ++j){
-				out << matrix[i][j] << " ";
-			}
-			out << std::endl;
+	for(int i=0;i<matrix.lines(); ++i){
+		for(int j=0;j<matrix.columns(); ++j){
+			out << matrix[i][j] << " ";
 		}
+		out << std::endl;
 	}
 	return out;
 }
