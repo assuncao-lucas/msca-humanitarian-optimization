@@ -299,7 +299,7 @@ void Instance::SelectMaximumCliquesPerVertex()
 	//getchar();getchar();
 }
 
-void Instance::FindAllMaximalConflictCliques()
+void Instance::FindAllMaximalConflictCliquesBronKerosch()
 {
 	conflicts_list_.clear();
 	size_t num_vertices = conflict_graph_->size();
@@ -313,7 +313,7 @@ void Instance::FindAllMaximalConflictCliques()
 	found_maximal_cliques_ = true;
 }
 
-void Instance::FindAllMaximalConflictCliques2()
+void Instance::FindAllMaximalConflictCliquesTomita()
 {
 	conflicts_list_.clear();
 	size_t num_vertices = conflict_graph_->size();
@@ -344,6 +344,7 @@ void Instance::ComputeConflictGraph()
     Timer * timer = GetTimer();
     Timestamp * ti = NewTimestamp();
     timer->Clock(ti);
+    const auto &vertices_info = graph->vertices_info();
 
     conflict_matrix_ = Matrix<bool>(num_vertices,num_vertices,false);
 
@@ -355,7 +356,7 @@ void Instance::ComputeConflictGraph()
     conflict_graph_ = new std::vector<std::list<int>>(num_vertices,std::list<int>());
 
     Matrix<double> * min_paths_dist = nullptr;
-    double dist1 = 0.0, dist2 = 0.0;
+    double dist1 = 0.0, dist2 = 0.0, dist_j_from_i = 0.0, dist_i_from_j = 0.0, deadline_i = 0.0, deadline_j = 0.0;
     int cont = 0;
 
     min_paths_dist = FloydWarshall(graph);
@@ -368,21 +369,38 @@ void Instance::ComputeConflictGraph()
             {
                 if(!( graph->AdjVerticesOut(j).empty())) // if vertice is reachable
                 {
-                    dist1 = (*min_paths_dist)[0][i] + (*min_paths_dist)[i][j] + (*min_paths_dist)[j][num_vertices-1];
-                    dist2 = (*min_paths_dist)[0][j] + (*min_paths_dist)[j][i] + (*min_paths_dist)[i][num_vertices-1];
+                    dist1 = (*min_paths_dist)[0][i] + vertices_info[i].nominal_service_time_ + vertices_info[j].nominal_service_time_ + (*min_paths_dist)[i][j] + (*min_paths_dist)[j][0];
+                    dist2 = (*min_paths_dist)[0][j] + vertices_info[i].nominal_service_time_ + vertices_info[j].nominal_service_time_ + (*min_paths_dist)[j][i] + (*min_paths_dist)[i][0];
 
                     // if vertices i and j do not belong to a path from s to t that satisfies the length limit.
-                    if((double_greater(dist1,limit_)) && (double_greater(dist2,limit_)))
+                    if(double_greater(dist1,limit_) && double_greater(dist2,limit_))
                     {
-			cont++;
+                        ++cont;
                         ((*(conflict_graph_))[i]).push_back(j);
                         ((*(conflict_graph_))[j]).push_back(i);
-			(conflict_matrix_)[i][j] = (conflict_matrix_)[j][i] =  true;
+                        (conflict_matrix_)[i][j] = (conflict_matrix_)[j][i] =  true;
+                        continue;
+                    }
+
+                    dist_j_from_i = (*min_paths_dist)[0][i] + vertices_info[i].nominal_service_time_ + (*min_paths_dist)[i][j];
+                    dist_i_from_j = (*min_paths_dist)[0][j] + vertices_info[j].nominal_service_time_ + (*min_paths_dist)[j][i];
+                    
+                    deadline_i = round_decimals(vertices_info[i].profit_/vertices_info[i].decay_ratio_,2);
+                    deadline_j = round_decimals(vertices_info[j].profit_/vertices_info[j].decay_ratio_,2);
+                    if( double_greater(dist_j_from_i,deadline_j) && double_greater(dist_i_from_j,deadline_i) )
+                    {
+                        ++cont;
+                        std::cout << " COLOCOU A MAIS!" << std::endl;
+                        ((*(conflict_graph_))[i]).push_back(j);
+                        ((*(conflict_graph_))[j]).push_back(i);
+                        (conflict_matrix_)[i][j] = (conflict_matrix_)[j][i] =  true;
                     }
                 }
             }
         }
     }
+
+    std::cout << "num conflicts: " << cont << std::endl;
 
     delete min_paths_dist;
     min_paths_dist = NULL;

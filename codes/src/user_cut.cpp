@@ -10,6 +10,7 @@ void DeleteCuts(std::list<UserCutGeneral*> * cuts)
       delete *it;
       *it = NULL;
     }
+    cuts->clear();
   }
 }
 

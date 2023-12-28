@@ -1,5 +1,3 @@
-#include <lemon/list_graph.h>
-#include <lemon/preflow.h>
 #include <list>
 #include <queue>
 #include <unordered_map>
@@ -9,6 +7,7 @@
 #include "src/formulations.h"
 #include "src/timer.h"
 #include "src/user_cut.h"
+
 ILOSTLBEGIN
 
 // Implementation class for the user-defined user cut callback.
@@ -253,6 +252,486 @@ IloBool SeparateBendersCut(IloEnv& master_env, IloNumVarArray &x, IloNumVarArray
 
 } // END separate
 
+static bool ConflictIsActive(std::list<int> & curr_conflict, std::vector<double> & nodes_sum, double & curr_conflict_nodes_sum)
+{
+  int cont = 0;
+  curr_conflict_nodes_sum = 0.0;
+  for(std::list<int>::iterator it = curr_conflict.begin(); it != curr_conflict.end(); ++it)
+  {
+    if(double_greater(nodes_sum[*it],0.0))
+    {
+      ++cont;
+      curr_conflict_nodes_sum += (nodes_sum[*it]);
+    }
+  }
+  return (cont >= 1);
+}
+
+static UserCut* GenerateCliqueConflictCuts(Instance& instance, std::vector<bool>& visited_nodes, std::vector<double>& nodes_sum,
+    IloNumArray & lps,
+    std::list<int>& visited_nodes_list, std::unordered_map<int,int>& subgraph_to_graph_map,
+    std::unordered_map<int,int>& graph_to_subgraph_map, LemonGraph& g,
+    std::vector<LemonGraph::Node>& l_nodes,lemon::ListDigraph::ArcMap<LimitValueType>& capacity,
+    LemonGraph& g_inv,std::vector<LemonGraph::Node>& l_nodes_inv,
+    lemon::ListDigraph::ArcMap<LimitValueType>& capacity_inv,
+    Solution<double>& sol, std::list<UserCutGeneral*>& cuts, bool root,
+    boost::dynamic_bitset<> clique_is_active)
+  {
+    const Graph * graph = instance.graph();
+    UserCut * best_cut = nullptr,* curr_cut = nullptr;
+    double curr_max_flow = 0.0;
+    bool solve_from_source = true, solve_from_destination = true;
+    const auto& map_vertices_to_cliques = instance.map_vertices_to_cliques();
+
+    /*std::cout << "G" << std::endl;
+    std::cout << "Nodes:";
+    for (lemon::ListDigraph::NodeIt i(g); i!=lemon::INVALID; ++i)
+    std::cout << " " << g.id(i);
+    std::cout << std::endl;
+
+    std::cout << "Arcs:";
+    for (lemon::ListDigraph::ArcIt i(g); i!=lemon::INVALID; ++i)
+    std::cout << " (" << g.id(g.source(i)) << "," << g.id(g.target(i)) << ")[" << capacity[i] << "]";
+    std::cout << std::endl;
+
+    std::cout << "G inv" << std::endl;
+    std::cout << "Nodes:";
+    for (lemon::ListDigraph::NodeIt i(g_inv); i!=lemon::INVALID; ++i)
+    std::cout << " " << g_inv.id(i);
+    std::cout << std::endl;
+
+    std::cout << "Arcs:";
+    for (lemon::ListDigraph::ArcIt i(g_inv); i!=lemon::INVALID; ++i)
+    std::cout << " (" << g_inv.id(g_inv.source(i)) << "," << g_inv.id(g_inv.target(i)) << ")[" << capacity_inv[i] << "]";
+    std::cout << std::endl;
+
+    getchar();getchar();*/
+
+    int v3 = 0, v4 = 0;
+
+    int num_vertices = graph->num_vertices();
+    int num_arcs = graph->num_arcs();
+    int num_vehicles = instance.num_vehicles();
+    //std::list<std::pair<std::pair<int,int>,double>> visited_arcs;
+
+    LemonGraph::Node artificial_node = g.addNode(); // artificial node of conflict tuple (of nodes)
+    //LemonGraph::Arc arc_artifical_1, arc_artifical_2; // one from/to each node in conflict pair
+
+    LemonGraph::Node artificial_node_inv = g_inv.addNode(); // artificial node of conflict tuple (of nodes)
+    //LemonGraph::Arc arc_artifical_1_inv, arc_artifical_2_inv; // one from/to each node in conflict pair
+
+    double curr_conflict_nodes_sum = 0.0;
+    int clique_counter = -1;
+    //boost::dynamic_bitset<> clique_is_active((instance.conflicts_list_).size());
+    //clique_is_active.set();
+    //std::vector<bool> clique_is_active((instance.conflicts_list_).size(),true);
+    bool found_from_source = false;
+
+    auto conflicts_list = instance.conflicts_list();
+    for(std::vector<std::list<int>>::iterator it = conflicts_list.begin(); it != conflicts_list.end(); ++it)
+    {
+      ++clique_counter;
+	if( ((*it).size() == 1)&& ((*it).front() == 0)) clique_is_active[clique_counter] = false;
+      if(clique_is_active[clique_counter])
+      {
+        std::list<int> curr_conflict = *it;
+        if(ConflictIsActive(curr_conflict,nodes_sum,curr_conflict_nodes_sum)) // if at least one conflicting vertex is in the solution
+        {
+          if(solve_from_source)
+          {
+            found_from_source = false;
+            //curr_conflict_nodes_sum = nodes_sum[v1] + nodes_sum[v2];
+            std::list<LemonGraph::Arc> artificial_arcs;
+            //int cont = 0;
+            for(std::list<int>::iterator it2 = curr_conflict.begin(); it2 != curr_conflict.end(); it2++)
+            {
+              if(visited_nodes[*it2])
+              {
+                artificial_arcs.push_back(g.addArc(l_nodes[graph_to_subgraph_map[*it2]],artificial_node));
+                capacity[artificial_arcs.back()] = (int)(round(num_vehicles*K_PRECISION)); // it's sufficiently big by the definition of the problem (model)
+              }
+            }
+
+            lemon::Preflow<LemonGraph> preflow(g, capacity, l_nodes[graph_to_subgraph_map[0]], artificial_node);
+            preflow.init();
+            preflow.startFirstPhase();
+
+            curr_max_flow = preflow.flowValue()/K_PRECISION;
+
+            if(double_less(curr_max_flow,0.0))
+            {
+              //std::cout << "negativo no source!!" << std::endl;
+              //getchar(); getchar();
+              continue;
+            }
+
+
+            // if found a violated cut and conflict nodes do not belong to this cut on the source side.
+            if((double_less(curr_max_flow,curr_conflict_nodes_sum,K_CLIQUE_CONFLICT_TOLERANCE))
+            //&& (!(preflow.minCut(l_nodes[graph_to_subgraph_map[v1]])))
+            //&& (!(preflow.minCut(l_nodes[graph_to_subgraph_map[v2]])))
+            //&& (!(preflow.minCut(artificial_node)))
+          )
+          {
+            found_from_source = true;
+            //std::cout << "achou CCC" << std::endl;
+            curr_cut = new UserCut(num_arcs, num_vertices, curr_conflict_nodes_sum - curr_max_flow, K_TYPE_CLIQUE_CONFLICT_CUT);
+            //curr_cut->rhs_nonzero_coefficients_indexes_.push_back(v1);
+            //curr_cut->rhs_nonzero_coefficients_indexes_.push_back(v2);
+            for(std::list<int>::iterator it2 = curr_conflict.begin(); it2 != curr_conflict.end(); it2++)
+            {
+              curr_cut->AddRhsElement(*it2);
+              if(visited_nodes[*it2])
+              {
+                //curr_cut->AddRhsElement(*it2);
+                //disable cliques which contain vertices of the current violated clique with non-zero relaxation values
+                //std::cout << "before #active cliques: " << clique_is_active.count() << std::endl;
+                for(auto it3 = (map_vertices_to_cliques[*it2]).begin(); it3 != (map_vertices_to_cliques[*it2]).end(); ++it3) clique_is_active[*it3] = 0;
+                //std::cout << "# cliques of vertex " << *it2 <<  ": " << ((instance.map_vertices_to_cliques_)[*it2]).size() << std::endl;
+                //std::cout << "after #active cliques: " << clique_is_active.count() << std::endl;
+                //getchar();getchar();
+              }
+            }
+            //std::cout << "Achou violação 1!!" << std::endl;
+
+            //std::cout << "** " << curr_max_flow << " < " << max_node_sum << "==" << nodes_sum[max_node_sum_index] << std::endl;
+            // Generates new constraint
+            //IloExpr exp(env);
+            //IloExpr exp2(env);
+            //double sum1 = 0.0;
+            //std::cout << "S(lemon): ";
+            for(v3 = 0; v3 < num_vertices; v3++)
+            {
+              auto& v3_out_vertices = graph->AdjVerticesOut(v3);
+              for(std::list<int>::iterator it3 = v3_out_vertices.begin(); it3 != v3_out_vertices.end(); it3++)
+              {
+                v4 = *it3;
+                // if the arc traverses the cut
+                if( ((visited_nodes[v3])&&(preflow.minCut(l_nodes[graph_to_subgraph_map[v3]])) )&&
+                ( !(visited_nodes[v4]) || (!(preflow.minCut(l_nodes[graph_to_subgraph_map[v4]])) )) )
+                {
+                  //(curr_cut->lhs_nonzero_coefficients_indexes_).push_back(std::pair<int,int>(v3,v4));
+                  //(curr_cut->lhs_coefficients_)[graph->pos(v3,v4)] = 1;
+                  curr_cut->AddLhsElement(v3,v4,graph->pos(v3,v4));
+                  //sum1 += lps[graph->pos(v3,v4)];
+                  //(curr_cut->lhs_num_nonzero_coefs_)++;
+                }
+
+              }
+            }
+            //std::cout << "* " << max_node_sum_index << std::endl;
+            //std::cout << sum1 << " == " << curr_max_flow << " < " << curr_conflict_nodes_sum << std::endl;
+            //getchar();getchar();
+            //add(exp >= exp2).end();
+            //(sol.num_cuts_added_)++;
+
+            cuts.push_back(curr_cut);
+            sol.set_cut_found(curr_cut->type_,root);
+            curr_cut->UpdateMeasures();
+
+            if(curr_cut->isBetterThan(best_cut)) best_cut = curr_cut;
+
+            //std::cout << sol.num_cuts_added_ << std::endl;
+
+            //exp.end();
+            //exp2.end();
+          }
+
+          for(auto it3 = artificial_arcs.begin(); it3 != artificial_arcs.end(); it3++ ) g.erase(*it3);
+        }
+
+        if(solve_from_destination && !found_from_source)
+        {
+
+          std::list<LemonGraph::Arc> artificial_arcs_inv;
+          for(std::list<int>::iterator it2 = curr_conflict.begin(); it2 != curr_conflict.end(); it2++)
+          {
+            if(visited_nodes[*it2])
+            {
+              artificial_arcs_inv.push_back(g_inv.addArc(l_nodes_inv[graph_to_subgraph_map[*it2]],artificial_node_inv));
+              capacity_inv[artificial_arcs_inv.back()] = (int)(round(num_vehicles*K_PRECISION)); // it's sufficiently big by the definition of the problem (model)
+            }
+          }
+
+          lemon::Preflow<LemonGraph> preflow(g_inv, capacity_inv, l_nodes_inv[graph_to_subgraph_map[0]], artificial_node_inv);
+          preflow.init();
+          preflow.startFirstPhase();
+
+          curr_max_flow = preflow.flowValue()/K_PRECISION;
+
+          if(double_less(curr_max_flow,0.0))
+          {
+            //std::cout << "negativo no sink!!" << std::endl;
+            continue;
+          }
+          // if found a violated cut and conflict nodes and source belong to this cut on the conflict artificial node side.
+
+          if((double_less(curr_max_flow,curr_conflict_nodes_sum,K_CLIQUE_CONFLICT_TOLERANCE))
+          //  && (!(preflow.minCut(l_nodes_inv[graph_to_subgraph_map[v1]])))
+          //  && (!(preflow.minCut(l_nodes_inv[graph_to_subgraph_map[v2]])))
+          //  && (!(preflow.minCut(artificial_node_inv)))
+        )
+        {
+          //std::cout << "achou!!!" << std::endl;
+          //std::cout << curr_max_flow << " < " << curr_conflict_nodes_sum << std::endl;
+          curr_cut = new UserCut(num_arcs, num_vertices, curr_conflict_nodes_sum - curr_max_flow, K_TYPE_CLIQUE_CONFLICT_CUT);
+          //curr_cut->rhs_nonzero_coefficients_indexes_.push_back(v1);
+          //curr_cut->rhs_nonzero_coefficients_indexes_.push_back(v2);
+          for(std::list<int>::iterator it2 = curr_conflict.begin(); it2 != curr_conflict.end(); it2++)
+          {
+            curr_cut->AddRhsElement(*it2);
+            if(visited_nodes[*it2])
+            {
+              //curr_cut->AddRhsElement(*it2);
+              //disable cliques which contain vertices of the current violated clique with non-zero relaxation values
+              for(auto it3 = (map_vertices_to_cliques[*it2]).begin(); it3 != ((map_vertices_to_cliques)[*it2]).end(); ++it3) clique_is_active[*it3] = 0;
+            }
+          }
+          //std::cout << "Achou violação 2!!" << std::endl;
+          //std::cout << "max flow from sink: " << curr_max_flow << std::endl;
+          //std::cout << "conflict nodes sum: " << curr_conflict_nodes_sum << std::endl;
+          //std::cout << "v1: " << v1 << std::endl;
+          //std::cout << "v2: " << v2 << std::endl;
+          //std::cout << "desvio: " << curr_conflict_nodes_sum - curr_max_flow << std::endl;
+          //getchar();getchar();
+          //getchar();getchar();
+          //IloExpr exp(env);
+          //IloExpr exp2(env);
+          //double sum1 = 0, sum2 = 0, sum3 =0;
+          //std::cout << "S(lemon): ";
+          for(v3 = 0; v3 < num_vertices; v3++)
+          {
+            auto & out_vertices =  graph->AdjVerticesOut(v3);
+            for(std::list<int>::iterator it3 = out_vertices.begin(); it3 != out_vertices.end(); ++it3)
+            {
+              v4 = *it3;
+              // if the arc traverses the cut
+              if( (!(visited_nodes[v3]) || !(preflow.minCut(l_nodes_inv[graph_to_subgraph_map[v3]])) )&&
+              (( (visited_nodes[v4]) && (preflow.minCut(l_nodes_inv[graph_to_subgraph_map[v4]])) )) )
+              {
+                //(curr_cut->lhs_nonzero_coefficients_indexes_).push_back(std::pair<int,int>(v3,v4));
+                //(curr_cut->lhs_coefficients_)[graph->pos(v3,v4)] = 1;
+                curr_cut->AddLhsElement(v3,v4,graph->pos(v3,v4));
+                //(curr_cut->lhs_num_nonzero_coefs_)++;
+              }
+            }
+          }
+
+          //std::cout << "* " << max_node_sum_index << std::endl;
+          //std::cout << sum1 << "==" << curr_max_flow << ">=" << sum2 << "==" << sum3 << "==" << nodes_sum[max_node_sum_index] << "==" << max_node_sum << std::endl;
+          //getchar();getchar();
+          //add(exp >= exp2).end();
+          //(sol.num_cuts_added_)++;
+
+          cuts.push_back(curr_cut);
+          sol.set_cut_found(curr_cut->type_, root);
+
+          curr_cut->UpdateMeasures();
+          if(curr_cut->isBetterThan(best_cut)) best_cut = curr_cut;
+
+          //std::cout << sol.num_cuts_added_ << std::endl;
+
+          //exp.end();
+          //exp2.end();
+        }
+
+        for(auto it3 = artificial_arcs_inv.begin(); it3 != artificial_arcs_inv.end(); it3++) g_inv.erase(*it3);
+      }
+    }
+  }
+}
+
+g.erase(artificial_node);
+g_inv.erase(artificial_node_inv);
+
+return best_cut;
+}
+
+static bool FindAndAddValidInquality(IloCplex & cplex, IloEnv & env, IloModel & model, IloNumVarArray& y, IloNumVarArray& x, Instance& instance, Solution<double>& sol, std::list<UserCutGeneral*> * root_cuts)
+{
+  std::vector<bool> * CALLBACKS_SELECTION = GetCallbackSelection();
+  bool found_cut = false;
+  (sol.num_calls_to_callback_lp_) += 1;
+
+  std::list<UserCutGeneral*> cuts;
+
+  //std::cout << "=>>> CALLBACK: ";
+  //std::cout << (sol.num_calls_to_callback_) << std::endl;
+
+  const Graph * graph = instance.graph();
+
+  double curr_value = 0.0;
+  int v1 = 0, v2 = 0;
+  //int curr_vertex = -1, previous_vertex = -1;
+
+  UserCut * best_cut = nullptr, * curr_cut = nullptr, * local_best_cut = nullptr;
+
+  const int num_vertices = graph->num_vertices(), num_vehicles = instance.num_vehicles();
+  std::vector<bool> visited_nodes(num_vertices,false);
+  std::vector<double> nodes_sum(num_vertices,0.0);
+  std::unordered_map<int,int> subgraph_to_graph_map;
+  std::unordered_map<int,int> graph_to_subgraph_map;
+  nodes_sum[0] = nodes_sum[num_vertices-1] = 1.0;
+  std::list<int> visited_nodes_list;
+  //std::list<std::pair<std::pair<int,int>,double>> visited_arcs;
+
+  //std::list<std::list<int>> paths_list;
+  std::list<std::pair<int,int>> visited_arcs;
+  //std::vector<int> parent;
+
+  //if((*CALLBACKS_SELECTION)[K_TYPE_PATH_BOUND_CUT]) parent = std::vector<int>(num_vertices,-1);
+
+  // marks all nodes and arcs that must be considered in the max flow algorithm
+  std::list<int> q;
+  q.push_front(0);
+  visited_nodes[0] = true;
+  visited_nodes_list.push_front(0);
+  subgraph_to_graph_map[0] = 0;
+  graph_to_subgraph_map[0] = 0;
+  int cont = 1;
+  LemonGraph g,g_inv;
+  std::vector<LemonGraph::Node> l_nodes,l_nodes_inv;
+  lemon::ListDigraph::ArcMap<LimitValueType> capacity(g),capacity_inv(g_inv);
+  l_nodes.push_back(g.addNode()); // node 0
+  l_nodes_inv.push_back(g_inv.addNode()); // node 0
+
+  IloNumArray values_x(env);
+  cplex.getValues(values_x,x);
+
+  do
+  {
+    v1 = q.front();
+    q.pop_front();
+
+    auto & v1_out_vertices = graph->AdjVerticesOut(v1);
+    for(std::list<int>::iterator it = v1_out_vertices.begin(); it != v1_out_vertices.end(); ++it)
+    {
+      v2 = *it;
+      curr_value = values_x[graph->pos(v1,v2)];
+
+      if(!double_equals(curr_value,0.0))
+      {
+        if(!(visited_nodes[v2]))
+        {
+          l_nodes.push_back(g.addNode());
+          l_nodes_inv.push_back(g_inv.addNode());
+          subgraph_to_graph_map[cont] = v2;
+          graph_to_subgraph_map[v2] = cont;
+          q.push_front(v2);
+          visited_nodes[v2] = true;
+          visited_nodes_list.push_front(v2);
+          cont++;
+        }
+
+        LemonGraph::Arc curr_arc = g.addArc(l_nodes[graph_to_subgraph_map[v1]], l_nodes[graph_to_subgraph_map[v2]]);
+        LemonGraph::Arc curr_arc_inv = g_inv.addArc(l_nodes_inv[graph_to_subgraph_map[v2]], l_nodes_inv[graph_to_subgraph_map[v1]]);
+        capacity[curr_arc] = (int)(round(curr_value*K_PRECISION));
+
+        capacity_inv[curr_arc_inv] = (int)(round(curr_value*K_PRECISION));
+
+        if(v2 != 0) nodes_sum[v2] += curr_value;
+      }
+    }
+  }while(!q.empty());
+
+  best_cut = nullptr;
+  if((*CALLBACKS_SELECTION)[K_TYPE_CLIQUE_CONFLICT_CUT])
+  {
+    // find clique conflict cuts.
+    local_best_cut = GenerateCliqueConflictCuts(instance,visited_nodes,nodes_sum, values_x,
+      visited_nodes_list,subgraph_to_graph_map,graph_to_subgraph_map,g,
+      l_nodes,capacity,g_inv,l_nodes_inv,capacity_inv,sol,cuts,true,instance.active_conflict_cliques());
+
+    if((local_best_cut != nullptr)&&(local_best_cut->isBetterThan(best_cut))) best_cut = local_best_cut;
+
+    if(best_cut != nullptr)
+    {
+      found_cut = true;
+
+      //adds best cut (most violated)
+      IloExpr exp(env);
+      for(std::list<std::pair<int,int>>::iterator it = best_cut->lhs_nonzero_coefficients_indexes_.begin(); it != best_cut->lhs_nonzero_coefficients_indexes_.end(); ++it)
+      {
+        v1 = (*it).first;
+        v2 = (*it).second;
+        exp += operator*(x[graph->pos(v1,v2)],(best_cut->lhs_)[graph->pos(v1,v2)]);
+      }
+
+      for(std::list<int>::iterator it = best_cut->rhs_nonzero_coefficients_indexes_.begin(); it != best_cut->rhs_nonzero_coefficients_indexes_.end(); ++it)
+      {
+        exp -= y[*it];
+      }
+
+      sol.set_cut_added(best_cut->type_,true);
+      model.add(exp >= 0);
+
+      if(root_cuts != nullptr)
+      {
+        root_cuts->push_back(best_cut);
+      }
+
+      exp.end();
+
+      // checks the angle between the each Cut and the most violated one
+      for(std::list<UserCutGeneral*>::iterator it = cuts.begin(); it != cuts.end(); ++it)
+      {
+        curr_cut = static_cast<UserCut*>(*it);
+
+        if(curr_cut == best_cut) continue;
+
+        //std::cout << *curr_cut << std::endl;
+        // adds only the ones sufficiently orthogonal to the best_cut
+        //std::cout << (*curr_cut)*(*best_cut) << std::endl;
+        //getchar(); getchar();
+        bool is_sufficiently_orthogonal = double_less((*curr_cut)*(*best_cut),K_CUTS_ANGLE_COSIN_LIMIT);
+        if(is_sufficiently_orthogonal)
+        {
+          IloExpr exp2(env);
+          for(std::list<std::pair<int,int>>::iterator it2 = curr_cut->lhs_nonzero_coefficients_indexes_.begin(); it2 != curr_cut->lhs_nonzero_coefficients_indexes_.end(); it2++)
+          {
+            v1 = (*it2).first;
+            v2 = (*it2).second;
+            exp2 += operator*(x[graph->pos(v1,v2)],(curr_cut->lhs_)[graph->pos(v1,v2)]);
+          }
+
+          for(std::list<int>::iterator it2 = curr_cut->rhs_nonzero_coefficients_indexes_.begin(); it2 != curr_cut->rhs_nonzero_coefficients_indexes_.end(); it2++)
+          {
+            exp2 -= y[*it2];
+          }
+
+          sol.set_cut_added(curr_cut->type_,true);
+          model.add(exp2 >= 0);
+
+          if(root_cuts != nullptr)
+          {
+            root_cuts->push_back(curr_cut);
+            //sol.set_cut_added(curr_cut->type_,false);
+          }
+
+          exp2.end();
+        }
+
+        if((!is_sufficiently_orthogonal)||(root_cuts == nullptr))
+        {
+          delete curr_cut;
+          *it = nullptr;
+        }
+      }
+
+      if(root_cuts == nullptr)
+      {
+        delete best_cut;
+        best_cut = nullptr;
+      }
+      cuts.clear();
+    }
+
+    values_x.end();
+  }
+  
+  return found_cut;
+}
+
 int a_var_to_index(int vertex, int budget, int num_vertices)
 {
     return budget * num_vertices + vertex;
@@ -292,6 +771,47 @@ std::pair<int,int> index_to_a_var(int index, int num_vertices)
     int vertex = index%num_vertices;
     int budget = index/num_vertices;
     return std::pair<int,int>(vertex,budget);
+}
+
+static void addArcVertexInferenceCuts(IloCplex& cplex, IloModel& model, IloEnv& env, IloNumVarArray & x, IloNumVarArray & y, Instance& instance, bool solve_relax)
+{
+	const Graph * graph = instance.graph();
+	GArc * curr_arc = nullptr, * curr_inv_arc = nullptr;
+	int num_vertices = graph->num_vertices();
+	int cont = 0;
+
+	if(graph->num_arcs() == 0) return;
+
+  IloRangeArray cuts(env);
+	for(int i = 1; i < num_vertices; ++i)
+	{
+	  for(int j = i+1; j < num_vertices; ++j)
+	  {
+	    curr_arc = (*graph)[i][j];
+	    curr_inv_arc = (*graph)[j][i];
+	    if((curr_arc != nullptr)&&(curr_inv_arc != nullptr))
+	    {
+        ++cont;
+        IloExpr exp1(env);
+        IloExpr exp2(env);
+        exp1 = y[i] - y[j] + x[graph->pos(i,j)] + x[graph->pos(j,i)];
+        exp2 = y[j] - y[i] + x[graph->pos(i,j)] + x[graph->pos(j,i)];
+        cuts.add(exp1 <= 1);
+        cuts.add(exp2 <= 1);
+        exp1.end();
+        exp2.end();
+	    }
+	  }
+	}
+
+	if(cont > 0)
+  {
+    // if only solve relaxed problem, then add already as cuts/restrictions
+    solve_relax? model.add(cuts) : cplex.addUserCuts(cuts);
+    cuts.endElements();
+    cuts.end();
+  }
+  //cplex.exportModel("Testando.lp");
 }
 
 static void AddNamesToDualVariables(DualVariables& dual_vars, Instance& inst)
@@ -385,13 +905,14 @@ void SetPriorityOrder(IloCplex & cplex, IloEnv & env, IloNumVarArray & x, Instan
 cplex.setPriorities(x, pri_order);*/
 }
 
-Solution<int> * optimize(IloCplex & cplex, IloEnv& env, IloModel& model, IloNumVarArray & y, IloNumVarArray & x, std::optional<std::reference_wrapper<IloNumVar>> dual_bound_opt, Instance& instance, double total_time_limit, bool solve_relax, bool callback, bool find_root_cuts, double * R0, double * Rn, std::list<UserCutGeneral*> * initial_cuts, HeuristicSolution * initial_sol, bool export_model)
+Solution<double> * optimize(IloCplex & cplex, IloEnv& env, IloModel& model, IloNumVarArray & y, IloNumVarArray & x, std::optional<std::reference_wrapper<IloNumVar>> dual_bound_opt, Instance& instance, double total_time_limit, bool solve_relax, bool apply_benders, bool use_valid_inequalities, bool find_root_cuts, double * R0, double * Rn, std::list<UserCutGeneral*> * initial_cuts, HeuristicSolution * initial_sol, bool export_model, std::list<UserCutGeneral*>* root_cuts)
 {
   const Graph* graph = instance.graph();
   int num_vertices = graph->num_vertices();
   Timestamp * ti = NewTimestamp(), *tf = NewTimestamp();
   Timer * timer = GetTimer();
-  Solution<int> * solution = new Solution<int>(num_vertices);
+  Solution<double> * solution = new Solution<double>(num_vertices);
+  bool found_cuts = false;
   std::optional<IloEnv> worker_env = std::nullopt;
   std::optional<IloCplex> worker_cplex = std::nullopt;
   std::optional<IloObjective> worker_obj = std::nullopt;
@@ -399,8 +920,27 @@ Solution<int> * optimize(IloCplex & cplex, IloEnv& env, IloModel& model, IloNumV
 
   cplex.setParam(IloCplex::Param::WorkMem,15000);
   cplex.setParam(IloCplex::IloCplex::Param:: MIP::Strategy::File,3);
+
+  std::vector<bool> * CALLBACKS_SELECTION = GetCallbackSelection();
+
+  if(use_valid_inequalities)
+  {
+    if((*CALLBACKS_SELECTION)[K_TYPE_CLIQUE_CONFLICT_CUT])
+    {
+      if(!instance.FoundConflictGraph()) instance.ComputeConflictGraph();
+      if(!(instance.found_maximal_cliques()))
+      {
+        instance.FindAllMaximalConflictCliquesTomita();
+        instance.BuildVerticesToCliquesMapping();
+        instance.ResetConflictsCliques();
+      }
+    }
+
+    if((*CALLBACKS_SELECTION)[K_TYPE_FLOW_BOUNDS_CUT])
+      addArcVertexInferenceCuts(cplex,model,env,x,y,instance,solve_relax);
+  }
   
-  if(callback)
+  if(apply_benders)
   {
     // create subproblem!
     // The subproblem will be always the same, except for the objective function, which relies
@@ -433,16 +973,70 @@ Solution<int> * optimize(IloCplex & cplex, IloEnv& env, IloModel& model, IloNumV
     if(export_model)
       AddNamesToDualVariables(*worker_vars,instance);
 
-    cplex.setParam(IloCplex::Param::Preprocessing::Presolve, IloFalse); 
-    // cplex.setParam(IloCplex::Param::Threads, 1); 
-    // Turn on traditional search for use with control callbacks.
-    cplex.setParam(IloCplex::Param::MIP::Strategy::Search,
-                          IloCplex::Traditional);
-    cplex.use(BendersLazyCallback(env,*worker_cplex,*worker_obj,*worker_vars,y,x,dual_bound_opt->get(),instance));
-    //cplex.use(BendersUserCutCallback(env,*worker_cplex,*worker_obj,*worker_vars,y,x,dual_bound_opt->get(),instance));
+    // only add lazy constraint callback if solving the integer problem.
+    if(!solve_relax)
+    {
+      cplex.setParam(IloCplex::Param::Preprocessing::Presolve, IloFalse); 
+      // cplex.setParam(IloCplex::Param::Threads, 1); 
+      // Turn on traditional search for use with control callbacks.
+      cplex.setParam(IloCplex::Param::MIP::Strategy::Search,
+                            IloCplex::Traditional);
+      cplex.use(BendersLazyCallback(env,*worker_cplex,*worker_obj,*worker_vars,y,x,dual_bound_opt->get(),instance));
+      //cplex.use(BendersUserCutCallback(env,*worker_cplex,*worker_obj,*worker_vars,y,x,dual_bound_opt->get(),instance));
+    }
   }
 
   if(!K_MULTI_THREAD) cplex.setParam(IloCplex::Param::Threads, 1);
+
+  if((initial_cuts != nullptr)&&(!(initial_cuts->empty())))
+  {
+    IloRangeArray root_cuts(env);
+    for(std::list<UserCutGeneral*>::iterator it = initial_cuts->begin(); it != initial_cuts->end(); it++)
+    {
+      switch((*it)->type_)
+      {
+        case K_TYPE_CLIQUE_CONFLICT_CUT:
+        {
+          UserCut * curr_user_cut = static_cast<UserCut*>((*it));
+          IloExpr exp(env);
+          //std::cout << "cut x: ";
+          for(std::list<std::pair<int,int>>::iterator it2 = curr_user_cut->lhs_nonzero_coefficients_indexes_.begin(); it2 != curr_user_cut->lhs_nonzero_coefficients_indexes_.end(); it2++)
+          {
+            int v1 = (*it2).first;
+            int v2 = (*it2).second;
+            //std::cout << "(" << v1 << "," << v2 << ") ";
+            exp += operator*(x[graph->pos(v1,v2)],(curr_user_cut->lhs_)[graph->pos(v1,v2)]);
+          }
+
+          //std::cout << "y ";
+          for(std::list<int>::iterator it2 = curr_user_cut->rhs_nonzero_coefficients_indexes_.begin(); it2 != curr_user_cut->rhs_nonzero_coefficients_indexes_.end(); it2++)
+          {
+            //std::cout << *it2 << " ";
+            exp -= y[*it2];
+          }
+          // std::cout << std::endl;
+
+          root_cuts.add(exp >= 0);
+          solution->set_cut_added((*it)->type_,false);
+
+          exp.end();
+          break;
+        }
+        default:
+        {
+          std::cout << (*it)->type_ << std::endl;
+          throw 5;
+        }
+      }
+
+    //delete (*it);
+    //*it = NULL;
+    }
+
+    solve_relax? model.add(root_cuts): cplex.addUserCuts(root_cuts);
+    root_cuts.endElements();
+    root_cuts.end();
+  }
 
   if(solve_relax) total_time_limit = -1;
 
@@ -455,25 +1049,70 @@ Solution<int> * optimize(IloCplex & cplex, IloEnv& env, IloModel& model, IloNumV
   }
 
   timer->Clock(ti);
-  double curr_bound = std::numeric_limits<double>::infinity();
 
-  if (!cplex.solve())
+  double previous_bound = 0.0, curr_bound = std::numeric_limits<double>::infinity();
+  do
   {
-    timer->Clock(tf);
-    if(callback)
+    previous_bound = curr_bound;
+    // Optimize the problem and obtain solution.
+    if (!cplex.solve())
     {
-      // delete subproblem objects.
-      (*worker_cplex).end();
-      (*worker_obj).end();
-      (*worker_env).end();
-    }
-    if(solve_relax) solution->root_time_ = timer->ElapsedTime(ti,tf);
-    else solution->milp_time_ += timer->ElapsedTime(ti,tf);
-    if((cplex.getCplexStatus() == IloCplex::Infeasible)||(cplex.getCplexStatus() == IloCplex::InfOrUnbd)) solution->is_feasible_ = false;
-    return solution;
-  }
+      timer->Clock(tf);
+      if(apply_benders && !solve_relax)
+      {
+        // delete subproblem objects.
+        (*worker_cplex).end();
+        (*worker_obj).end();
+        (*worker_env).end();
+      }
+      if(solve_relax) solution->root_time_ = timer->ElapsedTime(ti,tf);
+      else solution->milp_time_ += timer->ElapsedTime(ti,tf);
+      if((cplex.getCplexStatus() == IloCplex::Infeasible)||(cplex.getCplexStatus() == IloCplex::InfOrUnbd)) solution->is_feasible_ = false;
 
-  curr_bound = cplex.getObjValue();
+      return solution;
+    }
+    curr_bound = cplex.getObjValue();
+    //std::cout << cplex.getCplexStatus() << ": " << curr_bound << std::endl;
+    //getchar(); getchar();
+    //cont++;
+    //std::cout << cont << std::endl;
+    found_cuts = false;
+
+    //std::cout << previous_bound << " " << curr_bound << std::endl;
+    // have to add ALL benders cuts, even if stuck at the same bound!
+    if(solve_relax && apply_benders)// && double_less(curr_bound,previous_bound,K_TAILING_OFF_TOLERANCE))
+    {
+      IloNumArray x_values(env);
+      IloNumArray y_values(env);
+      IloNum dual_bound_value = cplex.getValue(dual_bound_opt->get());
+      cplex.getValues(y_values, y);
+      cplex.getValues(x_values, x);
+
+      // Benders' cut separation.
+      IloExpr cut_expr(env);
+      IloBool sep_status = SeparateBendersCut(env,x,y,dual_bound_opt->get(),x_values,y_values,dual_bound_value, *worker_cplex, *worker_vars, instance, *worker_obj, cut_expr);
+      if(sep_status)
+      {
+        //std::cout << "found new Cut" << std::endl;
+        found_cuts = true;
+        model.add(cut_expr >= 0);
+      }
+
+      if(export_model)
+        cplex.exportModel("model_Benders_compact_baseline.lp");
+
+      // Free memory.
+      cut_expr.end();
+      x_values.end();
+      y_values.end();
+    }
+
+    if(solve_relax && (use_valid_inequalities || find_root_cuts) && double_less(curr_bound,previous_bound,K_TAILING_OFF_TOLERANCE))
+      found_cuts |= FindAndAddValidInquality(cplex,env,model,y,x,instance,*solution,root_cuts);
+
+  }while((found_cuts));
+
+  std::cout << curr_bound << std::endl;
 
   timer->Clock(tf);
   if(solve_relax) solution->root_time_ = timer->ElapsedTime(ti,tf);
@@ -487,7 +1126,7 @@ Solution<int> * optimize(IloCplex & cplex, IloEnv& env, IloModel& model, IloNumV
   tf = nullptr;
 
   // delete subproblem objects.
-  if(callback)
+  if(apply_benders)
   {
     (*worker_cplex).end();
     (*worker_obj).end();
@@ -544,7 +1183,7 @@ Solution<double> * optimizeLP(IloCplex & cplex, IloEnv& env, IloModel& model, In
   return solution;
 }
 
-Solution<int> * BendersCompactBaseline(Instance& inst, double * R0, double * Rn, double time_limit, bool solve_relax, bool find_root_cuts, std::list<UserCutGeneral*> * initial_cuts, HeuristicSolution * initial_sol, bool force_use_all_vehicles, bool export_model)
+Solution<double> * BendersCompactBaseline(Instance& inst, double * R0, double * Rn, double time_limit, bool solve_relax, bool use_valid_inequalities, bool find_root_cuts, std::list<UserCutGeneral*> * initial_cuts, HeuristicSolution * initial_sol, bool force_use_all_vehicles, bool export_model)
 {
   const Graph * graph = inst.graph();
   const int num_vertices = graph->num_vertices();
@@ -615,7 +1254,7 @@ Solution<int> * BendersCompactBaseline(Instance& inst, double * R0, double * Rn,
     cplex.exportModel("model_Benders_compact_baseline.lp");
   }
 
-  auto result = optimize(cplex,env,model,y,x,dual_bound,inst,time_limit,solve_relax,solve_relax,find_root_cuts, R0, Rn, initial_cuts, initial_sol, export_model);
+  auto result = optimize(cplex,env,model,y,x,dual_bound,inst,time_limit,solve_relax,true,use_valid_inequalities,find_root_cuts, R0, Rn, initial_cuts, initial_sol, export_model, nullptr);
 
   // // print solution.
   // IloNumArray y_solution(env);
@@ -639,7 +1278,7 @@ Solution<int> * BendersCompactBaseline(Instance& inst, double * R0, double * Rn,
   return result;
 }
 
-Solution<int> * CompactBaseline(Instance& inst, double * R0, double * Rn, double time_limit, bool solve_relax, bool callback, bool find_root_cuts, std::list<UserCutGeneral*> * initial_cuts, HeuristicSolution * initial_sol, bool force_use_all_vehicles, bool export_model)
+Solution<double> * CompactBaseline(Instance& inst, double * R0, double * Rn, double time_limit, bool solve_relax, bool use_valid_inequalities, bool find_root_cuts, std::list<UserCutGeneral*> * initial_cuts, HeuristicSolution * initial_sol, bool force_use_all_vehicles, bool export_model, std::list<UserCutGeneral*>* root_cuts)
 {
   const Graph * graph = inst.graph();
   const int num_vertices = graph->num_vertices();
@@ -673,7 +1312,7 @@ Solution<int> * CompactBaseline(Instance& inst, double * R0, double * Rn, double
 
 	PopulateByRowCompactBaseline(cplex,env,model,slack,y,x,a,inst,R0,Rn,force_use_all_vehicles,export_model);
 
-  auto result = optimize(cplex,env,model,y,x,std::nullopt,inst,time_limit,solve_relax,callback,find_root_cuts, R0, Rn, initial_cuts, initial_sol, export_model);
+  auto result = optimize(cplex,env,model,y,x,std::nullopt,inst,time_limit,solve_relax,false,use_valid_inequalities,find_root_cuts, R0, Rn, initial_cuts, initial_sol, export_model, root_cuts);
 
   // // print solution.
   // IloNumArray y_solution(env);
@@ -933,7 +1572,7 @@ Solution<double> * DualSubproblemCompactBaseline(Instance& inst, IloNumArray& x_
   return result;
 }
 
-Solution<int> * CompactSingleCommodity(Instance& inst, double * R0, double * Rn, double time_limit, bool solve_relax, bool callback, bool find_root_cuts, std::list<UserCutGeneral*> * initial_cuts, HeuristicSolution * initial_sol, bool force_use_all_vehicles, bool export_model)
+Solution<double> * CompactSingleCommodity(Instance& inst, double * R0, double * Rn, double time_limit, bool solve_relax, bool use_valid_inequalities, bool find_root_cuts, std::list<UserCutGeneral*> * initial_cuts, HeuristicSolution * initial_sol, bool force_use_all_vehicles, bool export_model, std::list<UserCutGeneral*>* root_cuts)
 {
   const Graph * graph = inst.graph();
   int num_vertices = graph->num_vertices();
@@ -971,7 +1610,22 @@ Solution<int> * CompactSingleCommodity(Instance& inst, double * R0, double * Rn,
   // for (IloInt i = 0; i < f.getSize(); ++i)
   //     cplex.setAnnotation(decomp, f[i], CPX_BENDERS_MASTERVALUE+1);
       
-  auto result = optimize(cplex,env,model,y,x,std::nullopt,inst,time_limit,solve_relax,callback,find_root_cuts, R0, Rn, initial_cuts, initial_sol, false);
+  auto result = optimize(cplex,env,model,y,x,std::nullopt,inst,time_limit,solve_relax,false,use_valid_inequalities,find_root_cuts, R0, Rn, initial_cuts, initial_sol, export_model, root_cuts);
+
+  // // print solution.
+  // IloNumArray y_solution(env);
+  // cplex.getValues(y_solution,y);
+  // for (int i = 0; i < num_vertices; ++i)
+  //   std::cout << "y[" << i << "]: " << y_solution[i] << std::endl;
+
+  // IloNumArray x_solution(env);
+  // cplex.getValues(x_solution,x);
+  // for (int i = 0; i < num_vertices; ++i)
+  //   for(const int &j: graph->AdjVerticesOut(i))
+  //     std::cout << "x[" << i << "," << j << "]: " << x_solution[graph->pos(i,j)] << std::endl;
+
+  // x_solution.end();
+  // y_solution.end();
 
   cplex.end();
   env.end();
