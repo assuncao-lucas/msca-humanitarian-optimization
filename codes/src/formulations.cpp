@@ -547,7 +547,7 @@ g_inv.erase(artificial_node_inv);
 return best_cut;
 }
 
-static bool FindAndAddValidInquality(IloCplex & cplex, IloEnv & env, IloModel & model, IloNumVarArray& y, IloNumVarArray& x, Instance& instance, Solution<double>& sol, std::list<UserCutGeneral*> * root_cuts)
+static bool FindAndAddValidInqualities(IloCplex & cplex, IloEnv & env, IloModel & model, IloNumVarArray& y, IloNumVarArray& x, IloNumArray& values_y, IloNumArray& values_x, Instance& instance, Solution<double>& sol, std::list<UserCutGeneral*> * root_cuts)
 {
   std::vector<bool> * CALLBACKS_SELECTION = GetCallbackSelection();
   bool found_cut = false;
@@ -594,9 +594,6 @@ static bool FindAndAddValidInquality(IloCplex & cplex, IloEnv & env, IloModel & 
   lemon::ListDigraph::ArcMap<LimitValueType> capacity(g),capacity_inv(g_inv);
   l_nodes.push_back(g.addNode()); // node 0
   l_nodes_inv.push_back(g_inv.addNode()); // node 0
-
-  IloNumArray values_x(env);
-  cplex.getValues(values_x,x);
 
   do
   {
@@ -648,7 +645,7 @@ static bool FindAndAddValidInquality(IloCplex & cplex, IloEnv & env, IloModel & 
     {
       found_cut = true;
 
-      //adds best cut (most violated)
+      // adds best cut (most violated).
       IloExpr exp(env);
       for(std::list<std::pair<int,int>>::iterator it = best_cut->lhs_nonzero_coefficients_indexes_.begin(); it != best_cut->lhs_nonzero_coefficients_indexes_.end(); ++it)
       {
@@ -725,8 +722,6 @@ static bool FindAndAddValidInquality(IloCplex & cplex, IloEnv & env, IloModel & 
       }
       cuts.clear();
     }
-
-    values_x.end();
   }
   
   return found_cut;
@@ -936,7 +931,7 @@ Solution<double> * optimize(IloCplex & cplex, IloEnv& env, IloModel& model, IloN
       }
     }
 
-    if((*CALLBACKS_SELECTION)[K_TYPE_FLOW_BOUNDS_CUT])
+    if((*CALLBACKS_SELECTION)[K_TYPE_INITIAL_ARC_VERTEX_INFERENCE_CUT])
       addArcVertexInferenceCuts(cplex,model,env,x,y,instance,solve_relax);
   }
   
@@ -1067,7 +1062,7 @@ Solution<double> * optimize(IloCplex & cplex, IloEnv& env, IloModel& model, IloN
       }
       if(solve_relax) solution->root_time_ = timer->ElapsedTime(ti,tf);
       else solution->milp_time_ += timer->ElapsedTime(ti,tf);
-      if((cplex.getCplexStatus() == IloCplex::Infeasible)||(cplex.getCplexStatus() == IloCplex::InfOrUnbd)) solution->is_feasible_ = false;
+      SetSolutionStatus(cplex,*solution,solve_relax);
 
       return solution;
     }
@@ -1080,39 +1075,44 @@ Solution<double> * optimize(IloCplex & cplex, IloEnv& env, IloModel& model, IloN
 
     //std::cout << previous_bound << " " << curr_bound << std::endl;
     // have to add ALL benders cuts, even if stuck at the same bound!
-    if(solve_relax && apply_benders)// && double_less(curr_bound,previous_bound,K_TAILING_OFF_TOLERANCE))
+    if(solve_relax)// && double_less(curr_bound,previous_bound,K_TAILING_OFF_TOLERANCE))
     {
       IloNumArray x_values(env);
       IloNumArray y_values(env);
-      IloNum dual_bound_value = cplex.getValue(dual_bound_opt->get());
       cplex.getValues(y_values, y);
       cplex.getValues(x_values, x);
 
-      // Benders' cut separation.
-      IloExpr cut_expr(env);
-      IloBool sep_status = SeparateBendersCut(env,x,y,dual_bound_opt->get(),x_values,y_values,dual_bound_value, *worker_cplex, *worker_vars, instance, *worker_obj, cut_expr);
-      if(sep_status)
+      if (apply_benders)
       {
-        //std::cout << "found new Cut" << std::endl;
-        found_cuts = true;
-        model.add(cut_expr >= 0);
+        IloNum dual_bound_value = cplex.getValue(dual_bound_opt->get());
+
+        // Benders' cut separation.
+        IloExpr cut_expr(env);
+        IloBool sep_status = SeparateBendersCut(env,x,y,dual_bound_opt->get(),x_values,y_values,dual_bound_value, *worker_cplex, *worker_vars, instance, *worker_obj, cut_expr);
+        if(sep_status)
+        {
+          //std::cout << "found new Cut" << std::endl;
+          found_cuts = true;
+          model.add(cut_expr >= 0);
+        }
+        cut_expr.end();
+
+        if(export_model)
+          cplex.exportModel("model_Benders_compact_baseline.lp");
       }
 
-      if(export_model)
-        cplex.exportModel("model_Benders_compact_baseline.lp");
+      if( (use_valid_inequalities || find_root_cuts) && double_less(curr_bound,previous_bound,K_TAILING_OFF_TOLERANCE))
+        found_cuts |= FindAndAddValidInqualities(cplex,env,model,y,x,y_values,x_values,instance,*solution,root_cuts);
 
       // Free memory.
-      cut_expr.end();
       x_values.end();
       y_values.end();
     }
 
-    if(solve_relax && (use_valid_inequalities || find_root_cuts) && double_less(curr_bound,previous_bound,K_TAILING_OFF_TOLERANCE))
-      found_cuts |= FindAndAddValidInquality(cplex,env,model,y,x,instance,*solution,root_cuts);
 
   }while((found_cuts));
 
-  std::cout << curr_bound << std::endl;
+  // std::cout << curr_bound << std::endl;
 
   timer->Clock(tf);
   if(solve_relax) solution->root_time_ = timer->ElapsedTime(ti,tf);
@@ -1314,27 +1314,30 @@ Solution<double> * CompactBaseline(Instance& inst, double * R0, double * Rn, dou
 
   auto result = optimize(cplex,env,model,y,x,std::nullopt,inst,time_limit,solve_relax,false,use_valid_inequalities,find_root_cuts, R0, Rn, initial_cuts, initial_sol, export_model, root_cuts);
 
-  // // print solution.
-  // IloNumArray y_solution(env);
-  // cplex.getValues(y_solution,y);
-  // for (int i = 0; i < num_vertices; ++i)
-  //   std::cout << "y[" << i << "]: " << y_solution[i] << std::endl;
-
-  // IloNumArray x_solution(env);
-  // cplex.getValues(x_solution,x);
-  // for (int i = 0; i < num_vertices; ++i)
-  //   for(const int &j: graph->AdjVerticesOut(i))
-  //     std::cout << "x[" << i << "," << j << "]: " << x_solution[graph->pos(i,j)] << std::endl;
-
-  // IloNumArray a_solution(env);
-  // cplex.getValues(a_solution,a);
-  // for (int budget_iter = 0; budget_iter <= budget; ++budget_iter)
+  // if((cplex.getCplexStatus() == IloCplex::Optimal)||(cplex.getCplexStatus() == IloCplex::OptimalTol))
+  // {
+  //   // print solution.
+  //   IloNumArray y_solution(env);
+  //   cplex.getValues(y_solution,y);
   //   for (int i = 0; i < num_vertices; ++i)
-  //     std::cout << "a[" << i << "," << budget_iter << "]: " << a_solution[a_var_to_index(i,budget_iter,num_vertices)] << std::endl;
+  //     std::cout << "y[" << i << "]: " << y_solution[i] << std::endl;
 
-  // x_solution.end();
-  // y_solution.end();
-  // a_solution.end();
+  //   IloNumArray x_solution(env);
+  //   cplex.getValues(x_solution,x);
+  //   for (int i = 0; i < num_vertices; ++i)
+  //     for(const int &j: graph->AdjVerticesOut(i))
+  //       std::cout << "x[" << i << "," << j << "]: " << x_solution[graph->pos(i,j)] << std::endl;
+
+  //   IloNumArray a_solution(env);
+  //   cplex.getValues(a_solution,a);
+  //   for (int budget_iter = 0; budget_iter <= budget; ++budget_iter)
+  //     for (int i = 0; i < num_vertices; ++i)
+  //       std::cout << "a[" << i << "," << budget_iter << "]: " << a_solution[a_var_to_index(i,budget_iter,num_vertices)] << std::endl;
+
+  //   x_solution.end();
+  //   y_solution.end();
+  //   a_solution.end();
+  // }
 
   cplex.end();
   env.end();
@@ -1612,20 +1615,23 @@ Solution<double> * CompactSingleCommodity(Instance& inst, double * R0, double * 
       
   auto result = optimize(cplex,env,model,y,x,std::nullopt,inst,time_limit,solve_relax,false,use_valid_inequalities,find_root_cuts, R0, Rn, initial_cuts, initial_sol, export_model, root_cuts);
 
-  // // print solution.
-  // IloNumArray y_solution(env);
-  // cplex.getValues(y_solution,y);
-  // for (int i = 0; i < num_vertices; ++i)
-  //   std::cout << "y[" << i << "]: " << y_solution[i] << std::endl;
+  // if((cplex.getCplexStatus() == IloCplex::Optimal)||(cplex.getCplexStatus() == IloCplex::OptimalTol))
+  // {
+  //   // print solution.
+  //   IloNumArray y_solution(env);
+  //   cplex.getValues(y_solution,y);
+  //   for (int i = 0; i < num_vertices; ++i)
+  //     std::cout << "y[" << i << "]: " << y_solution[i] << std::endl;
 
-  // IloNumArray x_solution(env);
-  // cplex.getValues(x_solution,x);
-  // for (int i = 0; i < num_vertices; ++i)
-  //   for(const int &j: graph->AdjVerticesOut(i))
-  //     std::cout << "x[" << i << "," << j << "]: " << x_solution[graph->pos(i,j)] << std::endl;
+  //   IloNumArray x_solution(env);
+  //   cplex.getValues(x_solution,x);
+  //   for (int i = 0; i < num_vertices; ++i)
+  //     for(const int &j: graph->AdjVerticesOut(i))
+  //       std::cout << "x[" << i << "," << j << "]: " << x_solution[graph->pos(i,j)] << std::endl;
 
-  // x_solution.end();
-  // y_solution.end();
+  //   x_solution.end();
+  //   y_solution.end();
+  // }
 
   cplex.end();
   env.end();

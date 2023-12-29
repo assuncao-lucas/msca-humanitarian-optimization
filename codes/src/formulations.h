@@ -40,6 +40,7 @@ template <class T> void SetSolutionStatus(IloCplex & cplex, Solution<T> & soluti
 {
   if(solve_relax)
   {
+    //std::cout << cplex.getCplexStatus() << std::endl;
     if((cplex.getCplexStatus() == IloCplex::Infeasible)||(cplex.getCplexStatus() == IloCplex::InfOrUnbd)) solution.lp_ = -1;
     else solution.lp_ = cplex.getObjValue();
     if((cplex.getCplexStatus() == IloCplex::Optimal)||(cplex.getCplexStatus() == IloCplex::OptimalTol))
@@ -70,7 +71,7 @@ void SetPriorityOrder(IloCplex & cplex, IloEnv & env, IloNumVarArray & x, Instan
 static void AddNamesToDualVariables(DualVariables& dual_vars, Instance& inst);
 static void SetDualVariablesProperties(IloEnv& master_env, DualVariables& dual_vars, IloNumVarArray& x, IloNumVarArray& y, Instance& instance);
 static void addArcVertexInferenceCuts(IloCplex& cplex, IloModel& model, IloEnv& env, IloNumVarArray & x, IloNumVarArray & y, Instance& instance, bool solve_relax);
-static bool FindAndAddValidInquality(IloCplex & cplex, IloEnv & env, IloModel & model, IloNumVarArray& y, IloNumVarArray& x, Instance& instance, Solution<double>& sol, std::list<UserCutGeneral*> * root_cuts = nullptr);
+static bool FindAndAddValidInqualities(IloCplex & cplex, IloEnv & env, IloModel & model, IloNumArray& y_values, IloNumArray& x_values, Instance& instance, Solution<double>& sol, std::list<UserCutGeneral*> * root_cuts);
 static UserCut* GenerateCliqueConflictCuts(Instance& instance, std::vector<bool>& visited_nodes, std::vector<double>& nodes_sum,
     IloNumArray & lps,
     std::list<int>& visited_nodes_list, std::unordered_map<int,int>& subgraph_to_graph_map,
