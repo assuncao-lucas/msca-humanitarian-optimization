@@ -400,7 +400,7 @@ void Instance::ComputeConflictGraph()
         }
     }
 
-    std::cout << "num conflicts: " << cont << std::endl;
+    //std::cout << "num conflicts: " << cont << std::endl;
 
     delete min_paths_dist;
     min_paths_dist = NULL;

@@ -18,7 +18,7 @@ CC_VALGRIND=g++ -std=c++17 -g -O0
 PROG_DIR=src
 PROG_BIN=bin
 
-MAIN_EXACT_SRC=$(PROG_DIR)/exact/main2.cpp
+MAIN_EXACT_SRC=$(PROG_DIR)/exact/main.cpp
 
 MAIN_HEURISTIC_SRC=$(PROG_DIR)/heuristic/main.cpp
 

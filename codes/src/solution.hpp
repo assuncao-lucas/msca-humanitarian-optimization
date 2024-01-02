@@ -203,7 +203,7 @@ template <typename T> void Solution<T>::increment_elaspsed_time(double time)
 template <typename T> void Solution<T>::write_to_file(std::string algo, std::string folder, std::string file_name)
 {
     std::fstream file;
-    std::string path = ".//solutions";
+    std::string path = "..//solutions";
     path.append(folder);
     //struct stat sb;
     //if(stat(path.c_str(),&sb) != 0 || !S_ISDIR(sb.st_mode)) mkdir(path.c_str(),0777);

@@ -11,2327 +11,320 @@
 #include <getopt.h>
 #include <cstdlib>
 #include <boost/dynamic_bitset.hpp>
-#include "graph.h"
-#include "instance.h"
-#include "CommodityFormulationsForm.h"
-#include "timer.h"
-#include "matrix.hpp"
-#include "general.h"
-#include "graph_algorithms.h"
-#include "solution.hpp"
-#include "heuristic_solution.h"
-#include "feasibility_pump.h"
-#include "ALNS.h"
-
-std::pair<char,std::pair<int,int>> DetermineVariable(Instance& instance, std::string index, bool bianchessi)
-{
-	std::pair<char,std::pair<int,int>> variable;
-	Graph * graph = instance.graph();
-	int num_vertices = graph->num_vertices();
-	int num_arcs = graph->num_arcs();
-	int index_num = std::stoi(index,NULL);
-
-	if(index_num <= num_vertices)
-	{
-		variable.first = 'y';
-		variable.second.first = index_num -1;
-		variable.second.second = -1;
-	}else if(index_num <= num_vertices + num_arcs)
-	{
-		variable.first = 'x';
-		variable.second = (graph->arcs_map_)[index_num - num_vertices -1];
-	}else
-	{
-		if(bianchessi) variable.first = 'z';
-		else variable.first = 'f';
-		variable.second = (graph->arcs_map_)[index_num - num_vertices - num_arcs -1];
-	}
-
-	return variable;
-}
-
-// y_i = i (os primeiros num_vertices elementos)
-// x_ij = num_vertices + pos(i,j)
-// f_ij = num_vertices + num_arcs + pos(i,j)
-void ParsePORTAFile(Instance& instance, std::string file_name)
-{
-	std::fstream input, output;
-	input.open("./PORTA/src/example.poi.ieq", std::fstream::in);
-
-	if(!input.is_open()){
-		std::cout << "Could not open file!" << std::endl;
-		throw 1;
-	}
-
-	output.open(file_name.c_str(), std::fstream::out);
-
-	if(!output.is_open()){
-		std::cout << "Could not open file!" << std::endl;
-		throw 1;
-	}
-
-	std::string line;
-	while(std::getline(input, line))
-	{
-		std::size_t prev = 0, pos;
-		while ((pos = line.find_first_of("x", prev)) != std::string::npos)
-		{
-			output<< line.substr(prev,pos-prev);
-			// acha índice aqui
-			prev = pos + 1;
-			pos = line.find_first_of("><=+- ", prev);
-			if(pos != std::string::npos)
-			{
-				std::string index = line.substr(prev,pos-prev+1);
-				std::pair<char,std::pair<int,int>> variable = DetermineVariable(instance,index,false);
-
-				switch (variable.first)
-				{
-					case 'y': output << "y(" << variable.second.first << ")"; break;
-					case 'x': output << "x(" << variable.second.first << ")(" << variable.second.second << ")"; break;
-					case 'f': output << "f(" << variable.second.first << ")(" << variable.second.second << ")"; break;
-					case 'z': output << "z(" << variable.second.first << ")(" << variable.second.second << ")"; break;
-					default: break;
-				}
-				char separator = line[pos];
-				switch (separator)
-				{
-					case '>': output << ">="; prev = pos + 2; break;
-					case '<': output << "<="; prev = pos + 2; break;
-					case '=': output << "=="; prev = pos + 2; break;
-					case '+': output << "+"; prev = pos + 1; break;
-					case '-': output << "-"; prev = pos + 1; break;
-					case ' ': output << " "; prev = pos + 1; break;
-					default: break;
-				}
-			}else
-			{
-				throw 2;
-				std::cout << "Invalid PORTA file." << std::endl;
-			}
-			prev = pos+1;
-		}
-		if (prev < line.length())
-		output << line.substr(prev, std::string::npos);
-		output << std::endl;
-	}
-
-	input.close();
-	output.close();
-}
-
-void WritePORTAIneqFile(Instance& instance, double * R0, double* Rn, std::string porta_file)
-{
-	int num_vehicles = instance.num_vehicles();
-	int num_vertices = (instance.graph())->num_vertices();
-	int num_mandatory = (instance.graph())->num_mandatory();
-	GArc * curr_arc = NULL;
-	Graph* graph = instance.graph();
-	int num_arcs = graph->num_arcs();
-
-	std::fstream file;
-	file.open(porta_file.c_str(),std::fstream::out);
-
-	file << "DIM = " << num_vertices + 2*num_arcs << std::endl;
-
-	file << "LOWER_BOUNDS" << std::endl;
-
-	file << "0";
-	for(int i = 1; i < num_vertices; i++)
-	{
-		file << " 0";
-	}
-
-	for(int i = 0; i < 2*num_arcs; i++)
-	{
-		file << " 0";
-	}
-
-	file << std::endl;
-
-	file << "UPPER_BOUNDS" << std::endl;
-
-	file << "1";
-	for(int i = 1; i < num_vertices; i++)
-	{
-		file << " 1";
-	}
-
-	for(int i = 0; i < num_arcs; i++)
-	{
-		file << " 1";
-	}
-
-	for(int i = 0; i < num_arcs; i++)
-	{
-		file << " " << instance.limit();
-	}
-
-	file << std::endl;
-
-	file << "INEQUALITIES_SECTION" << std::endl;
-
-	int num_adj_arc = 0;
-	file << "x1 == 1" << std::endl;
-	file << "x" << num_vertices << " == 1" << std::endl;
-
-	for(int i = 1; i < num_vertices - 1; i++)
-	{
-		num_adj_arc = 0;
-		for(int j = 0; j < num_vertices; j++)
-		{
-			if((*(instance.graph()))[i][j] != NULL)
-			{
-				file << "+x"<< 1 + num_vertices + graph->pos(i,j);
-				num_adj_arc++;
-			}
-		}
-
-		if (i <= num_mandatory)
-		{
-			if(num_adj_arc == 0) file << "x" << 1 +i << " == 0" << std::endl;
-			else file << " == 1" << std::endl;
-			file << "x" << 1 +i << " == 1" << std::endl;
-		}
-		else
-		{
-			if(num_adj_arc == 0) file << "x" << 1 +i << " == 0" << std::endl;
-			else  file << "-x" << 1 +i << " == 0" << std::endl;
-		}
-	}
-
-
-	for(int j = 0; j < num_vertices; j++)
-	{
-		if((*(instance.graph()))[0][j] != NULL) file << "+x" << 1 +num_vertices + graph->pos(0,j);
-	}
-
-	file << " == " << num_vehicles << std::endl;
-
-	for(int j = 0; j < num_vertices; j++)
-	{
-		if((*(instance.graph()))[j][num_vertices-1] != NULL) file << "+x" << 1 +num_vertices + graph->pos(j,num_vertices-1);
-	}
-
-	file << " == " << num_vehicles << std::endl;
-
-	int cont = 0;
-	for(int j = 0; j < num_vertices; j++)
-	{
-		if((*(instance.graph()))[j][0] != NULL)
-		{
-			file << "+x" << 1 +num_vertices + graph->pos(j,0);
-			cont++;
-		}
-	}
-
-	if(cont != 0) file << " == 0" << std::endl;
-	cont = 0;
-
-	for(int j = 0; j < num_vertices; j++)
-	{
-		if((*(instance.graph()))[num_vertices-1][j] != NULL)
-		{
-			file << "+x" << 1 +num_vertices + graph->pos(num_vertices-1,j);
-			cont++;
-		}
-	}
-
-	if(cont != 0) file << " == 0" << std::endl;
-
-
-	for(int i = 1; i < num_vertices-1; i++)
-	{
-		cont = 0;
-		for(int j = 0; j < num_vertices; j++)
-		{
-			if((*(instance.graph()))[i][j] != NULL)
-			{
-				file << "+x" << 1 +num_vertices + graph->pos(i,j);
-				cont++;
-			}
-
-			if((*(instance.graph()))[j][i] != NULL)
-			{
-				file << "-x" << 1 +num_vertices + graph->pos(j,i);
-				cont++;
-			}
-		}
-		if(cont != 0) file << " == 0" << std::endl;
-	}
-
-
-	for(int i = 1; i < num_vertices; i++)
-	{
-		curr_arc = (*(instance.graph()))[0][i];
-
-		if(curr_arc != NULL)
-		{
-			int coef = (instance.limit() - curr_arc->dist())*K_PRECISION;
-			file << coef << "/" << K_PRECISION << "x" << 1 +num_vertices + graph->pos(0,i) << "-x" << 1 +num_vertices + num_arcs + graph->pos(0,i) << " == 0" << std::endl;
-
-		}
-	}
-
-	for(int i = 1; i < num_vertices-1; i++)
-	{
-		cont = 0;
-		for(int j = 0; j < num_vertices; j++)
-		{
-			if((*(instance.graph()))[j][i] != NULL)
-			{
-				file << "+x" << 1 +num_vertices + num_arcs + graph->pos(j,i);
-				cont++;
-			}
-
-			curr_arc = (*(instance.graph()))[i][j];
-			if(curr_arc != NULL)
-			{
-				file << "-x" << 1 +num_vertices + num_arcs + graph->pos(i,j);
-				int coef = curr_arc->dist()*K_PRECISION;
-				file << "-" << coef << "/" << K_PRECISION << "x" << 1 +num_vertices + graph->pos(i,j);
-				cont++;
-			}
-		}
-
-		if(cont != 0) file << " == 0" << std::endl;
-	}
-
-
-	for(int i = 0; i < num_vertices; i++)
-	{
-		for(int j = 0; j < num_vertices; j++)
-		{
-			curr_arc = (*(instance.graph()))[i][j];
-			if(curr_arc != NULL)
-			{
-				int coef = 0;
-				coef = - (instance.limit() - R0[i] - curr_arc->dist())*K_PRECISION;
-				file << coef << "/" << K_PRECISION << "x" << 1 +num_vertices + graph->pos(i,j) << "+x" << 1 +num_vertices +  num_arcs + graph->pos(i,j) << " <= 0" << std::endl;
-			}
-		}
-	}
-
-	for(int i = 0; i < num_vertices; i++)
-	{
-		for(int j = 0; j < num_vertices; j++)
-		{
-			curr_arc = (*(instance.graph()))[i][j];
-			if(curr_arc != NULL)
-			{
-				int coef = 0;
-				coef = - (Rn[j])*K_PRECISION;
-				file << coef << "/" << K_PRECISION << "x" << 1 + num_vertices + graph->pos(i,j) << "+x" << 1 +num_vertices +  num_arcs + graph->pos(i,j) << " >= 0" << std::endl;
-			}
-		}
-	}
-
-
-	file << "END" << std::endl;
-	file.close();
-}
-
-void WritePORTAIneqFileBianchessi(Instance& instance, double * R0, double* Rn, std::string file_name)
-{
-	int num_vehicles = instance.num_vehicles();
-	int num_vertices = (instance.graph())->num_vertices();
-	int num_mandatory = (instance.graph())->num_mandatory();
-	GArc * curr_arc = NULL;
-	Graph* graph = instance.graph();
-	int num_arcs = graph->num_arcs();
-
-	std::fstream file;
-	file.open(file_name.c_str(),std::fstream::out);
-
-	file << "DIM = " << num_vertices + 2*num_arcs << std::endl;
-
-	file << "LOWER_BOUNDS" << std::endl;
-
-	file << "0";
-	for(int i = 1; i < num_vertices; i++)
-	{
-		file << " 0";
-	}
-
-	for(int i = 0; i < 2*num_arcs; i++)
-	{
-		file << " 0";
-	}
-
-	file << std::endl;
-
-	file << "UPPER_BOUNDS" << std::endl;
-
-	file << "1";
-	for(int i = 1; i < num_vertices; i++)
-	{
-		file << " 1";
-	}
-
-	for(int i = 0; i < num_arcs; i++)
-	{
-		file << " 1";
-	}
-
-	for(int i = 0; i < num_arcs; i++)
-	{
-		file << " " << instance.limit();
-	}
-
-	file << std::endl;
-
-	file << "INEQUALITIES_SECTION" << std::endl;
-
-	int num_adj_arc = 0;
-	file << "x1 == 1" << std::endl;
-	file << "x" << num_vertices << " == 1" << std::endl;
-
-	for(int i = 1; i < num_vertices - 1; i++)
-	{
-		num_adj_arc = 0;
-		for(int j = 0; j < num_vertices; j++)
-		{
-			if((*(instance.graph()))[i][j] != NULL)
-			{
-				file << "+x"<< 1 + num_vertices + graph->pos(i,j);
-				num_adj_arc++;
-			}
-		}
-
-		if (i <= num_mandatory)
-		{
-			if(num_adj_arc == 0) file << "x" << 1 +i << " == 0" << std::endl;
-			else file << " == 1" << std::endl;
-			file << "x" << 1 +i << " == 1" << std::endl;
-		}
-		else
-		{
-			if(num_adj_arc == 0) file << "x" << 1 +i << " == 0" << std::endl;
-			else  file << "-x" << 1 +i << " == 0" << std::endl;
-		}
-	}
-
-
-	for(int j = 0; j < num_vertices; j++)
-	{
-		if((*(instance.graph()))[0][j] != NULL) file << "+x" << 1 +num_vertices + graph->pos(0,j);
-	}
-
-	file << " == " << num_vehicles << std::endl;
-
-	for(int j = 0; j < num_vertices; j++)
-	{
-		if((*(instance.graph()))[j][num_vertices-1] != NULL) file << "+x" << 1 +num_vertices + graph->pos(j,num_vertices-1);
-	}
-
-	file << " == " << num_vehicles << std::endl;
-
-	int cont = 0;
-	for(int j = 0; j < num_vertices; j++)
-	{
-		if((*(instance.graph()))[j][0] != NULL)
-		{
-			file << "+x" << 1 +num_vertices + graph->pos(j,0);
-			cont++;
-		}
-	}
-
-	if(cont != 0) file << " == 0" << std::endl;
-	cont = 0;
-
-	for(int j = 0; j < num_vertices; j++)
-	{
-		if((*(instance.graph()))[num_vertices-1][j] != NULL)
-		{
-			file << "+x" << 1 +num_vertices + graph->pos(num_vertices-1,j);
-			cont++;
-		}
-	}
-
-	if(cont != 0) file << " == 0" << std::endl;
-
-
-	for(int i = 1; i < num_vertices-1; i++)
-	{
-		cont = 0;
-		for(int j = 0; j < num_vertices; j++)
-		{
-			if((*(instance.graph()))[i][j] != NULL)
-			{
-				file << "+x" << 1 +num_vertices + graph->pos(i,j);
-				cont++;
-			}
-
-			if((*(instance.graph()))[j][i] != NULL)
-			{
-				file << "-x" << 1 +num_vertices + graph->pos(j,i);
-				cont++;
-			}
-		}
-		if(cont != 0) file << " == 0" << std::endl;
-	}
-
-
-	for(int i = 1; i < num_vertices; i++)
-	{
-		curr_arc = (*(instance.graph()))[0][i];
-
-		if(curr_arc != NULL)
-		{
-			int coef = (curr_arc->dist())*K_PRECISION;
-			file << coef << "/" << K_PRECISION << "x" << 1 +num_vertices + graph->pos(0,i) << "-x" << 1 +num_vertices + num_arcs + graph->pos(0,i) << " == 0" << std::endl;
-
-		}
-	}
-
-	for(int i = 1; i < num_vertices-1; i++)
-	{
-		cont = 0;
-		for(int j = 0; j < num_vertices; j++)
-		{
-			if((*(instance.graph()))[j][i] != NULL)
-			{
-				file << "-x" << 1 +num_vertices + num_arcs + graph->pos(j,i);
-				cont++;
-			}
-
-			curr_arc = (*(instance.graph()))[i][j];
-			if(curr_arc != NULL)
-			{
-				file << "+x" << 1 +num_vertices + num_arcs + graph->pos(i,j);
-				int coef = curr_arc->dist()*K_PRECISION;
-				file << "-" << coef << "/" << K_PRECISION << "x" << 1 +num_vertices + graph->pos(i,j);
-				cont++;
-			}
-		}
-
-		if(cont != 0) file << " == 0" << std::endl;
-	}
-
-
-	for(int i = 0; i < num_vertices; i++)
-	{
-		for(int j = 0; j < num_vertices; j++)
-		{
-			curr_arc = (*(instance.graph()))[i][j];
-			if(curr_arc != NULL)
-			{
-				int coef = 0;
-				coef = - (instance.limit()-Rn[j])*K_PRECISION;
-				file << coef << "/" << K_PRECISION << "x" << 1 +num_vertices + graph->pos(i,j) << "+x" << 1 +num_vertices +  num_arcs + graph->pos(i,j) << " <= 0" << std::endl;
-			}
-		}
-	}
-
-	for(int i = 0; i < num_vertices; i++)
-	{
-		for(int j = 0; j < num_vertices; j++)
-		{
-			curr_arc = (*(instance.graph()))[i][j];
-			if(curr_arc != NULL)
-			{
-				int coef = 0;
-				coef = - (R0[i]+curr_arc->dist())*K_PRECISION;
-				file << coef << "/" << K_PRECISION << "x" << 1 + num_vertices + graph->pos(i,j) << "+x" << 1 +num_vertices +  num_arcs + graph->pos(i,j) << " >= 0" << std::endl;
-			}
-		}
-	}
-
-	file << "END" << std::endl;
-	file.close();
-}
-
-void CapacitatedMultiCommodity(Instance & inst, double * R, double time_limit, Solution<int>* sol, bool solve_relax)
-{
-	Graph * graph = inst.graph();
-	int num_vertices = graph->num_vertices();
-	int num_vehicles = inst.num_vehicles();
-
-	//Solution<int> * sol = new Solution<int>(num_vertices,-std::numeric_limits<double>::infinity(),std::numeric_limits<double>::infinity());
-
-	IloEnv env;
-	IloModel model(env);
-
-	NumVar3Matrix x(env, num_vehicles);
-	NumVar3Matrix f(env, num_vehicles);
-
-	CapacitatedMultiCommodityForm(env,model,x,f,inst,R,solve_relax);
-
-	Matrix<int>** sol_matrix = Allocate3Matrix<int>(num_vehicles, num_vertices, num_vertices);
-
-	optimizeCapacitatedMultiCommodity(env,model,x,f,inst,*sol,sol_matrix,time_limit,solve_relax);
-
-	//std::cout << cost << std::endl;
-	//Print3Matrix<int>(sol_matrix, num_vehicles);
-	//(sol->solution())->Print();
-
-	Delete3Matrix<int>(sol_matrix, num_vehicles);
-	env.end();
-	//return sol;
-}
-
-void CapacitatedMultiTwoCommodity(Instance & inst, double time_limit, Solution<int>* sol, bool solve_relax)
-{
-	Graph * graph = inst.graph();
-	int num_vertices = graph->num_vertices();
-	int num_vehicles = inst.num_vehicles();
-	//int num_mandatory = graph->num_mandatory();
-
-	//Solution<int>  *sol = new Solution<int>(num_vertices-1,-std::numeric_limits<double>::infinity(),std::numeric_limits<double>::infinity());
-
-	IloEnv env;
-	IloModel model(env);
-
-	NumVarMatrix f_x0_source(env, num_vehicles);
-
-	NumVar3Matrix x(env, num_vehicles);
-	NumVar3Matrix f(env, num_vehicles);
-
-	//IloNumVarArray y(env, num_vertices - num_mandatory-1, 0.0, 1.0, ILOINT);
-
-	CapacitatedMultiTwoCommodityForm(env,model,x,f,f_x0_source, inst,solve_relax);
-
-	Matrix<int>** sol_matrix = Allocate3Matrix<int>(num_vehicles, num_vertices, num_vertices);
-
-	optimizeCapacitatedMultiTwoCommodity(env,model,x,f,f_x0_source,inst,*sol,sol_matrix,time_limit,solve_relax);
-
-	//std::cout << cost << std::endl;
-	//Print3Matrix<int>(sol_matrix, num_vehicles);
-	//(sol->solution())->Print();
-
-	Delete3Matrix<int>(sol_matrix, num_vehicles);
-
-	env.end();
-
-	//return sol;
-}
-
-void CapacitatedTwoCommodity(Instance & inst, double time_limit, Solution<int>* sol, bool solve_relax)
-{
-	Graph * graph = inst.graph();
-	int num_vertices = graph->num_vertices();
-
-	//Solution<int> * sol = new Solution<int>(num_vertices-1,-std::numeric_limits<double>::infinity(),std::numeric_limits<double>::infinity());
-
-	IloEnv env;
-	IloModel model(env);
-
-	IloNumVarArray x0_source;
-	IloNumVarArray x0_splited;
-
-	if(solve_relax)
-	{
-		x0_source = IloNumVarArray(env, num_vertices, 0, 1, ILOFLOAT);
-		x0_splited = IloNumVarArray(env, num_vertices, 0, 1, ILOFLOAT);
-	}else
-	{
-		x0_source = IloNumVarArray(env, num_vertices, 0, 1, ILOINT);
-		x0_splited = IloNumVarArray(env, num_vertices, 0, 1, ILOINT);
-	}
-
-	NumVarMatrix f_x0_source(env, 2);
-	NumVarMatrix f_x0_splited(env, 2);
-
-	//IloNumVarArray y(env, num_vertices - num_mandatory-1, 0.0, 1.0, ILOINT);
-	NumVarMatrix x(env, num_vertices);
-	NumVarMatrix f(env, num_vertices);
-
-	CapacitatedTwoCommodityForm(env,model,x0_source,x0_splited,x,f,f_x0_source,f_x0_splited,inst,solve_relax);
-
-	Matrix<int>* sol_matrix = new Matrix<int>(num_vertices,num_vertices,0);
-
-	optimizeCapacitatedTwoCommodity(env,model,x0_source,x0_splited,x,f,f_x0_source,f_x0_splited,inst,*sol,sol_matrix,time_limit,solve_relax);
-
-	//std::cout << cost << std::endl;
-
-	//sol_matrix->Print();
-	delete sol_matrix;
-	sol_matrix = NULL;
-	//(sol->solution())->Print();
-
-	env.end();
-
-	//return sol;
-}
-
-void KulkarniBhave(Instance& inst, double * R0, double * Rn, double time_limit, Solution<int>* sol, bool solve_relax)
-{
-	Graph * graph = inst.graph();
-	int num_vertices = graph->num_vertices();
-
-	//Solution<int> * sol = new Solution<int>(num_vertices,-std::numeric_limits<double>::infinity(),std::numeric_limits<double>::infinity());
-
-	IloEnv env;
-	IloModel model(env);
-
-	NumVarMatrix x(env, num_vertices);
-	IloNumVarArray u(env, num_vertices, 0.0, IloInfinity, ILOFLOAT);
-
-	KulkarniBhaveForm(env,model,x,u,inst,R0,Rn,solve_relax);
-
-	Matrix<int>* sol_matrix = new Matrix<int>(num_vertices,num_vertices,0);
-
-	optimizeKulkarniBhave(env,model,x,u,inst,*sol,sol_matrix,time_limit,solve_relax);
-
-	//std::cout << cost << std::endl;
-
-	//sol_matrix->Print();
-	//(sol->solution())->Print();
-
-	delete sol_matrix;
-	sol_matrix = NULL;
-
-	env.end();
-
-	//return sol;
-}
-
-std::list<UserCutGeneral*> * Bianchessi(Instance& inst, double* R0, double * Rn, double time_limit, Solution<int>* sol, bool solve_relax, bool callback, bool find_root_cuts, std::list<UserCutGeneral*> * initial_cuts = NULL)
-{
-	Graph * graph = inst.graph();
-	int num_vertices = graph->num_vertices();
-	int num_arcs = graph->num_arcs();
-	int num_routes = inst.num_vehicles();
-
-	std::list<UserCutGeneral*> * cuts = NULL;
-	//Solution<int> * sol = new Solution<int>(num_vertices,-std::numeric_limits<double>::infinity(),std::numeric_limits<double>::infinity());
-
-	IloEnv env;
-	IloModel model(env);
-
-	IloNumVarArray x(env);
-	IloNumVarArray y(env);
-	IloNumVarArray z(env, num_arcs, 0, IloInfinity, ILOFLOAT);
-	IloNumVar slack(env, 0, num_routes, ILOFLOAT);
-
-	if(solve_relax)
-	{
-		x = IloNumVarArray(env, num_arcs, 0.0, 1.0, ILOFLOAT);
-		y = IloNumVarArray(env, num_vertices, 0.0, 1.0, ILOFLOAT);
-	}
-	else
-	{
-		x = IloNumVarArray(env, num_arcs, 0.0, 1.0, ILOINT);
-		y = IloNumVarArray(env, num_vertices, 0.0, 1.0, ILOINT);
-	}
-
-	BianchessiForm(env,model,slack,y,x,z,inst,R0,Rn,solve_relax);
-
-	Matrix<int>* sol_matrix = new Matrix<int>(num_vertices,num_vertices,0);
-
-	cuts = optimizeBianchessi(env,model,y,x,z,inst,*sol,sol_matrix,time_limit,solve_relax,callback,find_root_cuts, R0, Rn, initial_cuts);
-
-	//std::cout << cost << std::endl;
-
-	//sol_matrix->Print();
-	//(sol->solution())->Print();
-
-	delete sol_matrix;
-	sol_matrix = NULL;
-
-	env.end();
-	return cuts;
-}
-
-void BianchessiIndexedInVehicles(Instance& inst, double * R0, double * Rn, double time_limit, Solution<int>* sol, bool solve_relax, bool callback = false)
-{
-	Graph * graph = inst.graph();
-	int num_vertices = graph->num_vertices();
-	int num_vehicles = inst.num_vehicles();
-
-	//Solution<int> * sol = new Solution<int>(num_vertices,-std::numeric_limits<double>::infinity(),std::numeric_limits<double>::infinity());
-
-	IloEnv env;
-	IloModel model(env);
-
-	NumVar3Matrix x(env, num_vertices);
-	NumVarMatrix z(env, num_vertices);
-	//IloNumVarArray y;
-
-	//if(solve_relax) y = IloNumVarArray(env, num_vertices, 0, 1, ILOFLOAT);
-	//else y = IloNumVarArray(env, num_vertices, 0, 1, ILOINT);
-
-	BianchessiIndexedInVehiclesForm(env,model,x,z,inst,R0,Rn,solve_relax);
-
-	Matrix<int>** sol_matrix = Allocate3Matrix<int>(num_vehicles, num_vertices, num_vertices);
-
-	optimizeBianchessiIndexedInVehicles(env,model,x,z,inst,*sol,sol_matrix,time_limit,solve_relax,callback);
-
-	//std::cout << cost << std::endl;
-
-	//sol_matrix->Print();
-	//(sol->solution())->Print();
-
-	Delete3Matrix<int>(sol_matrix, num_vehicles);
-
-	env.end();
-
-	//return sol;
-}
-
-void CapacitatedSingleCommodityIndexedInVehicles(Instance& inst, double * R0, double * Rn, double time_limit, Solution<int>* sol, bool solve_relax, bool callback = false)
-{
-	Graph * graph = inst.graph();
-	int num_vertices = graph->num_vertices();
-	int num_vehicles = inst.num_vehicles();
-
-	//Solution<int> * sol = new Solution<int>(num_vertices,-std::numeric_limits<double>::infinity(),std::numeric_limits<double>::infinity());
-
-	IloEnv env;
-	IloModel model(env);
-
-	NumVar3Matrix x(env, num_vertices);
-	NumVarMatrix f(env, num_vertices);
-
-	CapacitatedSingleCommodityIndexedInVehiclesForm(env,model,x,f,inst,R0, Rn,solve_relax);
-
-	Matrix<int>** sol_matrix = Allocate3Matrix<int>(num_vehicles, num_vertices, num_vertices);
-
-	optimizeCapacitatedSingleCommodityIndexedInVehicles(env,model,x,f,inst,*sol,sol_matrix,time_limit,solve_relax, callback);
-
-	//std::cout << cost << std::endl;
-
-	//sol_matrix->Print();
-	//(sol->solution())->Print();
-
-	Delete3Matrix<int>(sol_matrix, num_vehicles);
-
-	env.end();
-
-	//return sol;
-}
-
-void PreprocessInstance(Instance& inst, double * R0, double * Rn, double time_limit, Solution<int>* sol, double primal_bound, std::list<UserCutGeneral*> * initial_cuts = NULL)
-{
-	Graph * graph = inst.graph();
-	int num_vertices = graph->num_vertices();
-	int num_arcs = graph->num_arcs();
-	int num_mandatory = graph->num_mandatory();
-	int num_routes = inst.num_vehicles();
-	bool find_root_cuts = true;
-	int num_vertices_removed = 0, num_arcs_removed = 0;
-
-	std::list<UserCutGeneral*> * cuts = NULL;
-
-	Solution<int> * sol_iter = new Solution<int>(num_vertices);
-
-	IloEnv env;
-	IloCplex cplex(env);
-	cplex.setOut(env.getNullStream());
-	IloModel model(env);
-
-	IloNumVar slack(env, 0, num_routes, ILOFLOAT);
-	IloNumVarArray x(env);
-	IloNumVarArray y(env);
-	IloNumVarArray f(env, num_arcs, 0, IloInfinity, ILOFLOAT);
-
-	x = IloNumVarArray(env, num_arcs, 0.0, 1.0, ILOFLOAT);
-	y = IloNumVarArray(env, num_vertices, 0.0, 1.0, ILOFLOAT);
-
-	CapacitatedSingleCommodityForm(env,model,slack,y,x,f,inst,R0, Rn,true);
-
-	cuts = optimizeCapacitatedSingleCommodity(cplex,env,model,y,x,f,inst,*sol_iter,NULL,time_limit,true,false,find_root_cuts, R0, Rn, NULL,NULL);
-
-	if(sol_iter->is_feasible_)
-	{
-		IloNumArray x_red_costs(env);
-		IloNumArray y_red_costs(env);
-
-		IloNumArray x_values(env);
-		IloNumArray y_values(env);
-
-		IloCplex::BasisStatusArray y_statuses(env);
-		IloCplex::BasisStatusArray x_statuses(env);
-
-		cplex.getReducedCosts(y_red_costs,y);
-		cplex.getValues(y_values,y);
-		cplex.getBasisStatuses(y_statuses,y);
-
-		for(int i = 0; i < num_vertices; i++)
-		{
-			//std::cout << "y[" << i << "]: " << y_values[i] << " " << y_red_costs[i] << " status: "  << cplex.getBasisStatus(y[i]) << std::endl;
-
-			if( ((y_statuses)[i] == IloCplex::BasisStatus::AtLower) && double_equals(1.0*(y_values[i]),0.0) && double_less(sol_iter->lp_ - 1.0*(y_red_costs[i]), primal_bound)) num_vertices_removed++;
-			//getchar();getchar();
-		}
-
-		cplex.getReducedCosts(x_red_costs,x);
-		cplex.getValues(x_values,x);
-		cplex.getBasisStatuses(x_statuses,x);
-
-		for(int i = 0; i < num_arcs; i++)
-		{
-			//std::cout << "x[" << i << "]: " << x_values[i] << " " << x_red_costs[i] << " status: "  << cplex.getBasisStatus(x[i]) << std::endl;
-
-			/*if(double_equals(1.0*(x_values[i]),0.0))
-			{
-			std::cout << sol_iter->lp_ - 1.0*(x_red_costs[i]) << " < " << primal_bound << std::endl;
-		}*/
-
-		if( ((x_statuses)[i] == IloCplex::BasisStatus::AtLower) && double_equals(1.0*(x_values[i]),0.0) && double_less(sol_iter->lp_ - 1.0*(x_red_costs[i]), primal_bound)) num_arcs_removed++;
-		//getchar();getchar();
-	}
-
-	if(num_vertices_removed + num_arcs_removed > 0)
-	{
-		std::cout << "* num_vertices_removed: " << num_vertices_removed << std::endl;
-		std::cout << "* num_arcs_removed: " << num_arcs_removed << std::endl;
-		getchar();getchar();
-	}
-
-	x_red_costs.end();
-	y_red_costs.end();
-
-	x_values.end();
-	y_values.end();
-
-	x_statuses.end();
-	y_statuses.end();
-}
-
-if(cuts != NULL)
-{
-	DeleteCuts(cuts);
-	delete cuts;
-	cuts  = NULL;
-}
-
-delete sol_iter;
-sol_iter = NULL;
-cplex.end();
-env.end();
-}
-
-std::list<UserCutGeneral*> * CapacitatedSingleCommodityExtended(Instance& inst, double * R0, double * Rn, double time_limit, Solution<int>* sol, bool solve_relax, bool callback, bool find_root_cuts, std::list<UserCutGeneral*> * initial_cuts = NULL)
-{
-	Graph * graph = inst.graph();
-	int num_vertices = graph->num_vertices();
-	int num_arcs = graph->num_arcs();
-	int num_vehicles = inst.num_vehicles();
-
-	std::list<UserCutGeneral*> * cuts = NULL;
-
-	//Solution<int> * sol = new Solution<int>(num_vertices,-std::numeric_limits<double>::infinity(),std::numeric_limits<double>::infinity());
-
-	IloEnv env;
-	IloModel model(env);
-
-	IloNumVarArray x(env);
-	IloNumVarArray y(env);
-	IloNumVarArray f(env, num_arcs, 0, IloInfinity, ILOFLOAT);
-	if(solve_relax)
-	{
-		x = IloNumVarArray(env, num_arcs, 0.0, 1.0, ILOFLOAT);
-		y = IloNumVarArray(env, num_vehicles*num_vertices, 0.0, 1.0, ILOFLOAT);
-	}
-	else
-	{
-		x = IloNumVarArray(env, num_arcs, 0.0, 1.0, ILOINT);
-		y = IloNumVarArray(env, num_vehicles*num_vertices, 0.0, 1.0, ILOINT);
-	}
-
-	IloNumVarArray f_art(env, num_vehicles*num_vertices, 0, IloInfinity, ILOFLOAT);
-	IloNumVarArray x_art(env, num_vehicles*num_vertices, 0, 1, ILOINT);
-	IloNumVarArray y_art(env, num_vehicles*num_vehicles, 0, 1, ILOINT);
-
-	CapacitatedSingleCommodityExtendedForm(env,model,y,x,f,y_art,x_art,f_art,inst,R0, Rn,solve_relax);
-
-	Matrix<int>* sol_matrix = new Matrix<int>(num_vertices,num_vertices,0);
-	cuts = optimizeCapacitatedSingleCommodityExtended(env,model,y,x,f,y_art,x_art,f_art,inst,*sol,sol_matrix,time_limit,solve_relax,callback,find_root_cuts, R0, Rn, initial_cuts);
-	//std::cout << cost << std::endl;
-	//sol_matrix->Print();
-	//(sol->solution())->Print();
-
-	delete sol_matrix;
-	sol_matrix = NULL;
-
-	env.end();
-
-	return cuts;
-
-	//return sol;
-}
-
-void ButtRyan94MultiTwoCommodity(Instance& inst, double time_limit, Solution<int>* sol, bool solve_relax)
-{
-	Graph * graph = inst.graph();
-	int num_vertices = graph->num_vertices();
-	int num_vehicles = inst.num_vehicles();
-
-	//Solution<int> * sol = new Solution<int>(num_vertices-1,-std::numeric_limits<double>::infinity(),std::numeric_limits<double>::infinity());
-
-	IloEnv env;
-	IloModel model(env);
-
-	NumVar3Matrix x(env, num_vehicles);
-	NumVar3Matrix f(env, num_vehicles);
-
-	ButtRyan94MultiTwoCommodityForm(env,model,x,f,inst,solve_relax);
-
-	Matrix<int>** sol_matrix = Allocate3Matrix<int>(num_vehicles, num_vertices, num_vertices);
-
-	optimizeButtRyan94MultiTwoCommodity(env,model,x,f,inst,*sol,sol_matrix,time_limit,solve_relax);
-
-	//std::cout << cost << std::endl;
-	//Print3Matrix<int>(sol_matrix, num_vehicles);
-	//(sol->solution())->Print();
-
-	Delete3Matrix<int>(sol_matrix, num_vehicles);
-
-	env.end();
-	//return sol;
-}
-
-void ButtRyan94TwoCommodity(Instance& inst, double time_limit, Solution<int>* sol, bool solve_relax)
-{
-	Graph * graph = inst.graph();
-	int num_vertices = graph->num_vertices();
-	int num_vehicles = inst.num_vehicles();
-
-	//Solution<int> * sol = new Solution<int>(num_vertices-1,-std::numeric_limits<double>::infinity(),std::numeric_limits<double>::infinity());
-
-	IloEnv env;
-	IloModel model(env);
-
-	NumVar3Matrix x(env, num_vehicles);
-	NumVarMatrix f(env, num_vertices);
-
-	ButtRyan94TwoCommodityForm(env,model,x,f,inst,solve_relax);
-
-	Matrix<int>** sol_matrix = Allocate3Matrix<int>(num_vehicles, num_vertices, num_vertices);
-
-	optimizeButtRyan94TwoCommodity(env,model,x,f,inst,*sol,sol_matrix,time_limit,solve_relax);
-
-	//std::cout << cost << std::endl;
-	//Print3Matrix<int>(sol_matrix, num_vehicles);
-	//(sol->solution())->Print();
-
-	Delete3Matrix<int>(sol_matrix, num_vehicles);
-
-	env.end();
-	//return sol;
-}
-
-void ButtRyan94MultiCommodity(Instance& inst, double * r, int type, double time_limit, Solution<int>* sol, bool solve_relax)
-{
-	Graph * graph = inst.graph();
-	int num_vertices = graph->num_vertices();
-	int num_vehicles = inst.num_vehicles();
-
-	//Solution<int> * sol = new Solution<int>(num_vertices,-std::numeric_limits<double>::infinity(),std::numeric_limits<double>::infinity());
-
-	IloEnv env;
-	IloModel model(env);
-
-	NumVar3Matrix x(env, num_vehicles);
-	NumVar3Matrix f(env, num_vehicles);
-
-	ButtRyan94MultiCommodityForm(env,model,x,f,inst,r,type,solve_relax);
-
-	Matrix<int>** sol_matrix = Allocate3Matrix<int>(num_vehicles, num_vertices, num_vertices);
-
-	optimizeButtRyan94MultiCommodity(env,model,x,f,inst,*sol,sol_matrix,time_limit, solve_relax);
-
-	//std::cout << cost << std::endl;
-	//Print3Matrix<int>(sol_matrix, num_vehicles);
-	//(sol->solution())->Print();
-
-	Delete3Matrix<int>(sol_matrix, num_vehicles);
-
-	env.end();
-	//return sol;
-}
-
-void ButtRyan94SingleCommodity(Instance& inst, double * r, int type, double time_limit,Solution<int>* sol, bool solve_relax)
-{
-	Graph * graph = inst.graph();
-	int num_vertices = graph->num_vertices();
-	int num_vehicles = inst.num_vehicles();
-
-	//Solution<int> * sol = new Solution<int>(num_vertices,-std::numeric_limits<double>::infinity(),std::numeric_limits<double>::infinity());
-
-	IloEnv env;
-	IloModel model(env);
-
-	NumVar3Matrix x(env, num_vehicles);
-
-	NumVarMatrix f(env, num_vertices);
-
-	ButtRyan94SingleCommodityForm(env,model,x,f,inst,r,type,solve_relax);
-
-	Matrix<int>** sol_matrix = Allocate3Matrix<int>(num_vehicles, num_vertices, num_vertices);
-
-	optimizeButtRyan94SingleCommodity(env,model,x,f,inst,*sol,sol_matrix,time_limit,solve_relax);
-
-	//std::cout << cost << std::endl;
-	//Print3Matrix<int>(sol_matrix, num_vehicles);
-	//(sol->solution())->Print();
-
-	Delete3Matrix<int>(sol_matrix, num_vehicles);
-
-	env.end();
-}
-
-Instance* GenerateFilesFromOPinstancesIter(std::string dir_path, std::string file_name, double mandatory_percentage)
-{
-	std::string curr_file = dir_path;
-	curr_file.append(file_name);
-	Graph * graph = NULL;
-	Instance * new_instance = NULL;
-
-	std::fstream file;
-	file.open(curr_file.c_str(), std::fstream::in);
-	if(!file.is_open()){
-		std::cout << "Could not open file" << std::endl;
-		throw 1;
-		return NULL;
-	}
-
-	int num_vertices = 0, num_vehicles = 0, num_mandatory = 0;
-	double limit = 0.0;
-
-	/*std::cout << file_name << std::endl;
-	std::cout << num_vertices << std::endl;
-	std::cout << num_mandatory << std::endl;
-	std::cout << num_vehicles << std::endl;
-	std::cout << limit << std::endl;
-	std::cout << "*******************" << std::endl;*/
-
-	std::vector<std::pair<double,double>> coordinates;
-	std::pair<double,double> curr_coordinate;
-	int curr_profit;
-
-	std::vector<int> * profits_vec = new std::vector<int>();
-
-	file >> limit >> num_vehicles;
-
-	// skips position 1 in coordinates vector: will be filled with last node (will be a mandatory node)
-	while(file >> curr_coordinate.first)
-	{
-		num_vertices++;
-		file >> curr_coordinate.second >> curr_profit;
-		coordinates.push_back(curr_coordinate);
-		profits_vec->push_back(curr_profit);
-	}
-
-	file.close();
-
-	// relocates destination to the end of the vector
-	curr_coordinate.first = coordinates[1].first;
-	curr_coordinate.second = coordinates[1].second;
-	curr_profit = (*profits_vec)[1];
-
-	coordinates[1].first = coordinates[num_vertices-1].first;
-	coordinates[1].second = coordinates[num_vertices-1].second;
-	(*profits_vec)[1] = (*profits_vec)[num_vertices-1];
-
-	coordinates[num_vertices-1].first = curr_coordinate.first;
-	coordinates[num_vertices-1].second = curr_coordinate.second;
-	(*profits_vec)[num_vertices-1] = curr_profit;
-
-	num_mandatory = (int)ceil(mandatory_percentage * num_vertices);
-
-	graph = new Graph(num_vertices,num_mandatory,(&((*profits_vec)[0])));
-
-	/*for(int i = 0; i < num_vertices; i++)
-	{
-	std::cout << i << " : (" << coordinates[i].first << ", " << coordinates[i].second << ")";
-	if(i <= num_mandatory) std::cout << " | profit: 0.0" << std::endl;
-	else std::cout << " | profit: " << profits[i - num_mandatory-1] << std::endl;
-	getchar();
-}*/
-
-for(int i = 0; i < num_vertices; i++)
-{
-	for(int j = i+1; j < num_vertices; j ++)
-	{
-		graph->AddEdge(i,j,euclidian_distance(coordinates[i], coordinates[j]));
-	}
-}
-
-new_instance = new Instance(graph, num_vehicles,limit);
-
-std::vector<bool> selected_vertices(num_vertices, false);
-int iter_mandatory = 0, cont_mandatory = 0;
-while(cont_mandatory < num_mandatory)
-{
-	iter_mandatory = rand()%(num_vertices-2) + 1;
-	if(!selected_vertices[iter_mandatory])
-	{
-		selected_vertices[iter_mandatory] = true;
-		cont_mandatory++;
-		new_instance->mandatory_list_.push_back(iter_mandatory);
-	}
-}
-
-return new_instance;
-}
-
-Instance* GenerateFilesFromTOPinstancesIter(std::string dir_path, std::string file_name, double mandatory_percentage)
-{
-	std::string curr_file = dir_path;
-	curr_file.append(file_name);
-	Graph * graph = NULL;
-	Instance * new_instance = NULL;
-
-	std::cout << file_name << std::endl;
-
-	std::fstream file;
-	file.open(curr_file.c_str(), std::fstream::in);
-	if(!file.is_open()){
-		std::cout << "Could not open file" << std::endl;
-		throw 1;
-		return NULL;
-	}
-
-	int num_vertices = 0, num_vehicles = 0, num_mandatory = 0;
-	double limit = 0.0;
-
-	std::string line;
-	getline(file,line);
-
-	std::size_t pos_1 = line.find_first_of(" ");
-
-	std::stringstream parameter;
-	parameter << line.substr(pos_1 + 1);
-	parameter >> num_vertices;
-
-	num_mandatory = (int)ceil(mandatory_percentage * num_vertices);
-
-	getline(file,line);
-	pos_1 = line.find_first_of(" ");
-
-	parameter.clear();
-	parameter << line.substr(pos_1 + 1);
-	parameter >> num_vehicles;
-
-	getline(file,line);
-	pos_1 = line.find_first_of(" ");
-
-	parameter.clear();
-	parameter << line.substr(pos_1 + 1);
-	parameter >> limit;
-
-	/*std::cout << file_name << std::endl;
-	std::cout << num_vertices << std::endl;
-	std::cout << num_mandatory << std::endl;
-	std::cout << num_vehicles << std::endl;
-	std::cout << limit << std::endl;
-	std::cout << "*******************" << std::endl;*/
-
-	std::vector<std::pair<double,double>> coordinates(num_vertices);
-	int * profits = new int[num_vertices];
-
-	// skips position 1 in coordinates vector: will be filled with last node (will be a mandatory node)
-	for(int i = 0; i < num_vertices; i++)
-	{
-		file >> (coordinates[i]).first >> (coordinates[i]).second >> profits[i];
-		//std::cout << (coordinates[i]).first << " " << (coordinates[i]).second << " " << profits[i];
-		//getchar();getchar();
-	}
-
-	file.close();
-
-	graph = new Graph(num_vertices,num_mandatory,profits);
-
-	/*for(int i = 0; i < num_vertices; i++)
-	{
-	std::cout << i << " : (" << coordinates[i].first << ", " << coordinates[i].second << ")";
-	if(i <= num_mandatory) std::cout << " | profit: 0.0" << std::endl;
-	else std::cout << " | profit: " << profits[i - num_mandatory-1] << std::endl;
-	getchar();
-}*/
-
-for(int i = 0; i < num_vertices; i++)
-{
-	for(int j = i+1; j < num_vertices; j ++)
-	{
-		graph->AddEdge(i,j,euclidian_distance(coordinates[i], coordinates[j]));
-	}
-}
-
-new_instance = new Instance(graph, num_vehicles,limit);
-
-std::vector<bool> selected_vertices(num_vertices, false);
-int iter_mandatory = 0, cont_mandatory = 0;
-while(cont_mandatory < num_mandatory)
-{
-	iter_mandatory = rand()%(num_vertices-2) + 1;
-	if(!selected_vertices[iter_mandatory])
-	{
-		selected_vertices[iter_mandatory] = true;
-		cont_mandatory++;
-		new_instance->mandatory_list_.push_back(iter_mandatory);
-	}
-}
-
-return new_instance;
-}
-
-int GenerateFilesFromOPinstances(std::string dir_path, double mandatory_percentage)
-{
-	Instance * inst = NULL;
-	DIR *dir;
-	struct dirent *ent;
-	if ((dir = opendir (dir_path.c_str())) != NULL)
-	{
-		/* print all the files and directories within directory */
-		while ((ent = readdir (dir)) != NULL)
-		{
-			std::string curr_file(ent->d_name);
-			if((curr_file != ".")&&(curr_file != "..")&&( (curr_file.size() > 0)&& (curr_file[curr_file.size() -1] != '~') )) inst = GenerateFilesFromOPinstancesIter(dir_path, curr_file, mandatory_percentage);
-			if(inst != NULL)
-			{
-				std::string folder;
-				std::stringstream s_percentage;
-				std::string percentage;
-				std::fstream output;
-
-				std::size_t pos = dir_path.find_first_of("OP");
-
-				folder = dir_path.substr(0,pos);
-				folder.append("ST");
-				folder.append(dir_path.substr(pos));
-				folder.append("Set_");
-
-				s_percentage << mandatory_percentage;
-				percentage = s_percentage.str();
-
-				folder.append(percentage);
-				folder.append("//");
-				folder.append(curr_file);
-				std::cout << folder << std::endl;
-				inst->WriteToFile(folder,curr_file,mandatory_percentage);
-				delete inst;
-				inst = NULL;
-			}
-		}
-		closedir (dir);
-	}else
-	{
-		return -1;
-	}
-	return 0;
-}
-
-int GenerateFilesFromTOPinstances(std::string dir_path, double mandatory_percentage, bool repair = false)
-{
-	Instance * inst = NULL;
-	DIR *dir;
-
-	struct dirent *ent;
-	if ((dir = opendir (dir_path.c_str())) != NULL)
-	{
-		/* print all the files and directories within directory */
-		while ((ent = readdir (dir)) != NULL)
-		{
-			std::string curr_file(ent->d_name);
-			if((curr_file != ".")&&(curr_file != "..")&&( (curr_file.size() > 0)&& (curr_file[curr_file.size() -1] != '~') )) inst = GenerateFilesFromTOPinstancesIter(dir_path, curr_file, mandatory_percentage);
-			if(inst != NULL)
-			{
-				std::string folder;
-				std::stringstream s_percentage;
-				std::string percentage;
-				std::fstream output;
-
-				std::size_t pos = dir_path.find_first_of("TOP");
-
-				folder = dir_path.substr(0,pos);
-				folder.append("S");
-				folder.append(dir_path.substr(pos));
-				folder.append("Set_");
-
-				s_percentage << mandatory_percentage;
-				percentage = s_percentage.str();
-
-				folder.append(percentage);
-				folder.append("//");
-				folder.append(curr_file);
-
-				std::string folder2 = folder;
-				folder2.replace(14,4,"STOP_backup");
-
-				//std::cout << folder << std::endl;
-				//std::cout << folder2 << std::endl;
-
-				if(repair)
-				{
-					Instance inst_old(folder2);
-
-					inst->mandatory_list_ = inst_old.mandatory_list_;
-				}
-
-				inst->WriteToFile(folder,curr_file,mandatory_percentage);
-				//getchar(); getchar();
-				delete inst;
-				inst = NULL;
-			}
-		}
-		closedir (dir);
-	}else
-	{
-		return -1;
-	}
-	return 0;
-}
-
-void SolveCutAndBranch(std::vector<std::string>& instances)
-{
-	double time_limit = -1, original_time_limit = 0.0;
-	int option = -1;
-	Graph * graph = NULL;
-	std::vector<bool> * CALLBACKS_SELECTION = GetCallbackSelection();
-
-	std::string folder;
-	std::string file_name;
-
-	std::list<UserCutGeneral*> * cuts = NULL;
-
-	std::cout << "Cut and Branch:" << std::endl;
-
-	do{
-		std::cout << "*******************************************" << std::endl
-		<< " * Time limit in seconds (-1 to be unlimited): " << std::endl;
-		std::cin >> time_limit;
-	}while( double_less(time_limit,0.0) && !(double_equals(time_limit,-1)));
-
-	original_time_limit = time_limit;
-	do{
-		std::cout << "*******************************************" << std::endl
-		<< "Select cuts:" << std::endl
-		<< " 0 - ALL" << std::endl
-		<< " 1 - Generalized Connectivity Constraints (Grazia)" << std::endl
-		<< " 2 - Flow bound cuts" << std::endl
-		<< " 3 - Conflict cuts" << std::endl
-		<< " 4 - LCI cuts" << std::endl
-		<< " 5 - Clique Conflict cuts" << std::endl
-		<< " 6 - Clique Conflict cuts Extended" << std::endl
-		<< " 7 - LCI cuts Extended" << std::endl
-		<< "Option: " ;
-		std::cin >> option;
-		switch(option)
-		{
-			case 0:{
-				//for(int i = 0; i < K_NUM_TYPES_CALLBACKS; i++) (*CALLBACKS_SELECTION)[i] = true;
-				//(*CALLBACKS_SELECTION)[K_TYPE_GCC_CUT] = true;
-				(*CALLBACKS_SELECTION)[K_TYPE_CONFLICT_CUT] = true;
-				(*CALLBACKS_SELECTION)[K_TYPE_INITIAL_FLOW_BOUNDS_CUT] = true;
-				(*CALLBACKS_SELECTION)[K_TYPE_COVER_BOUND_CUT] = true;
-				//(*CALLBACKS_SELECTION)[K_TYPE_CLIQUE_CONFLICT_CUT] = true;
-				(*CALLBACKS_SELECTION)[K_TYPE_INITIAL_ARC_VERTEX_INFERENCE_CUT] = true;
-				break;
-			}
-			case 1:{
-				(*CALLBACKS_SELECTION)[K_TYPE_GCC_CUT] = true;
-				break;
-			}
-			case 2:{
-				(*CALLBACKS_SELECTION)[K_TYPE_INITIAL_FLOW_BOUNDS_CUT] = true;
-				break;
-			}
-			case 3:{
-				(*CALLBACKS_SELECTION)[K_TYPE_CONFLICT_CUT] = true;
-				break;
-			}
-			case 4:{
-				(*CALLBACKS_SELECTION)[K_TYPE_COVER_BOUND_CUT] = true;
-				break;
-			}
-			case 5:{
-				(*CALLBACKS_SELECTION)[K_TYPE_CLIQUE_CONFLICT_CUT] = true;
-				break;
-			}
-			case 6:{
-				(*CALLBACKS_SELECTION)[K_TYPE_CLIQUE_CONFLICT_CUT_EXT] = true;
-				break;
-			}
-			case 7:{
-				(*CALLBACKS_SELECTION)[K_TYPE_COVER_BOUND_CUT_EXT] = true;
-				break;
-			}
-			default: option = -1; std::cout << "Invalid option!" << std::endl; break;
-		}
-	}while(option == -1);
-
-	do{
-		std::cout << "*******************************************" << std::endl
-		<< " 0 - Run ALL" << std::endl
-		<< " 1 - Capacitated single commodity" << std::endl
-		<< " 2 - Run Bianchessi et al." << std::endl
-		<< " 3 - Capacitated single commodity Extended" << std::endl
-		<< "Option: " ;
-		std::cin >> option;
-		switch(option)
-		{
-			case 0:{
-				for (size_t i = 0; i < instances.size(); i++)
-				{
-					split_file_path(instances[i],folder,file_name);
-					std::cout << "* " << file_name << std::endl;
-					Instance inst(instances[i]);
-					graph = inst.graph();
-					Solution<int> * sol = new Solution<int>(graph->num_vertices());
-
-					double * R = Dijkstra(graph,false,false);
-					double * Rn = Dijkstra(graph,true,false);
-
-					cuts = CapacitatedSingleCommodity(inst,R,Rn,time_limit,sol,true,false,true,NULL,NULL);
-
-					if(time_limit != -1) time_limit = std::max(0.0, original_time_limit - sol->root_time_);
-					sol->milp_time_ = sol->root_time_;
-
-					CapacitatedSingleCommodity(inst,R,Rn,time_limit,sol,false,false,false,cuts,NULL);
-
-					sol->write_to_file("cb_csc3",folder,file_name);
-
-					DeleteCuts(cuts);
-					delete cuts;
-					cuts = NULL;
-
-					sol->reset();
-
-					cuts = Bianchessi(inst,R,Rn,time_limit,sol,true,false,true);
-
-					if(time_limit != -1) time_limit = std::max(0.0, original_time_limit - sol->root_time_);
-					sol->milp_time_ = sol->root_time_;
-
-					Bianchessi(inst,R,Rn,time_limit,sol,false,false,false,cuts);
-
-					sol->write_to_file("cb_b1",folder,file_name);
-
-					DeleteCuts(cuts);
-					delete cuts;
-					cuts = NULL;
-
-					delete sol;
-					sol = NULL;
-
-					delete [] R;
-					R = NULL;
-
-					delete [] Rn;
-					Rn = NULL;
-				}
-				break;
-			}
-			case 1:{
-				for (size_t i = 0; i < instances.size(); i++)
-				{
-					split_file_path(instances[i],folder,file_name);
-					std::cout << "* " << file_name << std::endl;
-
-					Instance inst(instances[i]);
-					graph = inst.graph();
-					Solution<int> * sol = new Solution<int>(graph->num_vertices());
-
-					/*inst.ComputeConflictGraph();
-					sol->pre_processing_time_ = inst.time_spent_in_preprocessing_;
-					sol->num_maximal_cliques_ = (inst.conflicts_list_).size();
-					sol->write_to_file("find_all_maximal_cliques_tomita",folder,file_name);
-					delete sol;
-					sol = NULL;
-					continue;*/
-
-					double * R = Dijkstra(graph,false,false);
-					double * Rn = Dijkstra(graph,true,false);
-
-					cuts = CapacitatedSingleCommodity(inst,R,Rn,time_limit,sol,true,false,true,NULL,NULL);
-
-					//double primal_bound = 0.0;
-					//PreprocessInstance(inst,R,Rn,time_limit,sol,primal_bound,cuts);
-
-					if(time_limit != -1) time_limit = std::max(0.0, original_time_limit - sol->root_time_);
-					sol->milp_time_ = sol->root_time_;
-
-					CapacitatedSingleCommodity(inst,R,Rn,time_limit,sol,false,false,false,cuts,NULL);
-
-					sol->write_to_file("teste",folder,file_name);
-
-					DeleteCuts(cuts);
-					delete cuts;
-					cuts = NULL;
-
-					delete sol;
-					sol = NULL;
-
-					delete [] R;
-					R = NULL;
-
-					delete [] Rn;
-					Rn = NULL;
-				}
-				break;
-			}
-			case 2:{
-				for (size_t i = 0; i < instances.size(); i++)
-				{
-					split_file_path(instances[i],folder,file_name);
-					std::cout << "* " << file_name << std::endl;
-					Instance inst(instances[i]);
-					graph = inst.graph();
-					Solution<int> * sol = new Solution<int>(graph->num_vertices());
-
-					double * R = Dijkstra(graph,false,false);
-					double * Rn = Dijkstra(graph,true,false);
-
-					cuts = Bianchessi(inst,R,Rn,time_limit,sol,true,false,true);
-
-					if(time_limit != -1) time_limit = std::max(0.0, original_time_limit - sol->root_time_);
-					sol->milp_time_ = sol->root_time_;
-
-					Bianchessi(inst,R,Rn,time_limit,sol,false,false,false,cuts);
-
-					sol->write_to_file("stop_cb_b1",folder,file_name);
-
-					DeleteCuts(cuts);
-					delete cuts;
-					cuts = NULL;
-
-					delete sol;
-					sol = NULL;
-
-					delete [] R;
-					R = NULL;
-
-					delete [] Rn;
-					Rn = NULL;
-				}
-				break;
-				case 3:{
-					for (size_t i = 0; i < instances.size(); i++)
-					{
-						split_file_path(instances[i],folder,file_name);
-						std::cout << "* " << file_name << std::endl;
-
-						Instance inst(instances[i]);
-						graph = inst.graph();
-						Solution<int> * sol = new Solution<int>(graph->num_vertices());
-
-						/*inst.ComputeConflictGraph();
-						sol->pre_processing_time_ = inst.time_spent_in_preprocessing_;
-						sol->num_maximal_cliques_ = (inst.conflicts_list_).size();
-						sol->write_to_file("find_all_maximal_cliques_tomita",folder,file_name);
-						delete sol;
-						sol = NULL;
-						continue;*/
-
-						double * R = Dijkstra(graph,false,false);
-						double * Rn = Dijkstra(graph,true,false);
-
-						cuts = CapacitatedSingleCommodityExtended(inst,R,Rn,time_limit,sol,true,false,true);
-
-						//double primal_bound = 0.0;
-						//PreprocessInstance(inst,R,Rn,time_limit,sol,primal_bound,cuts);
-
-						if(time_limit != -1) time_limit = std::max(0.0, original_time_limit - sol->root_time_);
-						sol->milp_time_ = sol->root_time_;
-
-						//CapacitatedSingleCommodityExtended(inst,R,Rn,time_limit,sol,false,false,false,cuts);
-
-						sol->write_to_file("relax_clique_ccs_lcis_cb_csc3e",folder,file_name);
-
-						DeleteCuts(cuts);
-						delete cuts;
-						cuts = NULL;
-
-						delete sol;
-						sol = NULL;
-
-						delete [] R;
-						R = NULL;
-
-						delete [] Rn;
-						Rn = NULL;
-					}
-					break;
-				}
-			}
-			default: option = -1; std::cout << "Invalid option!" << std::endl; break;
-		}
-	}while(option == -1);
-
-	if(cuts != NULL)
-	{
-		DeleteCuts(cuts);
-		delete cuts;
-		cuts = NULL;
-	}
-}
-
-void SolveBranchAndCutCallback(std::vector<std::string>& instances)
-{
-	double time_limit = -1;
-	int option = -1;
-	Graph * graph = NULL;
-	std::vector<bool> * CALLBACKS_SELECTION = GetCallbackSelection();
-
-	std::string folder;
-	std::string file_name;
-	bool callback = true;
-
-	std::cout << "Branch and Cut via Callback:" << std::endl;
-
-	do{
-		std::cout << "*******************************************" << std::endl
-		<< " * Time limit in seconds (-1 to be unlimited): " << std::endl;
-		std::cin >> time_limit;
-	}while( double_less(time_limit,0.0) && !(double_equals(time_limit,-1)));
-
-	do{
-		std::cout << "*******************************************" << std::endl
-		<< "Select callback:" << std::endl
-		<< " 0 - ALL" << std::endl
-		<< " 1 - Generalized Connectivity Constraints (Grazia)" << std::endl
-		<< " 2 - Flow bound cuts" << std::endl
-		<< " 3 - Flow bound cuts (by initial enumeration)" << std::endl
-		<< " 4 - Conflict cuts" << std::endl
-		<< " 5 - Cover bound Cuts" << std::endl
-		<< " 6 - Path bound Cuts" << std::endl
-		<< "Option: " ;
-		std::cin >> option;
-		switch(option)
-		{
-			case 0:{
-				//for(int i = 0; i < K_NUM_TYPES_CALLBACKS; i++) (*CALLBACKS_SELECTION)[i] = true;
-				//(*CALLBACKS_SELECTION)[K_TYPE_GCC_CUT] = true;
-				//(*CALLBACKS_SELECTION)[K_TYPE_CONFLICT_CUT] = true;
-				//(*CALLBACKS_SELECTION)[K_TYPE_COVER_BOUND_CUT] = true;
-				(*CALLBACKS_SELECTION)[K_TYPE_CLIQUE_CONFLICT_CUT] = true;
-				//(*CALLBACKS_SELECTION)[K_TYPE_INITIAL_FLOW_BOUNDS_CUT] = true;
-				break;
-			}
-			case 1:{
-				(*CALLBACKS_SELECTION)[K_TYPE_GCC_CUT] = true;
-				break;
-			}
-			case 2:{
-				(*CALLBACKS_SELECTION)[K_TYPE_FLOW_BOUNDS_CUT] = true;
-				break;
-			}
-			case 3:{
-				(*CALLBACKS_SELECTION)[K_TYPE_INITIAL_FLOW_BOUNDS_CUT] = true;
-				callback = false;
-				break;
-			}
-			case 4:{
-				(*CALLBACKS_SELECTION)[K_TYPE_CONFLICT_CUT] = true;
-				break;
-			}
-			case 5:{
-				(*CALLBACKS_SELECTION)[K_TYPE_COVER_BOUND_CUT] = true;
-				break;
-			}
-			case 6:{
-				(*CALLBACKS_SELECTION)[K_TYPE_PATH_BOUND_CUT] = true;
-				break;
-			}
-			default: option = -1; std::cout << "Invalid option!" << std::endl; break;
-		}
-	}while(option == -1);
-
-	do{
-		std::cout << "*******************************************" << std::endl
-		<< " 0 - Run ALL" << std::endl
-		<< " 1 - Capacitated single commodity" << std::endl
-		<< " 2 - Run Bianchessi et al." << std::endl
-		<< "Option: " ;
-		std::cin >> option;
-		switch(option)
-		{
-			case 0:{
-				for (size_t i = 0; i < instances.size(); i++)
-				{
-					split_file_path(instances[i],folder,file_name);
-					std::cout << "* " << file_name << std::endl;
-					Instance inst(instances[i]);
-					graph = inst.graph();
-					Solution<int> * sol = new Solution<int>(graph->num_vertices());
-
-					double * R = Dijkstra(graph,false,false);
-					double * Rn = Dijkstra(graph,true,false);
-
-					CapacitatedSingleCommodity(inst,R,Rn,time_limit,sol,true,callback,false,NULL,NULL);
-					//CapacitatedSingleCommodity(inst,R,Rn,time_limit,sol,false,callback,false);
-					sol->write_to_file("bc_r1_csc3",folder,file_name);
-
-					delete sol;
-					sol = NULL;
-
-					delete [] R;
-					R = NULL;
-
-					delete [] Rn;
-					Rn = NULL;
-				}
-				break;
-			}
-			case 1:{
-				for (size_t i = 0; i < instances.size(); i++)
-				{
-					split_file_path(instances[i],folder,file_name);
-					std::cout << "* " << file_name << std::endl;
-					Instance inst(instances[i]);
-					graph = inst.graph();
-					Solution<int> * sol = new Solution<int>(graph->num_vertices());
-
-					double * R = Dijkstra(graph,false,false);
-					double * Rn = Dijkstra(graph,true,false);
-
-					CapacitatedSingleCommodity(inst,R,Rn,time_limit,sol,false,true,false,NULL,NULL);
-					sol->write_to_file("bc_new_csc3",folder,file_name);
-
-					delete sol;
-					sol = NULL;
-
-					delete [] R;
-					R = NULL;
-
-					delete [] Rn;
-					Rn = NULL;
-				}
-				std::cout << "terminou!" << std::endl;
-				break;
-			}
-			case 2:{
-				for (size_t i = 0; i < instances.size(); i++)
-				{
-					split_file_path(instances[i],folder,file_name);
-
-					std::cout << "* " << file_name << std::endl;
-
-					Instance inst(instances[i]);
-
-					graph = inst.graph();
-					double * R = Dijkstra(graph,false,false);
-					double * Rn = Dijkstra(graph,true,false);
-					Solution<int> * sol = new Solution<int>(graph->num_vertices());
-
-					Bianchessi(inst,R,Rn,time_limit,sol,false,true,false);
-					sol->write_to_file("bc_b1",folder,file_name);
-
-					delete sol;
-					sol = NULL;
-
-					delete [] R;
-					R = NULL;
-
-					delete [] Rn;
-					Rn = NULL;
-				}
-				break;
-			}
-			default: option = -1; std::cout << "Invalid option!" << std::endl; break;
-		}
-	}while(option == -1);
-}
-
-void SolveCompactFormulations(std::vector<std::string>& instances)
-{
-	double time_limit = -1;
-	int option = -1;
-	Graph * graph = NULL;
-	Solution<int> * sol = NULL;
-	double * r = NULL, *R = NULL, *Rn = NULL;
-
-	std::string folder;
-	std::string file_name;
-
-	std::cout << "COMPACT FORMULATIONS:" << std::endl;
-
-	do{
-		std::cout << "*******************************************" << std::endl
-		<< " * Time limit in seconds (-1 to be unlimited): " << std::endl;
-		std::cin >> time_limit;
-	}while( double_less(time_limit,0.0) && !(double_equals(time_limit,-1)));
-
-	do{
-		std::cout << "*******************************************" << std::endl
-		<< " 0 - Run ALL" << std::endl
-		<< " 1 - Run Butt&Ryan single commodity" << std::endl
-		<< " 2 - Run Butt&Ryan multi commodity" << std::endl
-		<< " 3 - Run Butt&Ryan two commodity" << std::endl
-		<< " 4 - Run Butt&Ryan multi two commodity" << std::endl
-		<< " 5 - Run Capacitated single commodity" << std::endl
-		<< " 6 - Run Capacitated multi commodity" << std::endl
-		<< " 7 - Run Capacitated two commodity" << std::endl
-		<< " 8 - Run Capacitated multi two commodity" << std::endl
-		<< " 9 - Run Kulkarni and Bhave" << std::endl
-		<< " 10 - Run Bianchessi et al." << std::endl
-		<< " 11 - Run Capacitated single commodity Extended" << std::endl
-		<< "Option: " ;
-		std::cin >> option;
-		switch(option){
-			case 0:{
-				for (size_t i = 0; i < instances.size(); i++)
-				{
-					try{
-						split_file_path(instances[i],folder,file_name);
-						std::cout << "* " << file_name << std::endl;
-						Instance inst(instances[i]);
-
-						graph = inst.graph();
-
-						sol = new Solution<int>(graph->num_vertices());
-
-						r = Dijkstra(graph,false,true);
-						R = Dijkstra(graph,false,false);
-						Rn = Dijkstra(graph,true,false);
-
-						//ButtRyan94SingleCommodity(inst,NULL,0,time_limit,sol,true);
-						//ButtRyan94SingleCommodity(inst,NULL,0,time_limit,sol,false);
-						//sol->write_to_file("bcsc1",folder,file_name);
-						//sol->reset();
-						//ButtRyan94SingleCommodity(inst,r,0,time_limit,sol,true);
-						//ButtRyan94SingleCommodity(inst,r,0,time_limit,sol,false);
-						//sol->write_to_file("bcsc2",folder,file_name);
-						//sol->reset();
-						//ButtRyan94SingleCommodity(inst,NULL,1,time_limit,sol,true);
-						//ButtRyan94SingleCommodity(inst,NULL,1,time_limit,sol,false);
-						//sol->write_to_file("bcsc3",folder,file_name);
-						//sol->reset();
-						/*ButtRyan94SingleCommodity(inst,r,1,time_limit,sol,true);
-						ButtRyan94SingleCommodity(inst,r,1,time_limit,sol,false);
-						sol->write_to_file("bcsc4",folder,file_name);
-						sol->reset();*/
-
-						//ButtRyan94MultiCommodity(inst,NULL,0,time_limit,sol,true);
-						//ButtRyan94MultiCommodity(inst,NULL,0,time_limit,sol,false);
-						//sol->write_to_file("bcmc1",folder,file_name);
-						//sol->reset();
-						//ButtRyan94MultiCommodity(inst,r,0,time_limit,sol,true);
-						//ButtRyan94MultiCommodity(inst,r,0,time_limit,sol,false);
-						//sol->write_to_file("bcmc2",folder,file_name);
-						//sol->reset();
-						//ButtRyan94MultiCommodity(inst,NULL,1,time_limit,sol,true);
-						//ButtRyan94MultiCommodity(inst,NULL,1,time_limit,sol,false);
-						//sol->write_to_file("bcmc3",folder,file_name);
-						//sol->reset();
-						/*ButtRyan94MultiCommodity(inst,r,1,time_limit,sol,true);
-						ButtRyan94MultiCommodity(inst,r,1,time_limit,sol,false);
-						sol->write_to_file("bcmc4",folder,file_name);
-						sol->reset();
-
-						ButtRyan94TwoCommodity(inst,time_limit,sol,true);
-						ButtRyan94TwoCommodity(inst,time_limit,sol,false);
-						sol->write_to_file("bctc",folder,file_name);
-						sol->reset();
-
-						ButtRyan94MultiTwoCommodity(inst,time_limit,sol,true);
-						ButtRyan94MultiTwoCommodity(inst,time_limit,sol,false);
-						sol->write_to_file("bcmtc",folder,file_name);
-						sol->reset();*/
-
-						//CapacitatedSingleCommodity(inst,NULL,NULL,time_limit,sol,true);
-						//CapacitatedSingleCommodity(inst,NULL,NULL,time_limit,sol,false);
-						//sol->write_to_file("csc1",folder,file_name);
-						//sol->reset();
-
-						//CapacitatedSingleCommodity(inst,R,NULL,time_limit,sol,true);
-						//CapacitatedSingleCommodity(inst,R,NULL,time_limit,sol,false);
-						//sol->write_to_file("csc2",folder,file_name);
-						//sol->reset();
-
-						CapacitatedSingleCommodity(inst,R,Rn,time_limit,sol,true,false,false,NULL,NULL);
-						CapacitatedSingleCommodity(inst,R,Rn,time_limit,sol,false,false,false,NULL,NULL);
-						sol->write_to_file("csc3",folder,file_name);
-						sol->reset();
-
-						/*CapacitatedSingleCommodityIndexedInVehicles(inst,R,Rn,time_limit,sol,true);
-						CapacitatedSingleCommodityIndexedInVehicles(inst,R,Rn,time_limit,sol,false);
-						sol->write_to_file("csc4",folder,file_name);
-						sol->reset();*/
-
-						/*CapacitatedMultiCommodity(inst,NULL,time_limit,sol,true);
-						CapacitatedMultiCommodity(inst,NULL,time_limit,sol,false);
-						sol->write_to_file("cmc1",folder,file_name);
-						sol->reset();*/
-
-						/*CapacitatedMultiCommodity(inst,R,time_limit,sol,true);
-						CapacitatedMultiCommodity(inst,R,time_limit,sol,false);
-						sol->write_to_file("cmc2",folder,file_name);
-						sol->reset();
-
-						CapacitatedTwoCommodity(inst,time_limit,sol,true);
-						CapacitatedTwoCommodity(inst,time_limit,sol,false);
-						sol->write_to_file("ctc1",folder,file_name);
-						sol->reset();
-
-						CapacitatedMultiTwoCommodity(inst,time_limit,sol,true);
-						CapacitatedMultiTwoCommodity(inst,time_limit,sol,false);
-						sol->write_to_file("cmtc1",folder,file_name);
-						sol->reset();
-
-						KulkarniBhave(inst,R,Rn,time_limit,sol,true);
-						KulkarniBhave(inst,R,Rn,time_limit,sol,false);
-						sol->write_to_file("kb",folder,file_name);
-						sol->reset();*/
-
-						/*Bianchessi(inst,R,Rn,time_limit,sol,true,false,false);
-						//Bianchessi(inst,R,Rn,time_limit,sol,false);
-						sol->write_to_file("b1_relax",folder,file_name);
-						sol->reset();*/
-
-						/*BianchessiIndexedInVehicles(inst,R,Rn,time_limit,sol,true);
-						BianchessiIndexedInVehicles(inst,R,Rn,time_limit,sol,false);
-						sol->write_to_file("b2",folder,file_name);*/
-
-						delete [] R;
-						R = NULL;
-
-						delete [] Rn;
-						Rn = NULL;
-
-						delete [] r;
-						r = NULL;
-
-						delete sol;
-						sol = NULL;
-					}
-					catch (const std::bad_alloc& ex)
-					{
-						sol->out_of_memory_ = true;
-						delete [] R;
-						R = NULL;
-
-						delete [] Rn;
-						Rn = NULL;
-
-						delete [] r;
-						r = NULL;
-
-						delete sol;
-						sol = NULL;
-						std::cout << "Out of memory exception" << std::endl;
-						continue;
-					}
-				}
-				break;
-			}
-			case 1:{
-				for (size_t i = 0; i < instances.size(); i++)
-				{
-					split_file_path(instances[i],folder,file_name);
-					Instance inst(instances[i]);
-					std::cout << " * " << file_name << std::endl;
-					graph = inst.graph();
-					r = Dijkstra(graph,false,true);
-					sol = new Solution<int>(graph->num_vertices());
-
-					/*ButtRyan94SingleCommodity(inst,NULL,0,time_limit,sol,true);
-					ButtRyan94SingleCommodity(inst,NULL,0,time_limit,sol,false);
-					sol->write_to_file("bcsc1",folder,file_name);
-					sol->reset();
-
-					ButtRyan94SingleCommodity(inst,r,0,time_limit,sol,true);
-					ButtRyan94SingleCommodity(inst,r,0,time_limit,sol,false);
-					sol->write_to_file("bcsc2",folder,file_name);
-					sol->reset();
-
-					ButtRyan94SingleCommodity(inst,NULL,1,time_limit,sol,true);
-					ButtRyan94SingleCommodity(inst,NULL,1,time_limit,sol,false);
-					sol->write_to_file("bcsc3",folder,file_name);
-					sol->reset();*/
-
-					ButtRyan94SingleCommodity(inst,r,1,time_limit,sol,true);
-					ButtRyan94SingleCommodity(inst,r,1,time_limit,sol,false);
-					sol->write_to_file("stop_bcsc4",folder,file_name);
-
-					delete sol;
-					sol = NULL;
-
-					delete [] r;
-					r = NULL;
-				}
-				break;
-			}
-			case 2:{
-				for (size_t i = 0; i < instances.size(); i++)
-				{
-					split_file_path(instances[i],folder,file_name);
-					Instance inst(instances[i]);
-					graph = inst.graph();
-					r = Dijkstra(graph,false,true);
-
-					sol = new Solution<int>(graph->num_vertices());
-
-					ButtRyan94MultiCommodity(inst,NULL,0,time_limit,sol,true);
-					ButtRyan94MultiCommodity(inst,NULL,0,time_limit,sol,false);
-					sol->write_to_file("bcmc1",folder,file_name);
-					sol->reset();
-
-					ButtRyan94MultiCommodity(inst,r,0,time_limit,sol,true);
-					ButtRyan94MultiCommodity(inst,r,0,time_limit,sol,false);
-					sol->write_to_file("bcmc2",folder,file_name);
-					sol->reset();
-
-					ButtRyan94MultiCommodity(inst,NULL,1,time_limit,sol,true);
-					ButtRyan94MultiCommodity(inst,NULL,1,time_limit,sol,false);
-					sol->write_to_file("bcmc3",folder,file_name);
-					sol->reset();
-
-					ButtRyan94MultiCommodity(inst,r,1,time_limit,sol,true);
-					ButtRyan94MultiCommodity(inst,r,1,time_limit,sol,false);
-					sol->write_to_file("bcmc4",folder,file_name);
-
-					delete sol;
-					sol = NULL;
-
-					delete [] r;
-					r = NULL;
-				}
-				break;
-			}
-			case 3:{
-				for (size_t i = 0; i < instances.size(); i++)
-				{
-					split_file_path(instances[i],folder,file_name);
-					Instance inst(instances[i]);
-					graph = inst.graph();
-					sol = new Solution<int>(graph->num_vertices());
-
-					ButtRyan94TwoCommodity(inst,time_limit,sol,true);
-					ButtRyan94TwoCommodity(inst,time_limit,sol,false);
-					sol->write_to_file("bctc",folder,file_name);
-
-					delete sol;
-					sol = NULL;
-				}
-				break;
-			}
-			case 4:{
-				for (size_t i = 0; i < instances.size(); i++)
-				{
-					split_file_path(instances[i],folder,file_name);
-					Instance inst(instances[i]);
-					graph = inst.graph();
-					sol = new Solution<int>(graph->num_vertices());
-
-					ButtRyan94MultiTwoCommodity(inst,time_limit,sol,true);
-					ButtRyan94MultiTwoCommodity(inst,time_limit,sol,false);
-					sol->write_to_file("bcmtc",folder,file_name);
-
-					delete sol;
-					sol = NULL;
-				}
-				break;
-			}
-			case 5:{
-				for (size_t i = 0; i < instances.size(); i++)
-				{
-					split_file_path(instances[i],folder,file_name);
-					std::cout << "* " << file_name << std::endl;
-					Instance inst(instances[i]);
-					graph = inst.graph();
-					sol = new Solution<int>(graph->num_vertices());
-
-					R = Dijkstra(graph,false,false);
-					Rn = Dijkstra(graph,true,false);
-					/*CapacitatedSingleCommodity(inst,NULL,NULL,time_limit,sol,true);
-					CapacitatedSingleCommodity(inst,NULL,NULL,time_limit,sol,false);
-					sol->write_to_file("csc1",folder,file_name);
-					sol->reset();
-
-					CapacitatedSingleCommodity(inst,R,NULL,time_limit,sol,true);
-					CapacitatedSingleCommodity(inst,R,NULL,time_limit,sol,false);
-					sol->write_to_file("csc2",folder,file_name);
-					sol->reset();*/
-
-					CapacitatedSingleCommodity(inst,R,Rn,time_limit,sol,true,false,false,NULL,NULL);
-					//CapacitatedSingleCommodity(inst,R,Rn,time_limit,sol,false,false,false);
-					sol->write_to_file("relax_csc3_reinforced2",folder,file_name);
-					sol->reset();
-
-					/*CapacitatedSingleCommodityIndexedInVehicles(inst,R,Rn,time_limit,sol,true);
-					CapacitatedSingleCommodityIndexedInVehicles(inst,R,Rn,time_limit,sol,false);
-					sol->write_to_file("csc4",folder,file_name);*/
-
-					delete sol;
-					sol = NULL;
-
-					delete [] R;
-					R = NULL;
-
-					delete [] Rn;
-					Rn = NULL;
-				}
-				break;
-			}
-			case 6:{
-				for (size_t i = 0; i < instances.size(); i++)
-				{
-					split_file_path(instances[i],folder,file_name);
-					Instance inst(instances[i]);
-					graph = inst.graph();
-					sol = new Solution<int>(graph->num_vertices());
-
-					R = Dijkstra(graph,false,false);
-					CapacitatedMultiCommodity(inst,NULL,time_limit,sol,true);
-					CapacitatedMultiCommodity(inst,NULL,time_limit,sol,false);
-					sol->write_to_file("cmc1",folder,file_name);
-					sol->reset();
-
-					CapacitatedMultiCommodity(inst,R,time_limit,sol,true);
-					CapacitatedMultiCommodity(inst,R,time_limit,sol,false);
-					sol->write_to_file("cmc2",folder,file_name);
-
-					delete sol;
-					sol = NULL;
-
-					delete [] R;
-					R = NULL;
-				}
-				break;
-			}
-			case 7:{
-				for (size_t i = 0; i < instances.size(); i++)
-				{
-					split_file_path(instances[i],folder,file_name);
-					Instance inst(instances[i]);
-					graph = inst.graph();
-					sol = new Solution<int>(graph->num_vertices());
-
-					CapacitatedTwoCommodity(inst,time_limit,sol,true);
-					CapacitatedTwoCommodity(inst,time_limit,sol,false);
-					sol->write_to_file("ctc1",folder,file_name);
-
-					delete sol;
-					sol = NULL;
-				}
-				break;
-			}
-			case 8:{
-				for (size_t i = 0; i < instances.size(); i++)
-				{
-					split_file_path(instances[i],folder,file_name);
-
-					//std::cout << folder << std::endl;
-					//std::cout << file_name << std::endl;
-
-					Instance inst(instances[i]);
-
-					graph = inst.graph();
-					sol = new Solution<int>(graph->num_vertices());
-
-					CapacitatedMultiTwoCommodity(inst,time_limit,sol,true);
-					CapacitatedMultiTwoCommodity(inst,time_limit,sol,false);
-					sol->write_to_file("cmtc1",folder,file_name);
-
-					delete sol;
-					sol = NULL;
-				}
-				break;
-				case 9:
-				{
-					for (size_t i = 0; i < instances.size(); i++)
-					{
-						split_file_path(instances[i],folder,file_name);
-
-						//std::cout << folder << std::endl;
-						std::cout << file_name << std::endl;
-
-						Instance inst(instances[i]);
-
-						graph = inst.graph();
-						sol = new Solution<int>(graph->num_vertices());
-						R = Dijkstra(graph,false,false);
-						Rn = Dijkstra(graph,true,false);
-
-						KulkarniBhave(inst,R,Rn,time_limit,sol,true);
-						KulkarniBhave(inst,R,Rn,time_limit,sol,false);
-						sol->write_to_file("stop_kb",folder,file_name);
-
-						delete sol;
-						sol = NULL;
-
-						delete [] R;
-						R = NULL;
-
-						delete [] Rn;
-						Rn = NULL;
-					}
-				}
-				break;
-				case 10:
-				{
-					for (size_t i = 0; i < instances.size(); i++)
-					{
-						split_file_path(instances[i],folder,file_name);
-
-						std::cout << "* " << file_name << std::endl;
-
-						Instance inst(instances[i]);
-
-						graph = inst.graph();
-						R = Dijkstra(graph,false,false);
-						Rn = Dijkstra(graph,true,false);
-						sol = new Solution<int>(graph->num_vertices());
-
-						Bianchessi(inst,R,Rn,time_limit,sol,true,false,false);
-						//Bianchessi(inst,R,Rn,time_limit,sol,false,false,false);
-						sol->write_to_file("stop_relax_b1",folder,file_name);
-						//sol->reset();
-
-						/*BianchessiIndexedInVehicles(inst,R,Rn,time_limit,sol,true);
-						BianchessiIndexedInVehicles(inst,R,Rn,time_limit,sol,false);
-						sol->write_to_file("b2",folder,file_name);*/
-
-						delete sol;
-						sol = NULL;
-
-						delete [] R;
-						R = NULL;
-
-						delete [] Rn;
-						Rn = NULL;
-					}
-				}
-				break;
-				case 11:{
-					for (size_t i = 0; i < instances.size(); i++)
-					{
-						split_file_path(instances[i],folder,file_name);
-						std::cout << "* " << file_name << std::endl;
-						Instance inst(instances[i]);
-						graph = inst.graph();
-						sol = new Solution<int>(graph->num_vertices());
-
-						R = Dijkstra(graph,false,false);
-						Rn = Dijkstra(graph,true,false);
-						/*CapacitatedSingleCommodity(inst,NULL,NULL,time_limit,sol,true);
-						CapacitatedSingleCommodity(inst,NULL,NULL,time_limit,sol,false);
-						sol->write_to_file("csc1",folder,file_name);
-						sol->reset();
-
-						CapacitatedSingleCommodity(inst,R,NULL,time_limit,sol,true);
-						CapacitatedSingleCommodity(inst,R,NULL,time_limit,sol,false);
-						sol->write_to_file("csc2",folder,file_name);
-						sol->reset();*/
-
-						CapacitatedSingleCommodityExtended(inst,R,Rn,time_limit,sol,true,false,false);
-						//CapacitatedSingleCommodityExtended(inst,R,Rn,time_limit,sol,false,false,false);
-						sol->write_to_file("relax_csc3e",folder,file_name);
-						sol->reset();
-
-						/*CapacitatedSingleCommodityIndexedInVehicles(inst,R,Rn,time_limit,sol,true);
-						CapacitatedSingleCommodityIndexedInVehicles(inst,R,Rn,time_limit,sol,false);
-						sol->write_to_file("csc4",folder,file_name);*/
-
-						delete sol;
-						sol = NULL;
-
-						delete [] R;
-						R = NULL;
-
-						delete [] Rn;
-						Rn = NULL;
-					}
-					break;
-				}
-			}
-			default: option = -1; std::cout << "Invalid option!" << std::endl; break;
-		}
-	}while(option == -1);
-}
+#include "src/graph.h"
+#include "src/instance.h"
+#include "src/formulations.h"
+#include "src/timer.h"
+#include "src/matrix.hpp"
+#include "src/general.h"
+#include "src/graph_algorithms.h"
+#include "src/solution.hpp"
+#include "src/heuristic_solution.h"
+#include "src/feasibility_pump.h"
+#include "src/ALNS.h"
+
+// Instance* GenerateFilesFromOPinstancesIter(std::string dir_path, std::string file_name, double mandatory_percentage)
+// {
+// 	std::string curr_file = dir_path;
+// 	curr_file.append(file_name);
+// 	Graph * graph = NULL;
+// 	Instance * new_instance = NULL;
+
+// 	std::fstream file;
+// 	file.open(curr_file.c_str(), std::fstream::in);
+// 	if(!file.is_open()){
+// 		std::cout << "Could not open file" << std::endl;
+// 		throw 1;
+// 		return NULL;
+// 	}
+
+// 	int num_vertices = 0, num_vehicles = 0, num_mandatory = 0;
+// 	double limit = 0.0;
+
+// 	/*std::cout << file_name << std::endl;
+// 	std::cout << num_vertices << std::endl;
+// 	std::cout << num_mandatory << std::endl;
+// 	std::cout << num_vehicles << std::endl;
+// 	std::cout << limit << std::endl;
+// 	std::cout << "*******************" << std::endl;*/
+
+// 	std::vector<std::pair<double,double>> coordinates;
+// 	std::pair<double,double> curr_coordinate;
+// 	int curr_profit;
+
+// 	std::vector<int> * profits_vec = new std::vector<int>();
+
+// 	file >> limit >> num_vehicles;
+
+// 	// skips position 1 in coordinates vector: will be filled with last node (will be a mandatory node)
+// 	while(file >> curr_coordinate.first)
+// 	{
+// 		num_vertices++;
+// 		file >> curr_coordinate.second >> curr_profit;
+// 		coordinates.push_back(curr_coordinate);
+// 		profits_vec->push_back(curr_profit);
+// 	}
+
+// 	file.close();
+
+// 	// relocates destination to the end of the vector
+// 	curr_coordinate.first = coordinates[1].first;
+// 	curr_coordinate.second = coordinates[1].second;
+// 	curr_profit = (*profits_vec)[1];
+
+// 	coordinates[1].first = coordinates[num_vertices-1].first;
+// 	coordinates[1].second = coordinates[num_vertices-1].second;
+// 	(*profits_vec)[1] = (*profits_vec)[num_vertices-1];
+
+// 	coordinates[num_vertices-1].first = curr_coordinate.first;
+// 	coordinates[num_vertices-1].second = curr_coordinate.second;
+// 	(*profits_vec)[num_vertices-1] = curr_profit;
+
+// 	num_mandatory = (int)ceil(mandatory_percentage * num_vertices);
+
+// 	graph = new Graph(num_vertices,num_mandatory,(&((*profits_vec)[0])));
+
+// 	/*for(int i = 0; i < num_vertices; i++)
+// 	{
+// 	std::cout << i << " : (" << coordinates[i].first << ", " << coordinates[i].second << ")";
+// 	if(i <= num_mandatory) std::cout << " | profit: 0.0" << std::endl;
+// 	else std::cout << " | profit: " << profits[i - num_mandatory-1] << std::endl;
+// 	getchar();
+// }*/
+
+// for(int i = 0; i < num_vertices; i++)
+// {
+// 	for(int j = i+1; j < num_vertices; j ++)
+// 	{
+// 		graph->AddEdge(i,j,euclidian_distance(coordinates[i], coordinates[j]));
+// 	}
+// }
+
+// new_instance = new Instance(graph, num_vehicles,limit);
+
+// std::vector<bool> selected_vertices(num_vertices, false);
+// int iter_mandatory = 0, cont_mandatory = 0;
+// while(cont_mandatory < num_mandatory)
+// {
+// 	iter_mandatory = rand()%(num_vertices-2) + 1;
+// 	if(!selected_vertices[iter_mandatory])
+// 	{
+// 		selected_vertices[iter_mandatory] = true;
+// 		cont_mandatory++;
+// 		new_instance->mandatory_list_.push_back(iter_mandatory);
+// 	}
+// }
+
+// return new_instance;
+// }
+
+// Instance* GenerateFilesFromTOPinstancesIter(std::string dir_path, std::string file_name, double mandatory_percentage)
+// {
+// 	std::string curr_file = dir_path;
+// 	curr_file.append(file_name);
+// 	Graph * graph = NULL;
+// 	Instance * new_instance = NULL;
+
+// 	std::cout << file_name << std::endl;
+
+// 	std::fstream file;
+// 	file.open(curr_file.c_str(), std::fstream::in);
+// 	if(!file.is_open()){
+// 		std::cout << "Could not open file" << std::endl;
+// 		throw 1;
+// 		return NULL;
+// 	}
+
+// 	int num_vertices = 0, num_vehicles = 0, num_mandatory = 0;
+// 	double limit = 0.0;
+
+// 	std::string line;
+// 	getline(file,line);
+
+// 	std::size_t pos_1 = line.find_first_of(" ");
+
+// 	std::stringstream parameter;
+// 	parameter << line.substr(pos_1 + 1);
+// 	parameter >> num_vertices;
+
+// 	num_mandatory = (int)ceil(mandatory_percentage * num_vertices);
+
+// 	getline(file,line);
+// 	pos_1 = line.find_first_of(" ");
+
+// 	parameter.clear();
+// 	parameter << line.substr(pos_1 + 1);
+// 	parameter >> num_vehicles;
+
+// 	getline(file,line);
+// 	pos_1 = line.find_first_of(" ");
+
+// 	parameter.clear();
+// 	parameter << line.substr(pos_1 + 1);
+// 	parameter >> limit;
+
+// 	/*std::cout << file_name << std::endl;
+// 	std::cout << num_vertices << std::endl;
+// 	std::cout << num_mandatory << std::endl;
+// 	std::cout << num_vehicles << std::endl;
+// 	std::cout << limit << std::endl;
+// 	std::cout << "*******************" << std::endl;*/
+
+// 	std::vector<std::pair<double,double>> coordinates(num_vertices);
+// 	int * profits = new int[num_vertices];
+
+// 	// skips position 1 in coordinates vector: will be filled with last node (will be a mandatory node)
+// 	for(int i = 0; i < num_vertices; i++)
+// 	{
+// 		file >> (coordinates[i]).first >> (coordinates[i]).second >> profits[i];
+// 		//std::cout << (coordinates[i]).first << " " << (coordinates[i]).second << " " << profits[i];
+// 		//getchar();getchar();
+// 	}
+
+// 	file.close();
+
+// 	graph = new Graph(num_vertices,num_mandatory,profits);
+
+// 	/*for(int i = 0; i < num_vertices; i++)
+// 	{
+// 	std::cout << i << " : (" << coordinates[i].first << ", " << coordinates[i].second << ")";
+// 	if(i <= num_mandatory) std::cout << " | profit: 0.0" << std::endl;
+// 	else std::cout << " | profit: " << profits[i - num_mandatory-1] << std::endl;
+// 	getchar();
+// }*/
+
+// for(int i = 0; i < num_vertices; i++)
+// {
+// 	for(int j = i+1; j < num_vertices; j ++)
+// 	{
+// 		graph->AddEdge(i,j,euclidian_distance(coordinates[i], coordinates[j]));
+// 	}
+// }
+
+// new_instance = new Instance(graph, num_vehicles,limit);
+
+// std::vector<bool> selected_vertices(num_vertices, false);
+// int iter_mandatory = 0, cont_mandatory = 0;
+// while(cont_mandatory < num_mandatory)
+// {
+// 	iter_mandatory = rand()%(num_vertices-2) + 1;
+// 	if(!selected_vertices[iter_mandatory])
+// 	{
+// 		selected_vertices[iter_mandatory] = true;
+// 		cont_mandatory++;
+// 		new_instance->mandatory_list_.push_back(iter_mandatory);
+// 	}
+// }
+
+// return new_instance;
+// }
+
+// int GenerateFilesFromOPinstances(std::string dir_path, double mandatory_percentage)
+// {
+// 	Instance * inst = NULL;
+// 	DIR *dir;
+// 	struct dirent *ent;
+// 	if ((dir = opendir (dir_path.c_str())) != NULL)
+// 	{
+// 		/* print all the files and directories within directory */
+// 		while ((ent = readdir (dir)) != NULL)
+// 		{
+// 			std::string curr_file(ent->d_name);
+// 			if((curr_file != ".")&&(curr_file != "..")&&( (curr_file.size() > 0)&& (curr_file[curr_file.size() -1] != '~') )) inst = GenerateFilesFromOPinstancesIter(dir_path, curr_file, mandatory_percentage);
+// 			if(inst != NULL)
+// 			{
+// 				std::string folder;
+// 				std::stringstream s_percentage;
+// 				std::string percentage;
+// 				std::fstream output;
+
+// 				std::size_t pos = dir_path.find_first_of("OP");
+
+// 				folder = dir_path.substr(0,pos);
+// 				folder.append("ST");
+// 				folder.append(dir_path.substr(pos));
+// 				folder.append("Set_");
+
+// 				s_percentage << mandatory_percentage;
+// 				percentage = s_percentage.str();
+
+// 				folder.append(percentage);
+// 				folder.append("//");
+// 				folder.append(curr_file);
+// 				std::cout << folder << std::endl;
+// 				inst->WriteToFile(folder,curr_file,mandatory_percentage);
+// 				delete inst;
+// 				inst = NULL;
+// 			}
+// 		}
+// 		closedir (dir);
+// 	}else
+// 	{
+// 		return -1;
+// 	}
+// 	return 0;
+// }
+
+// int GenerateFilesFromTOPinstances(std::string dir_path, double mandatory_percentage, bool repair = false)
+// {
+// 	Instance * inst = NULL;
+// 	DIR *dir;
+
+// 	struct dirent *ent;
+// 	if ((dir = opendir (dir_path.c_str())) != NULL)
+// 	{
+// 		/* print all the files and directories within directory */
+// 		while ((ent = readdir (dir)) != NULL)
+// 		{
+// 			std::string curr_file(ent->d_name);
+// 			if((curr_file != ".")&&(curr_file != "..")&&( (curr_file.size() > 0)&& (curr_file[curr_file.size() -1] != '~') )) inst = GenerateFilesFromTOPinstancesIter(dir_path, curr_file, mandatory_percentage);
+// 			if(inst != NULL)
+// 			{
+// 				std::string folder;
+// 				std::stringstream s_percentage;
+// 				std::string percentage;
+// 				std::fstream output;
+
+// 				std::size_t pos = dir_path.find_first_of("TOP");
+
+// 				folder = dir_path.substr(0,pos);
+// 				folder.append("S");
+// 				folder.append(dir_path.substr(pos));
+// 				folder.append("Set_");
+
+// 				s_percentage << mandatory_percentage;
+// 				percentage = s_percentage.str();
+
+// 				folder.append(percentage);
+// 				folder.append("//");
+// 				folder.append(curr_file);
+
+// 				std::string folder2 = folder;
+// 				folder2.replace(14,4,"STOP_backup");
+
+// 				//std::cout << folder << std::endl;
+// 				//std::cout << folder2 << std::endl;
+
+// 				if(repair)
+// 				{
+// 					Instance inst_old(folder2);
+
+// 					inst->mandatory_list_ = inst_old.mandatory_list_;
+// 				}
+
+// 				inst->WriteToFile(folder,curr_file,mandatory_percentage);
+// 				//getchar(); getchar();
+// 				delete inst;
+// 				inst = NULL;
+// 			}
+// 		}
+// 		closedir (dir);
+// 	}else
+// 	{
+// 		return -1;
+// 	}
+// 	return 0;
+// }
 
 void GenrateRelaxCSVTable(std::vector<std::string> dirs, bool stop, double total_time_limit)
 {
@@ -4653,17 +2646,16 @@ static const struct option longOpts[] = {
 	{ "compact", no_argument, NULL, 'a' },
 	{ "cutting-plane", no_argument, NULL, 'b' },
 	{ "branch-and-cut", no_argument, NULL, 'c' },
-	{ "bianchessi", no_argument, NULL, 'd' },
+	{ "baseline", no_argument, NULL, 'd' },
 	{ "capacity-based", no_argument, NULL, 'e' },
 	{ "time-limit", required_argument, NULL, 'f' },
 	{ "instance", required_argument, NULL, 'g' },
 	{ "generate-convex-hull", no_argument, NULL, 'h' },
-	{ "FBs", no_argument, NULL, 'i' },
-	{ "GCCs", no_argument, NULL, 'j' },
-	{ "CCs", no_argument, NULL, 'k' },
+	{ "num-vehicles", required_argument, NULL, 'i' },
+	{ "service-time-deviation", required_argument, NULL, 'j' },
+	{ "uncertainty-budget", required_argument, NULL, 'k' },
 	{ "CCCs", no_argument, NULL, 'l' },
-	{ "LCIs", no_argument, NULL, 'm' },
-	{ "AVICs", no_argument, NULL, 'n' },
+	{ "AVICs", no_argument, NULL, 'm' },
 	{ NULL, no_argument, NULL, 0 }
 };
 
@@ -4671,12 +2663,15 @@ void ParseArgumentsAndRun(int argc, char* argv[] )
 {
 	std::string instance, folder, file_name;
 	int c;
-	bool solve_compact = false, solve_cb = false, solve_bc = false, bianchessi = false, capacity_based = false, generate_convex_hull = false;
-	double time_limit = 0.0;
+	int num_vehicles = 0, uncertainty_budget = 0;
+	bool solve_compact = false, solve_cb = false, solve_bc = false, baseline = false, capacity_based = false, generate_convex_hull = false;
+	double time_limit = 0.0, service_time_deviation = 0.0;
+	bool force_use_all_vehicles = false;
+	bool export_model = false;
 
 	std::vector<bool> * CALLBACKS_SELECTION = GetCallbackSelection();
 
-	while( ( c = getopt_long (argc, argv, "012345:6:7", longOpts, NULL) ) != -1 )
+	while( ( c = getopt_long (argc, argv, "f:g:i:j:k:", longOpts, NULL) ) != -1 )
 	{
 		switch(c)
 		{
@@ -4690,7 +2685,7 @@ void ParseArgumentsAndRun(int argc, char* argv[] )
 			solve_bc = true;
 			break;
 			case 'd':
-			bianchessi = true;
+			baseline = true;
 			break;
 			case 'e':
 			capacity_based = true;
@@ -4705,260 +2700,135 @@ void ParseArgumentsAndRun(int argc, char* argv[] )
 			generate_convex_hull = true;
 			break;
 			case 'i':
-			(*CALLBACKS_SELECTION)[K_TYPE_INITIAL_FLOW_BOUNDS_CUT] = true;
+			if(optarg) num_vehicles = std::atoi(optarg);
 			break;
 			case 'j':
-			(*CALLBACKS_SELECTION)[K_TYPE_GCC_CUT] = true;
+			if(optarg) service_time_deviation = std::atof(optarg);
 			break;
 			case 'k':
-			(*CALLBACKS_SELECTION)[K_TYPE_CONFLICT_CUT] = true;
+			if(optarg) uncertainty_budget = std::atoi(optarg);
 			break;
 			case 'l':
 			(*CALLBACKS_SELECTION)[K_TYPE_CLIQUE_CONFLICT_CUT] = true;
 			break;
 			case 'm':
-			(*CALLBACKS_SELECTION)[K_TYPE_COVER_BOUND_CUT] = true;
-			break;
-			case 'n':
 			(*CALLBACKS_SELECTION)[K_TYPE_INITIAL_ARC_VERTEX_INFERENCE_CUT] = true;
 			break;
 		}
 	}
 
 	if((solve_compact && solve_bc) || (solve_compact && solve_cb) || (solve_bc && solve_cb) || (generate_convex_hull && (solve_compact || solve_bc || solve_cb))) throw 2;
-	if(bianchessi && capacity_based) throw 3;
+	if(baseline && capacity_based) throw 3;
 
 	split_file_path(instance,folder,file_name);
-	std::cout << "* " << file_name << std::endl;
+	std::cout << "* " << folder << " " << file_name << std::endl;
 
-	Instance inst(instance);
-	Graph* graph = inst.graph();
+	std::cout << num_vehicles << " " << service_time_deviation << " " << uncertainty_budget << std::endl;
+	Instance inst(folder,file_name,num_vehicles,service_time_deviation,uncertainty_budget,false);
+	const Graph* graph = inst.graph();
 
-	Solution<int> * sol = new Solution<int>(graph->num_vertices());
+	Solution<double> sol(graph->num_vertices());
 
-	double * r = Dijkstra(graph,false,true);
-	double * R = Dijkstra(graph,false,false);
+	double * R0 = Dijkstra(graph,false,false);
 	double * Rn = Dijkstra(graph,true,false);
 
 	if(solve_compact)
 	{
-		if(bianchessi)
+		if(baseline)
 		{
-			Bianchessi(inst,R,Rn,time_limit,sol,true,false,false);
-			//Bianchessi(inst,R,Rn,time_limit,sol,false,false,false);
+			std::list<UserCutGeneral*> * root_cuts = nullptr;
+
+			// compute relaxation just to get limits at root node.
+			bool solve_relaxed = true;
+			bool use_valid_inequalities = false;
+			bool find_root_cuts = false;
+			CompactBaseline(inst,R0,Rn,time_limit,solve_relaxed,use_valid_inequalities,find_root_cuts,nullptr,nullptr,force_use_all_vehicles,export_model,root_cuts,sol);
+	
+			solve_relaxed = false;
+			CompactBaseline(inst,R0,Rn,time_limit,solve_relaxed,use_valid_inequalities,find_root_cuts,nullptr,nullptr,force_use_all_vehicles,export_model,root_cuts,sol);
 			std::string algo;
-			if(K_STOP) algo += "stop_";
-			algo += "relax_b1";
-			std::cout << algo << std::endl;
-			sol->write_to_file(algo,folder,file_name);
+			//if(K_STOP) algo += "stop_";
+			algo += "baseline";
+			//std::cout << algo << std::endl;
+			sol.write_to_file(algo,"//",file_name);
 		}
 
 		if(capacity_based)
 		{
-			//std::vector<bool> * CALLBACKS_SELECTION = GetCallbackSelection();
+			std::list<UserCutGeneral*> * root_cuts = nullptr;
 
-			//(*CALLBACKS_SELECTION)[K_TYPE_INITIAL_FLOW_BOUNDS_CUT] = true;
-			//(*CALLBACKS_SELECTION)[K_TYPE_INITIAL_ARC_VERTEX_INFERENCE_CUT] = true;
-
-			//CapacitatedSingleCommodity(inst,R,Rn,time_limit,sol,true,false,false);
-			CapacitatedSingleCommodity(inst,R,Rn,time_limit,sol,false,false,false,NULL,NULL);
-			sol->write_to_file("csc3_initial_primal_bound",folder,file_name);
+			// compute relaxation just to get limits at root node.
+			bool solve_relaxed = true;
+			bool use_valid_inequalities = false;
+			bool find_root_cuts = false;
+			CompactSingleCommodity(inst,R0,Rn,time_limit,solve_relaxed,use_valid_inequalities,find_root_cuts,nullptr,nullptr,force_use_all_vehicles,export_model,root_cuts,sol);
+	
+			solve_relaxed = false;
+			CompactSingleCommodity(inst,R0,Rn,time_limit,solve_relaxed,use_valid_inequalities,find_root_cuts,nullptr,nullptr,force_use_all_vehicles,export_model, root_cuts,sol);
+			sol.write_to_file("csc","//",file_name);
 		}
 	}
 
 	if(solve_cb)
 	{
-		//std::vector<bool> * CALLBACKS_SELECTION = GetCallbackSelection();
-		std::list<UserCutGeneral*> * cuts = NULL;
+		auto root_cuts = new std::list<UserCutGeneral*>();
 
-		(*CALLBACKS_SELECTION)[K_TYPE_GCC_CUT] = true;
-		(*CALLBACKS_SELECTION)[K_TYPE_CONFLICT_CUT] = true;
-		(*CALLBACKS_SELECTION)[K_TYPE_INITIAL_FLOW_BOUNDS_CUT] = true;
-		(*CALLBACKS_SELECTION)[K_TYPE_COVER_BOUND_CUT] = true;
-		//(*CALLBACKS_SELECTION)[K_TYPE_CLIQUE_CONFLICT_CUT] = true;
-		//(*CALLBACKS_SELECTION)[K_TYPE_INITIAL_ARC_VERTEX_INFERENCE_CUT] = true;
-
-		if(bianchessi)
+		if(baseline)
 		{
-			cuts = Bianchessi(inst,R,Rn,time_limit,sol,true,false,true);
+			bool solve_relaxed = true;
+			bool use_valid_inequalities = false;
+			bool find_root_cuts = true;
+			CompactBaseline(inst,R0,Rn,time_limit,solve_relaxed,use_valid_inequalities,find_root_cuts,nullptr,nullptr,force_use_all_vehicles,export_model,root_cuts,sol);
+	
+			if(time_limit != -1) time_limit = std::max(0.0, time_limit - sol.root_time_);
+			sol.milp_time_ = sol.root_time_;
 
-			if(time_limit != -1) time_limit = std::max(0.0, time_limit - sol->root_time_);
-			sol->milp_time_ = sol->root_time_;
-
-			Bianchessi(inst,R,Rn,time_limit,sol,false,false,false,cuts);
-
-			sol->write_to_file("stop_cb_b1",folder,file_name);
+			solve_relaxed = false;
+			use_valid_inequalities = true;
+			find_root_cuts = false;
+			CompactBaseline(inst,R0,Rn,time_limit,solve_relaxed,use_valid_inequalities,find_root_cuts,root_cuts,nullptr,force_use_all_vehicles,export_model,nullptr,sol);
+	
+			sol.write_to_file("cb_baseline","//",file_name);
 		}
 
 		if(capacity_based)
 		{
-			HeuristicSolution * initial_sol = NULL;
+			bool solve_relaxed = true;
+			bool use_valid_inequalities = false;
+			bool find_root_cuts = true;
+			
+			CompactSingleCommodity(inst,R0,Rn,time_limit,solve_relaxed,use_valid_inequalities,find_root_cuts,nullptr,nullptr,force_use_all_vehicles,export_model,root_cuts,sol);
+	
+			if(time_limit != -1) time_limit = std::max(0.0, time_limit - sol.root_time_);
+			sol.milp_time_ = sol.root_time_;
 
-			if(K_PREPROCESS_REDUCED_COSTS)
-			{
-				int seed = 1;
-				std::string algo = ALNSHeuristicSolution::GenerateFileName() + "_seed_" + std::to_string(seed);
-				initial_sol = new HeuristicSolution();
-				initial_sol->ReadFromFile(inst,algo,folder,file_name);
-
-				PreprocessInstance(inst,R,Rn,time_limit,sol,1.0*(initial_sol->profits_sum_));
-
-				delete initial_sol;
-				initial_sol = NULL;
-			}
-
-			if(K_ADD_INITIAL_HEURISTIC_SOLUTION)
-			{
-				srand(time(NULL));
-				int seed = rand()%10 + 1;
-				std::string algo1 = FPHeuristicSolution::GenerateFileName() + "_seed_" + std::to_string(seed);
-				std::string algo2 = ALNSHeuristicSolution::GenerateFileName() + "_seed_" + std::to_string(seed);
-
-				double time_spent = RetrieveTimeSpentInFP(inst,algo1,folder,file_name);
-				time_spent += RetrieveTimeSpentInLNS(inst,algo2,folder,file_name);
-
-				initial_sol = new HeuristicSolution();
-				initial_sol->ReadFromFile(inst,algo2,folder,file_name);
-
-				if(!double_equals(time_limit,-1)) time_limit = std::max(0.0, time_limit - time_spent);
-				(sol->milp_time_) += time_spent;
-				//std::cout << time_limit << std::endl;
-			}
-
-			cuts = CapacitatedSingleCommodity(inst,R,Rn,time_limit,sol,true,false,true,NULL,NULL);
-
-			if(!double_equals(time_limit,-1)) time_limit = std::max(0.0, time_limit - sol->root_time_);
-			(sol->milp_time_) += (sol->root_time_);
-
-			CapacitatedSingleCommodity(inst,R,Rn,time_limit,sol,false,false,false,cuts,initial_sol);
-
-			std::string algo;
-			if(K_STOP) algo = "stop_";
-			algo += "cb_csc3";
-			if(K_ADD_INITIAL_HEURISTIC_SOLUTION) algo += ("_" + ALNSHeuristicSolution::GenerateFileName());
-			std::cout << algo << std::endl;
-			//getchar(); getchar();
-			sol->write_to_file(algo,folder,file_name);
-			//sol->write_to_file("cb_angle_0.03_clique_ccs_lcis_csc3",folder,file_name);
-			if(initial_sol != NULL)
-			{
-				delete initial_sol;
-				initial_sol = NULL;
-			}
+			solve_relaxed = false;
+			use_valid_inequalities = true;
+			find_root_cuts = false;
+			CompactSingleCommodity(inst,R0,Rn,time_limit,solve_relaxed,use_valid_inequalities,find_root_cuts,root_cuts,nullptr,force_use_all_vehicles,export_model,nullptr,sol);
+	
+			sol.write_to_file("cb_csc","//",file_name);
 		}
 
-		DeleteCuts(cuts);
-		if(cuts != NULL)
+		DeleteCuts(root_cuts);
+		if(root_cuts != nullptr)
 		{
-			delete cuts;
-			cuts = NULL;
+			delete root_cuts;
+			root_cuts = nullptr;
 		}
 	}
 
-	if(solve_bc)
-	{
-		//std::vector<bool> * CALLBACKS_SELECTION = GetCallbackSelection();
-
-		//(*CALLBACKS_SELECTION)[K_TYPE_GCC_CUT] = true;
-		//(*CALLBACKS_SELECTION)[K_TYPE_CONFLICT_CUT] = true;
-		//(*CALLBACKS_SELECTION)[K_TYPE_INITIAL_FLOW_BOUNDS_CUT] = true;
-		//(*CALLBACKS_SELECTION)[K_TYPE_COVER_BOUND_CUT] = true;
-		//			(*CALLBACKS_SELECTION)[K_TYPE_CLIQUE_CONFLICT_CUT] = true;
-		//			(*CALLBACKS_SELECTION)[K_TYPE_INITIAL_ARC_VERTEX_INFERENCE_CUT] = true;
-
-		if(bianchessi)
-		{
-			//Bianchessi(inst,R,Rn,time_limit,sol,true,true,false);
-			Bianchessi(inst,R,Rn,time_limit,sol,false,true,false);
-
-			std::string algo;
-			if(K_STOP) algo = "stop_";
-			algo += "bc_b1_initial_primal_bound_no_user_cuts";
-			std::cout << algo << std::endl;
-
-			sol->write_to_file(algo,folder,file_name);
-		}
-
-		if(capacity_based)
-		{
-			HeuristicSolution * initial_sol = NULL;
-			if(K_ADD_INITIAL_HEURISTIC_SOLUTION)
-			{
-				int seed = 1;
-				std::string algo = ALNSHeuristicSolution::GenerateFileName() + "_seed_" + std::to_string(seed);
-				initial_sol = new HeuristicSolution();
-				initial_sol->ReadFromFile(inst,algo,folder,file_name);
-			}
-			//CapacitatedSingleCommodity(inst,R,Rn,time_limit,sol,true,true,false);
-			CapacitatedSingleCommodity(inst,R,Rn,time_limit,sol,false,true,false,NULL,initial_sol);
-			sol->write_to_file("bc_csc3_heuristic_all_cuts",folder,file_name);
-			std::cout << "bc_csc3_heuristic_all_cuts" << std::endl;
-
-			if(initial_sol != NULL)
-			{
-				delete initial_sol;
-				initial_sol = NULL;
-			}
-		}
-	}
-
-	if(generate_convex_hull)
-	{
-		if(bianchessi)
-		{
-			std::string porta_file = "example.ieq";
-			WritePORTAIneqFileBianchessi(inst,R,Rn,"./PORTA/src/"+porta_file);
-			std::string command = "cd PORTA/src/; ./vint "+porta_file;
-			int res = std::system(command.c_str());
-
-			porta_file = "example.poi";
-			command = "cd PORTA/src/; ./traf "+porta_file;
-			res = std::system(command.c_str());
-
-			ParsePORTAFile(inst,".//PORTA//porta_b1_"+file_name);
-		}
-		if(capacity_based)
-		{
-			std::string porta_file = "example.ieq";
-			WritePORTAIneqFile(inst,R,Rn,"./PORTA/src/"+porta_file);
-			std::string command = "cd PORTA/src/; ./vint "+porta_file;
-			int res = std::system(command.c_str());
-
-			porta_file = "example.poi";
-			command = "cd PORTA/src/; ./traf "+porta_file;
-			res = std::system(command.c_str());
-
-			ParsePORTAFile(inst,".//PORTA//porta_csc3_"+file_name);
-		}
-	}
-
-	delete [] R;
-	R = NULL;
+	delete [] R0;
+	R0 = nullptr;
 
 	delete [] Rn;
-	Rn = NULL;
-
-	delete [] r;
-	r = NULL;
-
-	delete sol;
-	sol = NULL;
+	Rn = nullptr;
 }
 
 int main(int argc, char* argv[])
 {
-	/*std::list<std::list<int>> conflicts_list;
-	std::vector<std::list<int>> conflict_graph(3,std::list<int>());
-	conflict_graph[0].push_back(1);
-	conflict_graph[1].push_back(0);
-
-	FindAllMaximalConflictCliques2(&conflict_graph,conflicts_list);
-	return 0;*/
-
-	double time_limit = 7200;
 	try
 	{
-
 		if(K_GETOPT)
 		{
 			ParseArgumentsAndRun(argc, argv);
@@ -4966,146 +2836,6 @@ int main(int argc, char* argv[])
             DeleteCallbackSelection();
 			return 0;
 		}
-		std::vector<std::string> instances;
-
-		int option = -1;
-		double mandatory_percentage = 0.05;
-
-		std::cout << "#    INSTANCES SELECTED HARD CODED." << std::endl;
-		do{
-			std::cout << "*******************************************" << std::endl
-			<< " 0 - Generate STOP instances from TOP/OP ones" << std::endl
-			<< " 1 - Generate result tables" << std::endl
-			<< "*******************************************" << std::endl
-			<< " 2 - Perform ALL EXPERIMENTS" << std::endl
-			<< " 3 - Compact Formulations" << std::endl
-			<< " 4 - Branch-and-Cut via Callback" << std::endl
-			<< " 5 - Cut-and-Branch (only add cuts at root node)" << std::endl
-			<< "Option: ";
-			std::cin >> option;
-			switch(option){
-				case 0:{
-					break;
-					//GenerateFilesFromTOPinstances(".//instances//TOP//current//",mandatory_percentage);
-					GenerateFilesFromTOPinstances(".//instances//TOP//Set_21_234//",mandatory_percentage,true);
-					GenerateFilesFromTOPinstances(".//instances//TOP//Set_32_234//",mandatory_percentage,true);
-					GenerateFilesFromTOPinstances(".//instances//TOP//Set_33_234//",mandatory_percentage,true);
-					GenerateFilesFromTOPinstances(".//instances//TOP//Set_64_234//",mandatory_percentage,true);
-					GenerateFilesFromTOPinstances(".//instances//TOP//Set_66_234//",mandatory_percentage,true);
-					GenerateFilesFromTOPinstances(".//instances//TOP//Set_100_234//",mandatory_percentage,true);
-					GenerateFilesFromTOPinstances(".//instances//TOP//Set_102_234//",mandatory_percentage,true);
-
-					//GenerateFilesFromTOPinstances(".//instances//TOP//other_new_instances//",mandatory_percentage);
-
-					/*GenerateFilesFromOPinstances(".//instances//OP//set_64_1//",mandatory_percentage);
-					GenerateFilesFromOPinstances(".//instances//OP//set_66_1//",mandatory_percentage);
-					GenerateFilesFromOPinstances(".//instances//OP//Tsiligirides 1//",mandatory_percentage);
-					GenerateFilesFromOPinstances(".//instances//OP//Tsiligirides 2//",mandatory_percentage);
-					GenerateFilesFromOPinstances(".//instances//OP//Tsiligirides 3//",mandatory_percentage);*/
-
-					break;
-				}
-				case 1:{
-					//GenerateCSVFile(".//instances//STOP//unsolved//",time_limit,false);
-					/*GenerateCSVFile(".//instances//STOP//Set_21_234//Set_0.05//",time_limit,true);
-					GenerateCSVFile(".//instances//STOP//Set_32_234//Set_0.05//",time_limit,true);
-					GenerateCSVFile(".//instances//STOP//Set_33_234//Set_0.05//",time_limit,true);
-					GenerateCSVFile(".//instances//STOP//Set_64_234//Set_0.05//",time_limit,true);
-					GenerateCSVFile(".//instances//STOP//Set_66_234//Set_0.05//",time_limit,true);
-					GenerateCSVFile(".//instances//STOP//Set_100_234//Set_0.05//",time_limit,true);
-					GenerateCSVFile(".//instances//STOP//Set_102_234//Set_0.05//",time_limit,true);
-
-					GenerateCSVFile(".//instances//STOP//Set_21_234//Set_0.05//",time_limit,false);
-					GenerateCSVFile(".//instances//STOP//Set_32_234//Set_0.05//",time_limit,false);
-					GenerateCSVFile(".//instances//STOP//Set_33_234//Set_0.05//",time_limit,false);
-					GenerateCSVFile(".//instances//STOP//Set_64_234//Set_0.05//",time_limit,false);
-					GenerateCSVFile(".//instances//STOP//Set_66_234//Set_0.05//",time_limit,false);
-					GenerateCSVFile(".//instances//STOP//Set_100_234//Set_0.05//",time_limit,false);
-					GenerateCSVFile(".//instances//STOP//Set_102_234//Set_0.05//",time_limit,false);*/
-
-					/*GenerateCSVFile(".//instances//STOP//Set_21_234//Set_0.1//",time_limit);
-					GenerateCSVFile(".//instances//STOP//Set_32_234//Set_0.1//",time_limit);
-					GenerateCSVFile(".//instances//STOP//Set_33_234//Set_0.1//",time_limit);
-					GenerateCSVFile(".//instances//STOP//Set_64_234//Set_0.1//",time_limit);
-					GenerateCSVFile(".//instances//STOP//Set_66_234//Set_0.1//",time_limit);
-					GenerateCSVFile(".//instances//STOP//Set_100_234//Set_0.1//",time_limit);
-					GenerateCSVFile(".//instances//STOP//Set_102_234//Set_0.1//",time_limit);*/
-
-					std::vector<std::string> dirs;
-					//dirs.push_back(".//instances//STOP//current//Set_0.1//");
-					//dirs.push_back(".//instances//STOP//Set_32_234//Set_0.1//");
-					//dirs.push_back(".//instances//STOP//Set_21_234//Set_0.1//");
-					//dirs.push_back(".//instances//STOP//Set_33_234//Set_0.1//");
-					//dirs.push_back(".//instances//STOP//Set_100_234//Set_0.1//");
-					//dirs.push_back(".//instances//STOP//Set_66_234//Set_0.1//");
-					//dirs.push_back(".//instances//STOP//Set_64_234//Set_0.1//");
-					//dirs.push_back(".//instances//STOP//Set_102_234//Set_0.1//");
-					//GenerateLPImprovementsLatexTable(dirs,false);
-					//GenerateAlgorithmsLatexTable(dirs,false,time_limit);
-					//GenerateAppendixLatexTable(dirs,false, time_limit);
-
-					dirs.clear();
-					dirs.push_back(".//instances//STOP//Set_32_234//Set_0.05//");
-					dirs.push_back(".//instances//STOP//Set_21_234//Set_0.05//");
-					dirs.push_back(".//instances//STOP//Set_33_234//Set_0.05//");
-					dirs.push_back(".//instances//STOP//Set_100_234//Set_0.05//");
-					dirs.push_back(".//instances//STOP//Set_66_234//Set_0.05//");
-					dirs.push_back(".//instances//STOP//Set_64_234//Set_0.05//");
-					dirs.push_back(".//instances//STOP//Set_102_234//Set_0.05//");
-					//GenerateRootPrimalAndDualGapsLatexTable(dirs,false,time_limit,true);
-					//GenerateRootPrimalAndDualGapsLatexTable(dirs,true,time_limit,true);
-					//GenerateGapsNodesCutsLatexTable(dirs,false,time_limit);
-					//GenerateLPImprovementsLatexTable(dirs,false);
-					//GenerateLPImprovementsLatexTable(dirs,true);
-					//GenerateRelaxCSVTable(dirs,false,time_limit);
-					//GenerateValidIneqsImprovementsLatexTable(dirs,false);
-					//GenerateLPImprovementsLatexTable(dirs,true);
-					//GenerateValidIneqsImprovementsLatexTable(dirs,true);
-					//GenerateAlgorithmsLatexTable(dirs,false,time_limit);
-					//GenerateAlgorithmsLatexTable(dirs,true,time_limit);
-					//GenerateAlgorithmsLatexTable(dirs,true,time_limit);
-					//GenerateAppendixLatexTable(dirs,false,time_limit);
-					//GenerateAppendixLatexTable(dirs,true,time_limit);
-
-					//GenerateExactAlgorithmsPerInstanceResultsCSV(dirs,true,time_limit);
-					//GenerateExactAlgorithmsPerInstanceResultsCSV(dirs,false,time_limit);
-
-					GenerateCutsConfigurationsPerInstanceResultsCSV(dirs,true);
-					GenerateCutsConfigurationsPerInstanceResultsCSV(dirs,false);
-
-					//dirs.clear();
-					//dirs.push_back(".//instances//STOP//current//");
-					//GenerateValidIneqsActiveLatexTable(dirs,false);
-					//GenerateValidIneqsActiveLatexTable(dirs,true);
-					break;
-				}
-				case 2:{
-					AddInstances(instances);
-					SolveCompactFormulations(instances);
-					SolveBranchAndCutCallback(instances);
-					break;
-				}
-				case 3:{
-					AddInstances(instances);
-					SolveCompactFormulations(instances);
-					break;
-				}
-				case 4:{
-					AddInstances(instances);
-					SolveBranchAndCutCallback(instances);
-					break;
-				}
-				case 5:{
-					AddInstances(instances);
-					SolveCutAndBranch(instances);
-					break;
-				}
-				default: option = -1; std::cout << "Invalid option!" << std::endl; break;
-			}
-		}while(option == -1);
-
-		DeleteTimer();
-		DeleteCallbackSelection();
 	}
 	catch(const std::runtime_error& re)
 	{

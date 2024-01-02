@@ -768,7 +768,7 @@ std::pair<int,int> index_to_a_var(int index, int num_vertices)
     return std::pair<int,int>(vertex,budget);
 }
 
-static void addArcVertexInferenceCuts(IloCplex& cplex, IloModel& model, IloEnv& env, IloNumVarArray & x, IloNumVarArray & y, Instance& instance, bool solve_relax)
+static void addArcVertexInferenceCuts(IloCplex& cplex, IloModel& model, IloEnv& env, IloNumVarArray & x, IloNumVarArray & y, Instance& instance, bool solve_relax, Solution<double> & solution)
 {
 	const Graph * graph = instance.graph();
 	GArc * curr_arc = nullptr, * curr_inv_arc = nullptr;
@@ -792,7 +792,13 @@ static void addArcVertexInferenceCuts(IloCplex& cplex, IloModel& model, IloEnv& 
         exp1 = y[i] - y[j] + x[graph->pos(i,j)] + x[graph->pos(j,i)];
         exp2 = y[j] - y[i] + x[graph->pos(i,j)] + x[graph->pos(j,i)];
         cuts.add(exp1 <= 1);
+        solution.set_cut_added(K_TYPE_INITIAL_ARC_VERTEX_INFERENCE_CUT,solve_relax);
+        if(solve_relax)
+          solution.set_cut_found(K_TYPE_INITIAL_ARC_VERTEX_INFERENCE_CUT,solve_relax);
         cuts.add(exp2 <= 1);
+        solution.set_cut_added(K_TYPE_INITIAL_ARC_VERTEX_INFERENCE_CUT,solve_relax);
+        if (solve_relax)
+          solution.set_cut_found(K_TYPE_INITIAL_ARC_VERTEX_INFERENCE_CUT,solve_relax);
         exp1.end();
         exp2.end();
 	    }
@@ -900,13 +906,12 @@ void SetPriorityOrder(IloCplex & cplex, IloEnv & env, IloNumVarArray & x, Instan
 cplex.setPriorities(x, pri_order);*/
 }
 
-Solution<double> * optimize(IloCplex & cplex, IloEnv& env, IloModel& model, IloNumVarArray & y, IloNumVarArray & x, std::optional<std::reference_wrapper<IloNumVar>> dual_bound_opt, Instance& instance, double total_time_limit, bool solve_relax, bool apply_benders, bool use_valid_inequalities, bool find_root_cuts, double * R0, double * Rn, std::list<UserCutGeneral*> * initial_cuts, HeuristicSolution * initial_sol, bool export_model, std::list<UserCutGeneral*>* root_cuts)
+void optimize(IloCplex & cplex, IloEnv& env, IloModel& model, IloNumVarArray & y, IloNumVarArray & x, std::optional<std::reference_wrapper<IloNumVar>> dual_bound_opt, Instance& instance, double total_time_limit, bool solve_relax, bool apply_benders, bool use_valid_inequalities, bool find_root_cuts, double * R0, double * Rn, std::list<UserCutGeneral*> * initial_cuts, HeuristicSolution * initial_sol, bool export_model, std::list<UserCutGeneral*>* root_cuts, Solution<double>& solution)
 {
   const Graph* graph = instance.graph();
   int num_vertices = graph->num_vertices();
   Timestamp * ti = NewTimestamp(), *tf = NewTimestamp();
   Timer * timer = GetTimer();
-  Solution<double> * solution = new Solution<double>(num_vertices);
   bool found_cuts = false;
   std::optional<IloEnv> worker_env = std::nullopt;
   std::optional<IloCplex> worker_cplex = std::nullopt;
@@ -918,7 +923,7 @@ Solution<double> * optimize(IloCplex & cplex, IloEnv& env, IloModel& model, IloN
 
   std::vector<bool> * CALLBACKS_SELECTION = GetCallbackSelection();
 
-  if(use_valid_inequalities)
+  if(use_valid_inequalities || find_root_cuts)
   {
     if((*CALLBACKS_SELECTION)[K_TYPE_CLIQUE_CONFLICT_CUT])
     {
@@ -932,7 +937,7 @@ Solution<double> * optimize(IloCplex & cplex, IloEnv& env, IloModel& model, IloN
     }
 
     if((*CALLBACKS_SELECTION)[K_TYPE_INITIAL_ARC_VERTEX_INFERENCE_CUT])
-      addArcVertexInferenceCuts(cplex,model,env,x,y,instance,solve_relax);
+      addArcVertexInferenceCuts(cplex,model,env,x,y,instance,solve_relax,solution);
   }
   
   if(apply_benders)
@@ -1012,7 +1017,7 @@ Solution<double> * optimize(IloCplex & cplex, IloEnv& env, IloModel& model, IloN
           // std::cout << std::endl;
 
           root_cuts.add(exp >= 0);
-          solution->set_cut_added((*it)->type_,false);
+          solution.set_cut_added((*it)->type_,false);
 
           exp.end();
           break;
@@ -1060,11 +1065,9 @@ Solution<double> * optimize(IloCplex & cplex, IloEnv& env, IloModel& model, IloN
         (*worker_obj).end();
         (*worker_env).end();
       }
-      if(solve_relax) solution->root_time_ = timer->ElapsedTime(ti,tf);
-      else solution->milp_time_ += timer->ElapsedTime(ti,tf);
-      SetSolutionStatus(cplex,*solution,solve_relax);
-
-      return solution;
+      if(solve_relax) solution.root_time_ = timer->ElapsedTime(ti,tf);
+      else solution.milp_time_ += timer->ElapsedTime(ti,tf);
+      SetSolutionStatus(cplex,solution,solve_relax);
     }
     curr_bound = cplex.getObjValue();
     //std::cout << cplex.getCplexStatus() << ": " << curr_bound << std::endl;
@@ -1102,7 +1105,7 @@ Solution<double> * optimize(IloCplex & cplex, IloEnv& env, IloModel& model, IloN
       }
 
       if( (use_valid_inequalities || find_root_cuts) && double_less(curr_bound,previous_bound,K_TAILING_OFF_TOLERANCE))
-        found_cuts |= FindAndAddValidInqualities(cplex,env,model,y,x,y_values,x_values,instance,*solution,root_cuts);
+        found_cuts |= FindAndAddValidInqualities(cplex,env,model,y,x,y_values,x_values,instance,solution,root_cuts);
 
       // Free memory.
       x_values.end();
@@ -1115,10 +1118,10 @@ Solution<double> * optimize(IloCplex & cplex, IloEnv& env, IloModel& model, IloN
   // std::cout << curr_bound << std::endl;
 
   timer->Clock(tf);
-  if(solve_relax) solution->root_time_ = timer->ElapsedTime(ti,tf);
-  else solution->milp_time_ += (timer->ElapsedTime(ti,tf) + instance.time_spent_in_preprocessing());
+  if(solve_relax) solution.root_time_ = timer->ElapsedTime(ti,tf);
+  else solution.milp_time_ += (timer->ElapsedTime(ti,tf) + instance.time_spent_in_preprocessing());
 
-  SetSolutionStatus(cplex,*solution,solve_relax);
+  SetSolutionStatus(cplex,solution,solve_relax);
 
   delete(ti);
   ti = nullptr;
@@ -1132,17 +1135,14 @@ Solution<double> * optimize(IloCplex & cplex, IloEnv& env, IloModel& model, IloN
     (*worker_obj).end();
     (*worker_env).end();
   }
-
-  return solution;
 }
 
-Solution<double> * optimizeLP(IloCplex & cplex, IloEnv& env, IloModel& model, Instance& instance, double total_time_limit, double * R0, double * Rn)
+void optimizeLP(IloCplex & cplex, IloEnv& env, IloModel& model, Instance& instance, double total_time_limit, double * R0, double * Rn, Solution<double>& solution)
 {
   const Graph* graph = instance.graph();
   int num_vertices = graph->num_vertices();
   Timestamp * ti = NewTimestamp(), *tf = NewTimestamp();
   Timer * timer = GetTimer();
-  Solution<double> * solution = new Solution<double>(num_vertices);
 
   cplex.setParam(IloCplex::Param::WorkMem,15000);
   cplex.setParam(IloCplex::IloCplex::Param::MIP::Strategy::File,3);
@@ -1164,26 +1164,23 @@ Solution<double> * optimizeLP(IloCplex & cplex, IloEnv& env, IloModel& model, In
   {
     timer->Clock(tf);
     timer->ElapsedTime(ti,tf);
-    if((cplex.getCplexStatus() == IloCplex::Infeasible)||(cplex.getCplexStatus() == IloCplex::InfOrUnbd)) solution->is_feasible_ = false;
-    return solution;
+    if((cplex.getCplexStatus() == IloCplex::Infeasible)||(cplex.getCplexStatus() == IloCplex::InfOrUnbd)) solution.is_feasible_ = false;
   }
 
   curr_bound = cplex.getObjValue();
 
   timer->Clock(tf);
-  solution->root_time_ = timer->ElapsedTime(ti,tf);
+  solution.root_time_ = timer->ElapsedTime(ti,tf);
 
-  SetSolutionStatus(cplex,*solution,false);
+  SetSolutionStatus(cplex,solution,false);
 
   delete(ti);
   ti = nullptr;
   delete(tf);
   tf = nullptr;
-
-  return solution;
 }
 
-Solution<double> * BendersCompactBaseline(Instance& inst, double * R0, double * Rn, double time_limit, bool solve_relax, bool use_valid_inequalities, bool find_root_cuts, std::list<UserCutGeneral*> * initial_cuts, HeuristicSolution * initial_sol, bool force_use_all_vehicles, bool export_model)
+void BendersCompactBaseline(Instance& inst, double * R0, double * Rn, double time_limit, bool solve_relax, bool use_valid_inequalities, bool find_root_cuts, std::list<UserCutGeneral*> * initial_cuts, HeuristicSolution * initial_sol, bool force_use_all_vehicles, bool export_model, Solution<double>& solution)
 {
   const Graph * graph = inst.graph();
   const int num_vertices = graph->num_vertices();
@@ -1254,7 +1251,7 @@ Solution<double> * BendersCompactBaseline(Instance& inst, double * R0, double * 
     cplex.exportModel("model_Benders_compact_baseline.lp");
   }
 
-  auto result = optimize(cplex,env,model,y,x,dual_bound,inst,time_limit,solve_relax,true,use_valid_inequalities,find_root_cuts, R0, Rn, initial_cuts, initial_sol, export_model, nullptr);
+  optimize(cplex,env,model,y,x,dual_bound,inst,time_limit,solve_relax,true,use_valid_inequalities,find_root_cuts, R0, Rn, initial_cuts, initial_sol, export_model, nullptr, solution);
 
   // // print solution.
   // IloNumArray y_solution(env);
@@ -1275,10 +1272,9 @@ Solution<double> * BendersCompactBaseline(Instance& inst, double * R0, double * 
   
   cplex.end();
   env.end();
-  return result;
 }
 
-Solution<double> * CompactBaseline(Instance& inst, double * R0, double * Rn, double time_limit, bool solve_relax, bool use_valid_inequalities, bool find_root_cuts, std::list<UserCutGeneral*> * initial_cuts, HeuristicSolution * initial_sol, bool force_use_all_vehicles, bool export_model, std::list<UserCutGeneral*>* root_cuts)
+void CompactBaseline(Instance& inst, double * R0, double * Rn, double time_limit, bool solve_relax, bool use_valid_inequalities, bool find_root_cuts, std::list<UserCutGeneral*> * initial_cuts, HeuristicSolution * initial_sol, bool force_use_all_vehicles, bool export_model, std::list<UserCutGeneral*>* root_cuts, Solution<double>& solution)
 {
   const Graph * graph = inst.graph();
   const int num_vertices = graph->num_vertices();
@@ -1312,7 +1308,7 @@ Solution<double> * CompactBaseline(Instance& inst, double * R0, double * Rn, dou
 
 	PopulateByRowCompactBaseline(cplex,env,model,slack,y,x,a,inst,R0,Rn,force_use_all_vehicles,export_model);
 
-  auto result = optimize(cplex,env,model,y,x,std::nullopt,inst,time_limit,solve_relax,false,use_valid_inequalities,find_root_cuts, R0, Rn, initial_cuts, initial_sol, export_model, root_cuts);
+  optimize(cplex,env,model,y,x,std::nullopt,inst,time_limit,solve_relax,false,use_valid_inequalities,find_root_cuts, R0, Rn, initial_cuts, initial_sol, export_model, root_cuts, solution);
 
   // if((cplex.getCplexStatus() == IloCplex::Optimal)||(cplex.getCplexStatus() == IloCplex::OptimalTol))
   // {
@@ -1341,10 +1337,9 @@ Solution<double> * CompactBaseline(Instance& inst, double * R0, double * Rn, dou
 
   cplex.end();
   env.end();
-  return result;
 }
 
-Solution<double> * PrimalSubproblemCompactBaseline(Instance& inst, IloNumArray& x_values, IloNumArray& y_values, double * R0, double * Rn, double time_limit, bool export_model)
+void PrimalSubproblemCompactBaseline(Instance& inst, IloNumArray& x_values, IloNumArray& y_values, double * R0, double * Rn, double time_limit, bool export_model, Solution<double>& solution)
 {
   const Graph * graph = inst.graph();
   const int num_vertices = graph->num_vertices();
@@ -1397,7 +1392,7 @@ Solution<double> * PrimalSubproblemCompactBaseline(Instance& inst, IloNumArray& 
     cplex.exportModel("primal_continuous_model_compact_baseline.lp");
   }
 
-  auto result = optimizeLP(cplex,env,model,inst,time_limit, R0, Rn);
+  optimizeLP(cplex,env,model,inst,time_limit, R0, Rn, solution);
 
   // // print solution.
   // IloNumArray a_solution(env);
@@ -1408,7 +1403,6 @@ Solution<double> * PrimalSubproblemCompactBaseline(Instance& inst, IloNumArray& 
   // a_solution.end();
   cplex.end();
   env.end();
-  return result;
 }
 
 static void SetDualVariablesProperties(IloEnv& master_env, DualVariables& dual_vars, IloNumVarArray& x, IloNumVarArray& y, Instance& instance)
@@ -1532,7 +1526,7 @@ static void AllocateDualVariables(IloEnv& env, DualVariables& dual_vars, Instanc
   dual_vars.u_3 = IloNumVarArray(env, budget*(num_arcs-num_arcs_from_origin), 0, IloInfinity, ILOFLOAT);
 }
 
-Solution<double> * DualSubproblemCompactBaseline(Instance& inst, IloNumArray& x_values, IloNumArray& y_values, double * R0, double * Rn, double time_limit, bool export_model)
+void DualSubproblemCompactBaseline(Instance& inst, IloNumArray& x_values, IloNumArray& y_values, double * R0, double * Rn, double time_limit, bool export_model, Solution<double>& solution)
 {
   const Graph * graph = inst.graph();
   const int num_vertices = graph->num_vertices();
@@ -1561,7 +1555,7 @@ Solution<double> * DualSubproblemCompactBaseline(Instance& inst, IloNumArray& x_
     cplex.exportModel("dual_continuous_model_compact_baseline.lp");
   }
 
-  auto result = optimizeLP(cplex,env,model,inst,time_limit, R0, Rn);
+  optimizeLP(cplex,env,model,inst,time_limit, R0, Rn, solution);
 
   // // print solution.
   // IloNumArray a_solution(env);
@@ -1572,10 +1566,9 @@ Solution<double> * DualSubproblemCompactBaseline(Instance& inst, IloNumArray& x_
 
   cplex.end();
   env.end();
-  return result;
 }
 
-Solution<double> * CompactSingleCommodity(Instance& inst, double * R0, double * Rn, double time_limit, bool solve_relax, bool use_valid_inequalities, bool find_root_cuts, std::list<UserCutGeneral*> * initial_cuts, HeuristicSolution * initial_sol, bool force_use_all_vehicles, bool export_model, std::list<UserCutGeneral*>* root_cuts)
+void CompactSingleCommodity(Instance& inst, double * R0, double * Rn, double time_limit, bool solve_relax, bool use_valid_inequalities, bool find_root_cuts, std::list<UserCutGeneral*> * initial_cuts, HeuristicSolution * initial_sol, bool force_use_all_vehicles, bool export_model, std::list<UserCutGeneral*>* root_cuts, Solution<double>& solution)
 {
   const Graph * graph = inst.graph();
   int num_vertices = graph->num_vertices();
@@ -1613,7 +1606,7 @@ Solution<double> * CompactSingleCommodity(Instance& inst, double * R0, double * 
   // for (IloInt i = 0; i < f.getSize(); ++i)
   //     cplex.setAnnotation(decomp, f[i], CPX_BENDERS_MASTERVALUE+1);
       
-  auto result = optimize(cplex,env,model,y,x,std::nullopt,inst,time_limit,solve_relax,false,use_valid_inequalities,find_root_cuts, R0, Rn, initial_cuts, initial_sol, export_model, root_cuts);
+  optimize(cplex,env,model,y,x,std::nullopt,inst,time_limit,solve_relax,false,use_valid_inequalities,find_root_cuts, R0, Rn, initial_cuts, initial_sol, export_model, root_cuts, solution);
 
   // if((cplex.getCplexStatus() == IloCplex::Optimal)||(cplex.getCplexStatus() == IloCplex::OptimalTol))
   // {
@@ -1635,7 +1628,6 @@ Solution<double> * CompactSingleCommodity(Instance& inst, double * R0, double * 
 
   cplex.end();
   env.end();
-  return result;
 }
 
 static void PopulateByRowCompactSingleCommodity(IloCplex& cplex, IloEnv& env, IloModel& model, IloNumVar& slack, IloNumVarArray & y, IloNumVarArray & x, IloNumVarArray & f, Instance& instance, double * R0, double* Rn, bool force_use_all_vehicles, bool export_model)

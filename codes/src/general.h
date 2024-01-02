@@ -9,7 +9,7 @@
 
 #define K_TYPE_CUT_TREATMENT IloCplex::CutManagement::UseCutForce // "Force" is the default
 
-const bool K_GETOPT = false;
+const bool K_GETOPT = true;
 const bool K_STOP = true; // marks if problem considered is STOP (true) or TOP (false)
 const bool K_SEPARATE_CUTS_ONLY_AT_ROOT = false;
 const double K_PRECISION = 10000;
