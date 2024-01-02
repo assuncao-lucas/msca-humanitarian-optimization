@@ -14,6 +14,7 @@ int main()
 {
 	Instance inst("../instances/R-STOP-DP/","test.txt",1,0.25,3,false);
 	
+	
 	std::vector<bool> * CALLBACKS_SELECTION = GetCallbackSelection();
 	(*CALLBACKS_SELECTION)[K_TYPE_CLIQUE_CONFLICT_CUT] = true;
 	(*CALLBACKS_SELECTION)[K_TYPE_INITIAL_ARC_VERTEX_INFERENCE_CUT] = false;
