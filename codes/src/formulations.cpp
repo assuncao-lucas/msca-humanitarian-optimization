@@ -920,6 +920,7 @@ void optimize(IloCplex & cplex, IloEnv& env, IloModel& model, IloNumVarArray & y
 
   cplex.setParam(IloCplex::Param::WorkMem,15000);
   cplex.setParam(IloCplex::IloCplex::Param:: MIP::Strategy::File,3);
+  cplex.setOut(env.getNullStream());
 
   std::vector<bool> * CALLBACKS_SELECTION = GetCallbackSelection();
 
@@ -1067,7 +1068,8 @@ void optimize(IloCplex & cplex, IloEnv& env, IloModel& model, IloNumVarArray & y
       }
       if(solve_relax) solution.root_time_ = timer->ElapsedTime(ti,tf);
       else solution.milp_time_ += timer->ElapsedTime(ti,tf);
-      SetSolutionStatus(cplex,solution,solve_relax);
+      if((cplex.getCplexStatus() == IloCplex::Infeasible)||(cplex.getCplexStatus() == IloCplex::InfOrUnbd)) solution.is_feasible_ = false;
+      //SetSolutionStatus(cplex,solution,solve_relax);
 
       delete(ti);
       ti = nullptr;
@@ -1152,6 +1154,7 @@ void optimizeLP(IloCplex & cplex, IloEnv& env, IloModel& model, Instance& instan
 
   cplex.setParam(IloCplex::Param::WorkMem,15000);
   cplex.setParam(IloCplex::IloCplex::Param::MIP::Strategy::File,3);
+  cplex.setOut(env.getNullStream());
 
   if(!K_MULTI_THREAD) cplex.setParam(IloCplex::Param::Threads, 1);
 
@@ -1197,7 +1200,6 @@ void BendersCompactBaseline(Instance& inst, double * R0, double * Rn, double tim
 
   IloEnv env;
   IloCplex cplex(env);
-  cplex.setOut(env.getNullStream());
   IloModel model(env);
   cplex.extract(model);
 
@@ -1292,7 +1294,6 @@ void CompactBaseline(Instance& inst, double * R0, double * Rn, double time_limit
   IloEnv env;
   IloCplex cplex(env);
   //cplex.setParam(IloCplex::Param::Benders::Strategy, IloCplex::BendersStrategyType::BendersFull);
-  cplex.setOut(env.getNullStream());
   IloModel model(env);
   cplex.extract(model);
 
@@ -1355,7 +1356,6 @@ void PrimalSubproblemCompactBaseline(Instance& inst, IloNumArray& x_values, IloN
 
   IloEnv env;
   IloCplex cplex(env);
-  cplex.setOut(env.getNullStream());
   IloModel model(env);
   cplex.extract(model);
 
@@ -1541,7 +1541,6 @@ void DualSubproblemCompactBaseline(Instance& inst, IloNumArray& x_values, IloNum
 
   IloEnv env;
   IloCplex cplex(env);
-  cplex.setOut(env.getNullStream());
   IloModel model(env);
   cplex.extract(model);
 
@@ -1587,7 +1586,6 @@ void CompactSingleCommodity(Instance& inst, double * R0, double * Rn, double tim
   IloCplex cplex(env);
   IloModel model(env);
   cplex.extract(model);
-  cplex.setOut(env.getNullStream());
 
   IloNumVar slack(env, 0, num_routes, ILOFLOAT);
   IloNumVarArray x(env);

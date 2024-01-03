@@ -38,9 +38,9 @@ std::pair<int,int> index_to_a_var(int index, int num_vertices);
 
 template <class T> void SetSolutionStatus(IloCplex & cplex, Solution<T> & solution, bool solve_relax)
 {
+  //std::cout << cplex.getCplexStatus() << std::endl;
   if(solve_relax)
   {
-    //std::cout << cplex.getCplexStatus() << std::endl;
     if((cplex.getCplexStatus() == IloCplex::Infeasible)||(cplex.getCplexStatus() == IloCplex::InfOrUnbd)) solution.lp_ = -1;
     else solution.lp_ = cplex.getObjValue();
     // if((cplex.getCplexStatus() == IloCplex::Optimal)||(cplex.getCplexStatus() == IloCplex::OptimalTol))
