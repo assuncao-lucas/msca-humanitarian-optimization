@@ -1058,7 +1058,7 @@ void optimize(IloCplex & cplex, IloEnv& env, IloModel& model, IloNumVarArray & y
     if (!cplex.solve())
     {
       timer->Clock(tf);
-      if(apply_benders && !solve_relax)
+      if(apply_benders)
       {
         // delete subproblem objects.
         (*worker_cplex).end();
@@ -1068,6 +1068,12 @@ void optimize(IloCplex & cplex, IloEnv& env, IloModel& model, IloNumVarArray & y
       if(solve_relax) solution.root_time_ = timer->ElapsedTime(ti,tf);
       else solution.milp_time_ += timer->ElapsedTime(ti,tf);
       SetSolutionStatus(cplex,solution,solve_relax);
+
+      delete(ti);
+      ti = nullptr;
+      delete(tf);
+      tf = nullptr;
+      return;
     }
     curr_bound = cplex.getObjValue();
     //std::cout << cplex.getCplexStatus() << ": " << curr_bound << std::endl;
@@ -1165,6 +1171,7 @@ void optimizeLP(IloCplex & cplex, IloEnv& env, IloModel& model, Instance& instan
     timer->Clock(tf);
     timer->ElapsedTime(ti,tf);
     if((cplex.getCplexStatus() == IloCplex::Infeasible)||(cplex.getCplexStatus() == IloCplex::InfOrUnbd)) solution.is_feasible_ = false;
+    return;
   }
 
   curr_bound = cplex.getObjValue();
@@ -1172,7 +1179,7 @@ void optimizeLP(IloCplex & cplex, IloEnv& env, IloModel& model, Instance& instan
   timer->Clock(tf);
   solution.root_time_ = timer->ElapsedTime(ti,tf);
 
-  SetSolutionStatus(cplex,solution,false);
+  SetSolutionStatus(cplex,solution,true);
 
   delete(ti);
   ti = nullptr;

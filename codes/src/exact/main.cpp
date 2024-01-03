@@ -2721,11 +2721,13 @@ void ParseArgumentsAndRun(int argc, char* argv[] )
 	if(baseline && capacity_based) throw 3;
 
 	split_file_path(instance,folder,file_name);
-	std::cout << "* " << folder << " " << file_name << std::endl;
+	//std::cout << "* " << folder << " " << file_name << std::endl;
 
-	std::cout << num_vehicles << " " << service_time_deviation << " " << uncertainty_budget << std::endl;
+	//std::cout << num_vehicles << " " << service_time_deviation << " " << uncertainty_budget << std::endl;
 	Instance inst(folder,file_name,num_vehicles,service_time_deviation,uncertainty_budget,false);
 	const Graph* graph = inst.graph();
+	std::string instance_name = inst.GetInstanceName();
+	std::cout << instance_name << std::endl;
 
 	Solution<double> sol(graph->num_vertices());
 
@@ -2750,7 +2752,7 @@ void ParseArgumentsAndRun(int argc, char* argv[] )
 			//if(K_STOP) algo += "stop_";
 			algo += "baseline";
 			//std::cout << algo << std::endl;
-			sol.write_to_file(algo,"//",file_name);
+			sol.write_to_file(algo,"//",instance_name);
 		}
 
 		if(capacity_based)
@@ -2765,7 +2767,7 @@ void ParseArgumentsAndRun(int argc, char* argv[] )
 	
 			solve_relaxed = false;
 			CompactSingleCommodity(inst,R0,Rn,time_limit,solve_relaxed,use_valid_inequalities,find_root_cuts,nullptr,nullptr,force_use_all_vehicles,export_model, root_cuts,sol);
-			sol.write_to_file("csc","//",file_name);
+			sol.write_to_file("csc","//",instance_name);
 		}
 	}
 
@@ -2788,7 +2790,7 @@ void ParseArgumentsAndRun(int argc, char* argv[] )
 			find_root_cuts = false;
 			CompactBaseline(inst,R0,Rn,time_limit,solve_relaxed,use_valid_inequalities,find_root_cuts,root_cuts,nullptr,force_use_all_vehicles,export_model,nullptr,sol);
 	
-			sol.write_to_file("cb_baseline","//",file_name);
+			sol.write_to_file("cb_baseline","//",instance_name);
 		}
 
 		if(capacity_based)
@@ -2807,7 +2809,7 @@ void ParseArgumentsAndRun(int argc, char* argv[] )
 			find_root_cuts = false;
 			CompactSingleCommodity(inst,R0,Rn,time_limit,solve_relaxed,use_valid_inequalities,find_root_cuts,root_cuts,nullptr,force_use_all_vehicles,export_model,nullptr,sol);
 	
-			sol.write_to_file("cb_csc","//",file_name);
+			sol.write_to_file("cb_csc","//",instance_name);
 		}
 
 		DeleteCuts(root_cuts);

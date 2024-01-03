@@ -1,0 +1,55 @@
+#!/bin/bash
+
+# make stop;
+
+# valgrind --leak-check=yes --track-origins=yes
+
+dir0="../instances/R-STOP-DP-reduced"
+
+# ./bin/stop --compact --baseline --time-limit 3600 --instance "../instances/R-STOP-DP/test.txt" --num-vehicles 1 --uncertainty-budget 3 --service-time-deviation 0.25
+# ./bin/stop --compact --capacity-based --time-limit 3600 --instance "../instances/R-STOP-DP/test.txt" --num-vehicles 1 --uncertainty-budget 3 --service-time-deviation 0.25
+# ./bin/stop --cutting-plane --baseline --AVICs --CCCs --time-limit 3600 --instance "../instances/R-STOP-DP/test.txt" --num-vehicles 1 --uncertainty-budget 3 --service-time-deviation 0.25
+# ./bin/stop --cutting-plane --capacity-based --AVICs --CCCs --time-limit 3600 --instance "../instances/R-STOP-DP/test.txt" --num-vehicles 1 --uncertainty-budget 3 --service-time-deviation 0.25
+
+curr_instance="a"
+files=()
+#num_vehicles_vec=(2 3 4 5)
+#service_time_deviation_vec=(0.1 0.25 0.5)
+#uncertainty_budget_vec=(0 1 5 10)
+num_vehicles_vec=(2 4)
+service_time_deviation_vec=(0.5)
+uncertainty_budget_vec=(1 5)
+time_limit=30
+
+cont=0
+for file in $dir0/*.txt
+do
+	files[$cont]="$file"
+	((cont++))	
+done
+
+for file in ${files[@]}
+do
+	substr=$(echo $file | rev | cut -d'/' -f 1 | rev)
+	if [ "$substr" > "$curr_instance" ]
+	then
+		echo $file
+		# echo $substr
+		for num_vehicles in ${num_vehicles_vec[@]}
+        do
+			for service_time_deviation in ${service_time_deviation_vec[@]}
+        	do
+				for uncertainty_budget in ${uncertainty_budget_vec[@]}
+        		do
+					# echo $num_vehicles
+					# echo $service_time_deviation
+					# echo $uncertainty_budget
+					./bin/stop --compact --baseline --time-limit $time_limit --instance $file --num-vehicles $num_vehicles --uncertainty-budget $uncertainty_budget --service-time-deviation $service_time_deviation
+                    ./bin/stop --compact --capacity-based --time-limit $time_limit --instance $file --num-vehicles $num_vehicles --uncertainty-budget $uncertainty_budget --service-time-deviation $service_time_deviation
+                    ./bin/stop --cutting-plane --baseline --AVICs --CCCs --time-limit $time_limit --instance $file --num-vehicles $num_vehicles --uncertainty-budget $uncertainty_budget --service-time-deviation $service_time_deviation
+                    ./bin/stop --cutting-plane --capacity-based --AVICs --CCCs --time-limit $time_limit --instance $file --num-vehicles $num_vehicles --uncertainty-budget $uncertainty_budget --service-time-deviation $service_time_deviation
+                done
+			done
+		done 
+	fi
+done

@@ -16,6 +16,7 @@ private:
 	int uncertainty_budget_ = 0;
 	double service_time_deviation_ = 0.0;
 	double limit_ = 0.0;
+	std::string raw_file_name_;
 	int num_mandatory_ = 0;
 	bool found_maximal_cliques_ = false;
 	double time_spent_in_preprocessing_ = 0.0;
@@ -37,6 +38,7 @@ public:
 	explicit Instance() = default;
 	explicit Instance(std::string dir_path, std::string file_name, int num_vehicles, double service_time_deviation, int uncertainty_budged, bool pre_process_graph);
 	virtual ~Instance();
+	std::string GetInstanceName() const;
 	void FillInstanceFromFile(std::string dir_path, std::string file_name, double service_time_deviation);
 	void AddMandatoryVertices(double mandatory_percentage);
 	void WriteToFile(std::string dir_path, std::string curr_file);

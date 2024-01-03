@@ -145,7 +145,7 @@ void Instance::ReorderMandatoryVertices()
 }
 
 Instance::Instance(std::string dir_path, std::string file_name, int num_vehicles, double service_time_deviation, int uncertainty_budged, bool pre_process_graph):
-num_vehicles_(num_vehicles), service_time_deviation_(service_time_deviation), uncertainty_budget_(uncertainty_budged)
+num_vehicles_(num_vehicles), service_time_deviation_(service_time_deviation), uncertainty_budget_(uncertainty_budged), raw_file_name_(file_name)
 {
     FillInstanceFromFile(dir_path,file_name,service_time_deviation);
 
@@ -167,6 +167,20 @@ Instance::~Instance()
         delete conflict_graph_;
         conflict_graph_ = nullptr;
     }
+}
+
+std::string Instance::GetInstanceName() const
+{
+    std::ostringstream stream;
+    stream << std::fixed;
+    stream << std::setprecision(2);
+    stream << service_time_deviation_;
+
+    size_t pos = raw_file_name_.find(".txt");
+
+    std::string raw_file_name_without_txt = raw_file_name_.substr(0,raw_file_name_.length() - pos+1);
+
+    return raw_file_name_without_txt + "_v" + std::to_string(num_vehicles_) + "_d" + stream.str() + "_b" + std::to_string(uncertainty_budget_) + ".txt";
 }
 
 void Instance::set_graph(Graph * graph)
