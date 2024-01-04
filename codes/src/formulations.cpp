@@ -1043,10 +1043,10 @@ void optimize(IloCplex & cplex, IloEnv& env, IloModel& model, IloNumVarArray & y
 
   if(!double_equals(total_time_limit,-1))
   {
-    //std::cout << total_time_limit - instance.time_spent_in_preprocessing_ << std::endl;
+    std::cout << total_time_limit - instance.time_spent_in_preprocessing() << std::endl;
     cplex.setParam(IloCplex::Param::ClockType,2);
     cplex.setParam(IloCplex::Param::TimeLimit, total_time_limit - instance.time_spent_in_preprocessing());
-    //std::cout << total_time_limit << " - " << instance.time_spent_in_preprocessing_ << std::endl;
+    std::cout << total_time_limit << " - " << instance.time_spent_in_preprocessing() << std::endl;
   }
 
   timer->Clock(ti);
@@ -1129,6 +1129,7 @@ void optimize(IloCplex & cplex, IloEnv& env, IloModel& model, IloNumVarArray & y
   if(solve_relax) solution.root_time_ = timer->ElapsedTime(ti,tf);
   else solution.milp_time_ += (timer->ElapsedTime(ti,tf) + instance.time_spent_in_preprocessing());
 
+  std::cout << "time spent: " << timer->ElapsedTime(ti,tf) << std::endl;
   SetSolutionStatus(cplex,solution,solve_relax);
 
   delete(ti);

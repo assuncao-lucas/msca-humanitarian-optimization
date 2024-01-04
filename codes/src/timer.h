@@ -68,12 +68,12 @@ class LinTimestamp: public Timestamp
 {
 public:
 	LinTimestamp();
-	LinTimestamp(timeval time);
+	LinTimestamp(struct timespec time);
 	virtual ~LinTimestamp();
-	timeval time();
-	void set_time(timeval);
+	struct timespec time();
+	void set_time(struct timespec);
 private:
-	timeval time_;
+	struct timespec time_;
 };
 
 class LinTimer: public Timer

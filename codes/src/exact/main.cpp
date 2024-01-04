@@ -2724,7 +2724,7 @@ void ParseArgumentsAndRun(int argc, char* argv[] )
 	//std::cout << "* " << folder << " " << file_name << std::endl;
 
 	//std::cout << num_vehicles << " " << service_time_deviation << " " << uncertainty_budget << std::endl;
-	Instance inst(folder,file_name,num_vehicles,service_time_deviation,uncertainty_budget,true);
+	Instance inst(folder,file_name,num_vehicles,service_time_deviation,uncertainty_budget,false);
 	const Graph* graph = inst.graph();
 	std::string instance_name = inst.GetInstanceName();
 	std::cout << instance_name << std::endl;
