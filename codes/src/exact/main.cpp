@@ -2656,6 +2656,7 @@ static const struct option longOpts[] = {
 	{ "uncertainty-budget", required_argument, NULL, 'k' },
 	{ "CCCs", no_argument, NULL, 'l' },
 	{ "AVICs", no_argument, NULL, 'm' },
+	{ "solve-relaxed", no_argument, NULL, 'n' },
 	{ NULL, no_argument, NULL, 0 }
 };
 
@@ -2665,6 +2666,7 @@ void ParseArgumentsAndRun(int argc, char* argv[] )
 	int c;
 	int num_vehicles = 0, uncertainty_budget = 0;
 	bool solve_compact = false, solve_cb = false, solve_bc = false, baseline = false, capacity_based = false, generate_convex_hull = false;
+	bool solve_relaxed = false;
 	double time_limit = 0.0, service_time_deviation = 0.0;
 	bool force_use_all_vehicles = false;
 	bool export_model = false;
@@ -2714,6 +2716,9 @@ void ParseArgumentsAndRun(int argc, char* argv[] )
 			case 'm':
 			(*CALLBACKS_SELECTION)[K_TYPE_INITIAL_ARC_VERTEX_INFERENCE_CUT] = true;
 			break;
+			case 'n':
+			solve_relaxed = true;
+			break;
 		}
 	}
 
@@ -2741,15 +2746,14 @@ void ParseArgumentsAndRun(int argc, char* argv[] )
 			std::list<UserCutGeneral*> * root_cuts = nullptr;
 
 			// compute relaxation just to get limits at root node.
-			bool solve_relaxed = true;
 			bool use_valid_inequalities = false;
 			bool find_root_cuts = false;
-			CompactBaseline(inst,R0,Rn,time_limit,solve_relaxed,use_valid_inequalities,find_root_cuts,nullptr,nullptr,force_use_all_vehicles,export_model,root_cuts,sol);
+			CompactBaseline(inst,R0,Rn,time_limit,true,use_valid_inequalities,find_root_cuts,nullptr,nullptr,force_use_all_vehicles,export_model,root_cuts,sol);
 	
-			solve_relaxed = false;
-			CompactBaseline(inst,R0,Rn,time_limit,solve_relaxed,use_valid_inequalities,find_root_cuts,nullptr,nullptr,force_use_all_vehicles,export_model,root_cuts,sol);
+			if(!solve_relaxed)
+				CompactBaseline(inst,R0,Rn,time_limit,false,use_valid_inequalities,find_root_cuts,nullptr,nullptr,force_use_all_vehicles,export_model,root_cuts,sol);
 			std::string algo;
-			//if(K_STOP) algo += "stop_";
+			if(solve_relaxed) algo += "relax_";
 			algo += "baseline";
 			//std::cout << algo << std::endl;
 			sol.write_to_file(algo,"//",instance_name);
@@ -2760,14 +2764,17 @@ void ParseArgumentsAndRun(int argc, char* argv[] )
 			std::list<UserCutGeneral*> * root_cuts = nullptr;
 
 			// compute relaxation just to get limits at root node.
-			bool solve_relaxed = true;
 			bool use_valid_inequalities = false;
 			bool find_root_cuts = false;
-			CompactSingleCommodity(inst,R0,Rn,time_limit,solve_relaxed,use_valid_inequalities,find_root_cuts,nullptr,nullptr,force_use_all_vehicles,export_model,root_cuts,sol);
+			CompactSingleCommodity(inst,R0,Rn,time_limit,true,use_valid_inequalities,find_root_cuts,nullptr,nullptr,force_use_all_vehicles,export_model,root_cuts,sol);
 	
-			solve_relaxed = false;
-			CompactSingleCommodity(inst,R0,Rn,time_limit,solve_relaxed,use_valid_inequalities,find_root_cuts,nullptr,nullptr,force_use_all_vehicles,export_model, root_cuts,sol);
-			sol.write_to_file("csc","//",instance_name);
+			if(!solve_relaxed)
+				CompactSingleCommodity(inst,R0,Rn,time_limit,false,use_valid_inequalities,find_root_cuts,nullptr,nullptr,force_use_all_vehicles,export_model, root_cuts,sol);
+			std::string algo;
+			if(solve_relaxed) algo += "relax_";
+			algo += "csc";
+			//std::cout << algo << std::endl;
+			sol.write_to_file(algo,"//",instance_name);
 		}
 	}
 
@@ -2777,39 +2784,45 @@ void ParseArgumentsAndRun(int argc, char* argv[] )
 
 		if(baseline)
 		{
-			bool solve_relaxed = true;
 			bool use_valid_inequalities = false;
 			bool find_root_cuts = true;
-			CompactBaseline(inst,R0,Rn,time_limit,solve_relaxed,use_valid_inequalities,find_root_cuts,nullptr,nullptr,force_use_all_vehicles,export_model,root_cuts,sol);
+			CompactBaseline(inst,R0,Rn,time_limit,true,use_valid_inequalities,find_root_cuts,nullptr,nullptr,force_use_all_vehicles,export_model,root_cuts,sol);
 	
 			if(time_limit != -1) time_limit = std::max(0.0, time_limit - sol.root_time_);
 			sol.milp_time_ = sol.root_time_;
 
-			solve_relaxed = false;
 			use_valid_inequalities = true;
 			find_root_cuts = false;
-			CompactBaseline(inst,R0,Rn,time_limit,solve_relaxed,use_valid_inequalities,find_root_cuts,root_cuts,nullptr,force_use_all_vehicles,export_model,nullptr,sol);
-	
-			sol.write_to_file("cb_baseline","//",instance_name);
+			if(!solve_relaxed)
+				CompactBaseline(inst,R0,Rn,time_limit,false,use_valid_inequalities,find_root_cuts,root_cuts,nullptr,force_use_all_vehicles,export_model,nullptr,sol);
+
+			std::string algo;
+			if(solve_relaxed) algo += "relax_";
+			algo += "cb_baseline";
+			//std::cout << algo << std::endl;
+			sol.write_to_file(algo,"//",instance_name);
 		}
 
 		if(capacity_based)
 		{
-			bool solve_relaxed = true;
 			bool use_valid_inequalities = false;
 			bool find_root_cuts = true;
 			
-			CompactSingleCommodity(inst,R0,Rn,time_limit,solve_relaxed,use_valid_inequalities,find_root_cuts,nullptr,nullptr,force_use_all_vehicles,export_model,root_cuts,sol);
+			CompactSingleCommodity(inst,R0,Rn,time_limit,true,use_valid_inequalities,find_root_cuts,nullptr,nullptr,force_use_all_vehicles,export_model,root_cuts,sol);
 	
 			if(time_limit != -1) time_limit = std::max(0.0, time_limit - sol.root_time_);
 			sol.milp_time_ = sol.root_time_;
 
-			solve_relaxed = false;
 			use_valid_inequalities = true;
 			find_root_cuts = false;
-			CompactSingleCommodity(inst,R0,Rn,time_limit,solve_relaxed,use_valid_inequalities,find_root_cuts,root_cuts,nullptr,force_use_all_vehicles,export_model,nullptr,sol);
+			if(!solve_relaxed)
+				CompactSingleCommodity(inst,R0,Rn,time_limit,false,use_valid_inequalities,find_root_cuts,root_cuts,nullptr,force_use_all_vehicles,export_model,nullptr,sol);
 	
-			sol.write_to_file("cb_csc","//",instance_name);
+			std::string algo;
+			if(solve_relaxed) algo += "relax_";
+			algo += "cb_csc";
+			//std::cout << algo << std::endl;
+			sol.write_to_file(algo,"//",instance_name);
 		}
 
 		DeleteCuts(root_cuts);

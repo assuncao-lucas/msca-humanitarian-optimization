@@ -32,5 +32,8 @@
 *.app
 */bin/*
 
+# solutions
+solutions/*
+
 # cplex models
 *.lp

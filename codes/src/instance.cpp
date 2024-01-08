@@ -370,7 +370,7 @@ void Instance::ComputeConflictGraph()
     conflict_graph_ = new std::vector<std::list<int>>(num_vertices,std::list<int>());
 
     Matrix<double> * min_paths_dist = nullptr;
-    double dist1 = 0.0, dist2 = 0.0, dist_j_from_i = 0.0, dist_i_from_j = 0.0, deadline_i = 0.0, deadline_j = 0.0;
+    double total_dist1 = 0.0, total_dist2 = 0.0, dist_j_from_i = 0.0, dist_i_from_j = 0.0, deadline_i = 0.0, deadline_j = 0.0;
     int cont = 0;
 
     min_paths_dist = FloydWarshall(graph);
@@ -383,28 +383,23 @@ void Instance::ComputeConflictGraph()
             {
                 if(!( graph->AdjVerticesOut(j).empty())) // if vertice is reachable
                 {
-                    dist1 = (*min_paths_dist)[0][i] + vertices_info[i].nominal_service_time_ + vertices_info[j].nominal_service_time_ + (*min_paths_dist)[i][j] + (*min_paths_dist)[j][0];
-                    dist2 = (*min_paths_dist)[0][j] + vertices_info[i].nominal_service_time_ + vertices_info[j].nominal_service_time_ + (*min_paths_dist)[j][i] + (*min_paths_dist)[i][0];
-
-                    // if vertices i and j do not belong to a path from s to t that satisfies the length limit.
-                    if(double_greater(dist1,limit_) && double_greater(dist2,limit_))
-                    {
-                        ++cont;
-                        ((*(conflict_graph_))[i]).push_back(j);
-                        ((*(conflict_graph_))[j]).push_back(i);
-                        (conflict_matrix_)[i][j] = (conflict_matrix_)[j][i] =  true;
-                        continue;
-                    }
+                    total_dist1 = (*min_paths_dist)[0][i] + vertices_info[i].nominal_service_time_ + vertices_info[j].nominal_service_time_ + (*min_paths_dist)[i][j] + (*min_paths_dist)[j][0];
+                    total_dist2 = (*min_paths_dist)[0][j] + vertices_info[i].nominal_service_time_ + vertices_info[j].nominal_service_time_ + (*min_paths_dist)[j][i] + (*min_paths_dist)[i][0];
 
                     dist_j_from_i = (*min_paths_dist)[0][i] + vertices_info[i].nominal_service_time_ + (*min_paths_dist)[i][j];
                     dist_i_from_j = (*min_paths_dist)[0][j] + vertices_info[j].nominal_service_time_ + (*min_paths_dist)[j][i];
                     
                     deadline_i = round_decimals(vertices_info[i].profit_/vertices_info[i].decay_ratio_,2);
                     deadline_j = round_decimals(vertices_info[j].profit_/vertices_info[j].decay_ratio_,2);
-                    if( double_greater(dist_j_from_i,deadline_j) && double_greater(dist_i_from_j,deadline_i) )
+
+                    bool route_i_from_j_invalid = double_greater(total_dist1,limit_) || double_greater(dist_j_from_i,deadline_j);
+                    bool route_j_from_i_invalid = double_greater(total_dist2,limit_) || double_greater(dist_i_from_j,deadline_i);
+                    
+                    if( route_i_from_j_invalid && route_j_from_i_invalid )
+                    //if(double_greater(total_dist1,limit_) && double_greater(total_dist2,limit_))
                     {
                         ++cont;
-                        std::cout << " COLOCOU A MAIS!" << std::endl;
+                        //std::cout << " COLOCOU A MAIS!" << std::endl;
                         ((*(conflict_graph_))[i]).push_back(j);
                         ((*(conflict_graph_))[j]).push_back(i);
                         (conflict_matrix_)[i][j] = (conflict_matrix_)[j][i] =  true;
