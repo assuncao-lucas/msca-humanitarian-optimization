@@ -13,13 +13,14 @@ dir0="../instances/R-STOP-DP-reduced"
 
 curr_instance="a"
 files=()
+# total
 #num_vehicles_vec=(2 3 4 5)
 #service_time_deviation_vec=(0.1 0.25 0.5)
 #uncertainty_budget_vec=(0 1 5 10)
 num_vehicles_vec=(2 4)
 service_time_deviation_vec=(0.5)
 uncertainty_budget_vec=(1 5)
-time_limit=3600.0
+time_limit=3600
 
 cont=0
 for file in $dir0/*.txt
@@ -33,7 +34,7 @@ do
 	substr=$(echo $file | rev | cut -d'/' -f 1 | rev)
 	if [ "$substr" > "$curr_instance" ]
 	then
-		echo $file
+		# echo $file
 		# echo $substr
 		for num_vehicles in ${num_vehicles_vec[@]}
         do
@@ -46,8 +47,8 @@ do
 					# echo $uncertainty_budget
 					./bin/stop --compact --baseline --time-limit $time_limit --instance $file --num-vehicles $num_vehicles --uncertainty-budget $uncertainty_budget --service-time-deviation $service_time_deviation
                     ./bin/stop --compact --capacity-based --time-limit $time_limit --instance $file --num-vehicles $num_vehicles --uncertainty-budget $uncertainty_budget --service-time-deviation $service_time_deviation
-                    ./bin/stop --cutting-plane --baseline --AVICs --CCCs --time-limit $time_limit --instance $file --num-vehicles $num_vehicles --uncertainty-budget $uncertainty_budget --service-time-deviation $service_time_deviation
-                    ./bin/stop --cutting-plane --capacity-based --AVICs --CCCs --time-limit $time_limit --instance $file --num-vehicles $num_vehicles --uncertainty-budget $uncertainty_budget --service-time-deviation $service_time_deviation
+                    # ./bin/stop --cutting-plane --baseline --AVICs --CCCs --time-limit $time_limit --instance $file --num-vehicles $num_vehicles --uncertainty-budget $uncertainty_budget --service-time-deviation $service_time_deviation
+                    # ./bin/stop --cutting-plane --capacity-based --AVICs --CCCs --time-limit $time_limit --instance $file --num-vehicles $num_vehicles --uncertainty-budget $uncertainty_budget --service-time-deviation $service_time_deviation
                 done
 			done
 		done 

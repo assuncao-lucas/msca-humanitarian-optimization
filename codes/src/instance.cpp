@@ -178,7 +178,8 @@ std::string Instance::GetInstanceName() const
 
     size_t pos = raw_file_name_.find(".txt");
 
-    std::string raw_file_name_without_txt = raw_file_name_.substr(0,raw_file_name_.length() - pos+1);
+    std::string raw_file_name_without_txt = raw_file_name_.substr(0,pos);
+    std::cout << raw_file_name_without_txt << std::endl;
 
     return raw_file_name_without_txt + "_v" + std::to_string(num_vehicles_) + "_d" + stream.str() + "_b" + std::to_string(uncertainty_budget_) + ".txt";
 }

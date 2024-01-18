@@ -61,7 +61,7 @@ void split_file_path(std::string directory, std::string& folder, std::string& fi
     std::string reversed = directory;
     std::reverse(reversed.begin(),reversed.end());
     size_t pos = reversed.find_first_of("//");
-    size_t pos2 = reversed.find("PD-POTS-R"); // R-STOP-DP reversed
+    // size_t pos2 = reversed.find("PD-POTS-R"); // R-STOP-DP reversed
     folder = reversed.substr(pos);
     file_name = reversed.substr(0,pos);
 
