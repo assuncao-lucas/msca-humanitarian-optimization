@@ -33,7 +33,7 @@
 */bin/*
 
 # solutions
-solutions/*
+# solutions/*
 
 # cplex models
 *.lp
