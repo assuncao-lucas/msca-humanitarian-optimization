@@ -2,8 +2,8 @@ STATUS: FEASIBLE
 LP: 613.50
 Lb: -inf
 Ub: inf
-Root time(s): 0.09
-MILP time(s): 0.09
+Root time(s): 0.11
+MILP time(s): 0.11
 Separation time(s): 0.00
 # iterations of cutting plane at root: 3
 # cuts added/found via callback (LP): 
