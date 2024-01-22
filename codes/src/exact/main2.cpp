@@ -278,12 +278,14 @@ void GenerateLPImprovementsLatexTable()
 
 	instance_sizes.push_back("25");
 	instance_sizes.push_back("50");
-	instance_sizes.push_back("100");
+	//instance_sizes.push_back("100");
 
-	instance_limit_quantiles.push_back("1");
-	instance_limit_quantiles.push_back("2");
-	instance_limit_quantiles.push_back("3");
-	instance_limit_quantiles.push_back("4");
+	instance_limit_quantiles.push_back("0.5");
+
+	// instance_limit_quantiles.push_back("1");
+	// instance_limit_quantiles.push_back("2");
+	// instance_limit_quantiles.push_back("3");
+	// instance_limit_quantiles.push_back("4");
 
 	std::fstream output;
 	std::string output_name = "..//tables//latex//table_LP_improvements.txt";
