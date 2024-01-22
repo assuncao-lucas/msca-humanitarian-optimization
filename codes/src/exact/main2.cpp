@@ -405,7 +405,9 @@ void GenerateLPImprovementsLatexTable()
 
 				for(size_t algo = 1; algo < algorithms.size(); ++algo)
 				{
-					avg_improvement[algo]/=(1.0*((improvement_per_algo[algo]).size()));
+					if(improvement_per_algo[algo].size() > 0)
+						avg_improvement[algo]/=(1.0*((improvement_per_algo[algo]).size()));
+					else avg_improvement[algo] = -1;
 					st_dev[algo] = StDev(improvement_per_algo[algo],avg_improvement[algo]);
 					output << " & & "<< avg_improvement[algo] << " & " << st_dev[algo];
 				}
@@ -416,7 +418,9 @@ void GenerateLPImprovementsLatexTable()
 
 		for(size_t algo = 1; algo < algorithms.size(); ++algo)
 		{
-			avg_improvement_per_inst_size[algo]/=(1.0*((improvement_per_algo_inst_size[algo]).size()));
+			if ((improvement_per_algo_inst_size[algo]).size() > 0)
+				avg_improvement_per_inst_size[algo]/=(1.0*((improvement_per_algo_inst_size[algo]).size()));
+			else avg_improvement_per_inst_size[algo] = -1;
 			st_dev_per_inst_size[algo] = StDev(improvement_per_algo_inst_size[algo],avg_improvement_per_inst_size[algo]);
 			output << " & & "<< avg_improvement_per_inst_size[algo] << " & " << st_dev_per_inst_size[algo];
 		}
@@ -427,7 +431,9 @@ void GenerateLPImprovementsLatexTable()
 	for(size_t algo = 1; algo < algorithms.size(); algo++)
 	{
 		//std::cout << total_improvement_per_algo[j].size() << std::endl;
-		total_avg_improvement[algo]/=(1.0*((total_improvement_per_algo[algo]).size()));
+		if((total_improvement_per_algo[algo]).size() >0)
+			total_avg_improvement[algo]/=(1.0*((total_improvement_per_algo[algo]).size()));
+		else total_avg_improvement[algo] = -1;
 		output << "& & "<< total_avg_improvement[algo] << " & " << StDev(total_improvement_per_algo[algo],total_avg_improvement[algo]);
 	}
 
