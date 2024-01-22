@@ -10,8 +10,435 @@
 #include "src/timer.h"
 #include "src/graph_algorithms.h"
 
+void GenerateAlgorithmsLatexTable(double total_time_limit)
+{
+	std::string curr_file;
+	std::vector<std::string> algorithms;
+	std::vector<std::string> instance_sizes;
+	std::vector<std::string> instance_types;
+	std::vector<std::string> instance_limit_quantiles;
+
+	std::vector<std::string> num_vehicles_vec{"2","4"};
+	std::vector<std::string> service_time_deviation_vec{"0.50"};
+	std::vector<std::string> uncertainty_budget_vec{"1","5"};
+
+	std::vector<std::string> instances_terminations;
+
+	for(auto num_vehicles: num_vehicles_vec)
+		for(auto service_time_deviation: service_time_deviation_vec)
+			for (auto uncertainty_budget: uncertainty_budget_vec)
+				instances_terminations.push_back("_v" + num_vehicles + "_d" + service_time_deviation + "_b" + uncertainty_budget + ".txt");
+
+	//algorithms.push_back("baseline");
+	algorithms.push_back("cb_baseline");
+	//algorithms.push_back("csc");
+	algorithms.push_back("cb_csc");
+
+	instance_types.push_back("C");
+	instance_types.push_back("R");
+	instance_types.push_back("RC");
+
+	instance_sizes.push_back("25");
+	instance_sizes.push_back("50");
+	//instance_sizes.push_back("100");
+
+	instance_limit_quantiles.push_back("1");
+	//instance_limit_quantiles.push_back("2");
+	instance_limit_quantiles.push_back("3");
+	//instance_limit_quantiles.push_back("4");
+
+	std::fstream output;
+	std::string output_name;
+	output_name = "..//tables//latex//table_algorithms.txt";
+	output.open(output_name.c_str(),std::fstream::out);
+
+	if(!output.is_open())
+	{
+		std::cout << "Could not open file " << output_name << std::endl;
+		throw 1;
+	}
+
+	//std::cout << output_name << std::endl;
+
+	output << std::setprecision(2) << std::fixed;
+
+	std::vector<std::vector<double>> total_time_per_algo(algorithms.size(),std::vector<double>());
+	std::vector<std::vector<double>> total_gap_per_algo(algorithms.size(),std::vector<double>());
+	std::vector<double> total_avg_time(algorithms.size(),0.0);
+	std::vector<double> total_avg_gap(algorithms.size(),0.0);
+	std::vector<int> total_num_optimal(algorithms.size(),0);
+	size_t num_inst_per_vertex_size_quantile = instance_types.size()*num_vehicles_vec.size()*service_time_deviation_vec.size()*uncertainty_budget_vec.size();
+	size_t num_inst_per_vertex_size = num_inst_per_vertex_size_quantile * instance_limit_quantiles.size();
+	size_t total_num_instances = num_inst_per_vertex_size * instance_sizes.size();
+
+	for(auto instance_size : instance_sizes)
+	{
+		std::vector<std::vector<double>> time_per_algo_inst_size(algorithms.size(),std::vector<double>());
+		std::vector<std::vector<double>> gap_per_algo_inst_size(algorithms.size(),std::vector<double>());
+		std::vector<double> avg_time_inst_size(algorithms.size(),0.0);
+		std::vector<double> avg_gap_inst_size(algorithms.size(),0.0);
+		std::vector<double> st_dev_inst_size(algorithms.size(),0.0);
+
+		std::vector<int> num_optimal_inst_size(algorithms.size(),0);
+
+		for(auto instance_type : instance_types)
+		{
+			for(auto instance_limit_quantile : instance_limit_quantiles)
+			{
+				std::vector<std::vector<double>> time_per_algo_quantile(algorithms.size(),std::vector<double>());
+				std::vector<std::vector<double>> gap_per_algo_quantile(algorithms.size(),std::vector<double>());
+				std::vector<double> avg_time_quantile(algorithms.size(),0.0);
+				std::vector<double> avg_gap_quantile(algorithms.size(),0.0);
+				std::vector<double> st_dev_quantile(algorithms.size(),0.0);
+
+				std::vector<int> num_optimal_quantile(algorithms.size(),0);
+
+				std::string instance_prefix = instance_type + instance_size + "_" + instance_limit_quantile;
+
+				for(auto instances_termination: instances_terminations)
+				{
+					std::string instance = instance_prefix + instances_termination;
+					std::cout << instance << std::endl;
+					double original_lp = 0.0;
+					for(size_t algo = 0; algo < algorithms.size(); ++algo)
+					{
+						curr_file = "..//solutions//";
+						curr_file.append("s_");
+						curr_file.append(algorithms[algo]);
+						curr_file.append("_");
+						curr_file.append(instance);
+
+						//std::cout << curr_file << std::endl;
+
+						std::fstream input;
+						input.open(curr_file.c_str(),std::fstream::in);
+
+						if(!input.is_open())
+						{
+							std::cout << "Could not open file " << curr_file << std::endl;
+							throw 4;
+						}
+
+						std::stringstream s_lb, s_ub, s_time;
+						std::string status;
+						double lb = 0.0, ub = 0.0, time = 0.0, gap = 0.0;
+						std::string line;
+
+						getline(input,line);
+						size_t pos = line.find_first_of(":");
+						status = line.substr(pos + 2);
+
+						std::string::iterator end_pos = std::remove(status.begin(),status.end(),' ');
+						status.erase(end_pos, status.end());
+
+						getline(input,line);
+						getline(input,line);
+						pos = line.find_first_of(":");
+						s_lb << line.substr(pos + 2);
+						if(s_lb.str() == "-inf") lb = -1;
+						else s_lb >> lb;
+
+						getline(input,line);
+						pos = line.find_first_of(":");
+						s_ub << line.substr(pos + 2);
+						if(s_ub.str() == "inf") ub = -1;
+						else s_ub >> ub;
+
+						getline(input,line);
+						getline(input,line);
+						pos = line.find_first_of(":");
+						s_time << line.substr(pos + 2);
+						s_time >> time;
+
+						if((status != "OPTIMAL") && (status != "INFEASIBLE"))
+						{
+							if((!(double_equals(lb,-1))) && (!(double_equals(ub,-1))))
+							{
+								if((!double_greater(ub,lb)))
+								{
+									++(num_optimal_inst_size[algo]);
+									++(num_optimal_quantile[algo]);
+									++(total_num_optimal[algo]);
+									time_per_algo_inst_size[algo].push_back(time);
+									time_per_algo_quantile[algo].push_back(time);
+									total_time_per_algo[algo].push_back(time);
+
+									total_avg_time[algo] += time;
+									avg_time_inst_size[algo] += time;
+									avg_time_quantile[algo] += time;
+								}else gap = (100.0*(ub-lb))/ub;
+							}else gap = 100.0;
+						}else
+						{
+							++(num_optimal_inst_size[algo]);
+							++(num_optimal_quantile[algo]);
+							++(total_num_optimal[algo]);
+							time_per_algo_inst_size[algo].push_back(time);
+							time_per_algo_quantile[algo].push_back(time);
+							total_time_per_algo[algo].push_back(time);
+
+							total_avg_time[algo] += time;
+							avg_time_inst_size[algo] += time;
+							avg_time_quantile[algo] += time;
+						}
+
+						//std::cout << "lp: " << lp << " improvement: " << curr_improvement << std::endl;
+
+						if(!double_equals(gap,0.0))
+						{
+							gap_per_algo_inst_size[algo].push_back(gap);
+							gap_per_algo_quantile[algo].push_back(gap);
+							total_gap_per_algo[algo].push_back(gap);
+
+							total_avg_gap[algo] += gap;
+							avg_gap_quantile[algo] += gap;
+							avg_gap_inst_size[algo] += gap;
+						}
+						input.close();
+					}
+
+					//getchar();getchar();
+				}
+
+				output << instance_type + instance_size + "Q" + instance_limit_quantile;
+
+				for(size_t algo = 0; algo < algorithms.size(); ++algo)
+				{
+					if((time_per_algo_quantile[algo]).size() > 0) avg_time_quantile[algo]/=(1.0*((time_per_algo_quantile[algo]).size()));
+					else avg_time_quantile[algo] = -1;
+					if((gap_per_algo_quantile[algo]).size() > 0)
+					{
+						avg_gap_quantile[algo]/=(1.0*((gap_per_algo_quantile[algo]).size()));
+						st_dev_quantile[algo] = StDev(gap_per_algo_quantile[algo],avg_gap_quantile[algo]);
+					}else avg_gap_quantile[algo] = st_dev_quantile[algo] = -1;
+					output << " & & " << num_optimal_quantile[algo] << "/" << num_inst_per_vertex_size_quantile << " & " << avg_time_quantile[algo] << " & " << avg_gap_quantile[algo] << " & " << st_dev_quantile[algo];
+				}
+				output << "\\\\" << std::endl;
+			}
+		}
+		output << "Sub-total";
+
+		for(size_t algo = 0; algo < algorithms.size(); ++algo)
+		{
+			if((time_per_algo_inst_size[algo]).size() > 0) avg_time_inst_size[algo]/=(1.0*((time_per_algo_inst_size[algo]).size()));
+			else avg_time_inst_size[algo] = -1;
+			if((gap_per_algo_inst_size[algo]).size() > 0)
+			{
+				avg_gap_inst_size[algo]/=(1.0*((gap_per_algo_inst_size[algo]).size()));
+				st_dev_inst_size[algo] = StDev(gap_per_algo_inst_size[algo],avg_gap_inst_size[algo]);
+			}else avg_gap_inst_size[algo] = st_dev_inst_size[algo] = -1;
+			output << " & & " << num_optimal_inst_size[algo] << "/" << num_inst_per_vertex_size << " & " << avg_time_inst_size[algo] << " & " << avg_gap_inst_size[algo] << " & " << st_dev_inst_size[algo];
+		}
+		output << "\\\\" << std::endl;
+	}
+
+	output << "Total";
+	for(size_t algo = 0; algo < algorithms.size(); ++algo)
+	{
+		//std::cout << total_improvement_per_algo[j].size() << std::endl;
+		if((total_time_per_algo[algo]).size() > 0) total_avg_time[algo]/=(1.0*((total_time_per_algo[algo]).size()));
+		else total_avg_time[algo] = -1;
+		if((total_gap_per_algo[algo]).size() > 0) total_avg_gap[algo]/=(1.0*((total_gap_per_algo[algo]).size()));
+		else total_avg_gap[algo] = -1;
+		output << "& & " << total_num_optimal[algo] << "/" << total_num_instances << " & " << total_avg_time[algo] << " & " << total_avg_gap[algo] << " & " << StDev(total_gap_per_algo[algo],total_avg_gap[algo]);
+	}
+
+	output << "\\\\" << std::endl;
+
+	output.close();
+}
+
+void GenerateLPImprovementsLatexTable()
+{
+	std::string curr_file;
+	std::vector<std::string> algorithms;
+	std::vector<std::string> instance_sizes;
+	std::vector<std::string> instance_types;
+	std::vector<std::string> instance_limit_quantiles;
+
+	std::vector<std::string> num_vehicles_vec{"2","3","4","5"};
+	std::vector<std::string> service_time_deviation_vec{"0.10","0.25","0.50"};
+	std::vector<std::string> uncertainty_budget_vec{"0","1","5"};
+
+	std::vector<std::string> instances_terminations;
+
+	for(auto num_vehicles: num_vehicles_vec)
+		for(auto service_time_deviation: service_time_deviation_vec)
+			for (auto uncertainty_budget: uncertainty_budget_vec)
+				instances_terminations.push_back("_v" + num_vehicles + "_d" + service_time_deviation + "_b" + uncertainty_budget + ".txt");
+
+	algorithms.push_back("relax_baseline");
+	algorithms.push_back("relax_cb_baseline");
+	algorithms.push_back("relax_csc");
+	algorithms.push_back("relax_cb_csc");
+
+	instance_types.push_back("C");
+	instance_types.push_back("R");
+	instance_types.push_back("RC");
+
+	instance_sizes.push_back("25");
+	instance_sizes.push_back("50");
+	instance_sizes.push_back("100");
+
+	instance_limit_quantiles.push_back("1");
+	instance_limit_quantiles.push_back("2");
+	instance_limit_quantiles.push_back("3");
+	instance_limit_quantiles.push_back("4");
+
+	std::fstream output;
+	std::string output_name = "..//tables//latex//table_LP_improvements.txt";
+	output.open(output_name.c_str(),std::fstream::out);
+
+	if(!output.is_open())
+	{
+		std::cout << "Could not open file " << output_name << std::endl;
+		throw 1;
+	}
+
+	//std::cout << output_name << std::endl;
+
+	output << std::setprecision(2) << std::fixed;
+
+	std::vector<std::vector<double>> total_improvement_per_algo(algorithms.size(),std::vector<double>());
+	std::vector<double> total_avg_improvement(algorithms.size(),0.0);
+
+	for(auto instance_size : instance_sizes)
+	{
+		std::vector<std::vector<double>> improvement_per_algo_inst_size(algorithms.size(),std::vector<double>());
+		std::vector<double> avg_improvement_per_inst_size(algorithms.size(),0.0);
+		std::vector<double> st_dev_per_inst_size(algorithms.size(),0.0);
+		for(auto instance_type : instance_types)
+		{
+			for(auto instance_limit_quantile : instance_limit_quantiles)
+			{
+				std::vector<std::vector<double>> improvement_per_algo(algorithms.size(),std::vector<double>());
+				std::vector<double> avg_improvement(algorithms.size(),0.0);
+				std::vector<double> st_dev(algorithms.size(),0.0);
+
+				std::string instance_prefix = instance_type + instance_size + "_" + instance_limit_quantile;
+
+				for(auto instances_termination: instances_terminations)
+				{
+					std::string instance = instance_prefix + instances_termination;
+					std::cout << instance << std::endl;
+					double original_lp = 0.0;
+					for(size_t algo = 0; algo < algorithms.size(); ++algo)
+					{
+						double curr_improvement = 0.0;
+						curr_file = "..//solutions//";
+						curr_file.append("s_");
+						curr_file.append(algorithms[algo]);
+						curr_file.append("_");
+						curr_file.append(instance);
+						//std::cout << curr_file << std::endl;
+
+						std::fstream input;
+						input.open(curr_file.c_str(),std::fstream::in);
+
+						if(!input.is_open())
+						{
+							std::cout << "Could not open file " << curr_file << std::endl;
+							continue;
+						}
+
+						std::stringstream s_lp;
+						std::string status;
+						double lp = 0.0;
+						std::string line;
+
+						getline(input,line);
+						size_t pos = line.find_first_of(":");
+						status = line.substr(pos + 2);
+
+						std::string::iterator end_pos = std::remove(status.begin(),status.end(),' ');
+						status.erase(end_pos, status.end());
+
+						getline(input,line);
+						pos = line.find_first_of(":");
+						s_lp << line.substr(pos + 2);
+
+						if(s_lp.str() == "inf") lp = -1;
+						else s_lp >> lp;
+
+						if(algo == 0)
+						{
+							if((double_equals(lp,-1)) || (status == "INFEASIBLE"))
+							{
+								original_lp = -1.0;
+							}else original_lp = lp;
+							curr_improvement = 0.0;
+						}else
+						{
+							if((double_equals(lp,-1)) || (status == "INFEASIBLE") || (double_equals(original_lp,-1)))
+							{
+								curr_improvement = -1;
+							}else
+							{
+								if(double_equals(original_lp,0.0)) curr_improvement = 0.0;
+								else curr_improvement = (100*(original_lp-lp))/original_lp;
+
+								if(double_less(curr_improvement,0)) std::cout << original_lp << " - " << lp << std::endl;
+								if(!double_greater(original_lp,lp)) std::cout << original_lp << " - " << lp << std::endl;
+							}
+						}
+
+						//std::cout << "lp: " << lp << " improvement: " << curr_improvement << std::endl;
+
+						if(!double_equals(curr_improvement,-1))
+						{
+							improvement_per_algo[algo].push_back(curr_improvement);
+							improvement_per_algo_inst_size[algo].push_back(curr_improvement);
+							total_improvement_per_algo[algo].push_back(curr_improvement);
+							total_avg_improvement[algo] += curr_improvement;
+							avg_improvement[algo] += curr_improvement;
+							avg_improvement_per_inst_size[algo] += curr_improvement;
+						}
+						input.close();
+					}
+
+					//getchar();getchar();
+				}
+
+				output << instance_type + instance_size + "Q" + instance_limit_quantile;
+
+				for(size_t algo = 1; algo < algorithms.size(); ++algo)
+				{
+					avg_improvement[algo]/=(1.0*((improvement_per_algo[algo]).size()));
+					st_dev[algo] = StDev(improvement_per_algo[algo],avg_improvement[algo]);
+					output << " & & "<< avg_improvement[algo] << " & " << st_dev[algo];
+				}
+				output << "\\\\" << std::endl;
+			}
+		}
+		output << "Subtotal";
+
+		for(size_t algo = 1; algo < algorithms.size(); ++algo)
+		{
+			avg_improvement_per_inst_size[algo]/=(1.0*((improvement_per_algo_inst_size[algo]).size()));
+			st_dev_per_inst_size[algo] = StDev(improvement_per_algo_inst_size[algo],avg_improvement_per_inst_size[algo]);
+			output << " & & "<< avg_improvement_per_inst_size[algo] << " & " << st_dev_per_inst_size[algo];
+		}
+		output << "\\\\" << std::endl;
+	}
+
+	output << "Total";
+	for(size_t algo = 1; algo < algorithms.size(); algo++)
+	{
+		//std::cout << total_improvement_per_algo[j].size() << std::endl;
+		total_avg_improvement[algo]/=(1.0*((total_improvement_per_algo[algo]).size()));
+		output << "& & "<< total_avg_improvement[algo] << " & " << StDev(total_improvement_per_algo[algo],total_avg_improvement[algo]);
+	}
+
+	output << "\\\\" << std::endl;
+
+	output.close();
+}
+
 int main()
 {
+	GenerateLPImprovementsLatexTable();
+	GenerateAlgorithmsLatexTable(4600);
+	return 0;
 	Instance inst("../instances/R-STOP-DP/","test.txt",1,0.25,3,false);
 	
 

@@ -4,7 +4,7 @@
 
 # valgrind --leak-check=yes --track-origins=yes
 
-dir0="../instances/R-STOP-DP"
+dir0="../instances/R-STOP-DP-reduced-0.5"
 
 # ./bin/stop --compact --baseline --time-limit 3600 --instance "../instances/R-STOP-DP/test.txt" --num-vehicles 1 --uncertainty-budget 3 --service-time-deviation 0.25
 # ./bin/stop --compact --capacity-based --time-limit 3600 --instance "../instances/R-STOP-DP/test.txt" --num-vehicles 1 --uncertainty-budget 3 --service-time-deviation 0.25
@@ -15,7 +15,7 @@ curr_instance="a"
 files=()
 # total
 num_vehicles_vec=(2 3 4 5)
-service_time_deviation_vec=(0.1 0.25 0.5)
+service_time_deviation_vec=(0.10 0.25 0.50)
 uncertainty_budget_vec=(0 1 5 10)
 # num_vehicles_vec=(2 4)
 # service_time_deviation_vec=(0.5)
