@@ -280,7 +280,7 @@ void GenerateLPImprovementsLatexTable()
 	instance_sizes.push_back("50");
 	//instance_sizes.push_back("100");
 
-	instance_limit_quantiles.push_back("0.5");
+	instance_limit_quantiles.push_back("0.8");
 
 	// instance_limit_quantiles.push_back("1");
 	// instance_limit_quantiles.push_back("2");

@@ -988,7 +988,7 @@ void optimize(IloCplex & cplex, IloEnv& env, IloModel& model, IloNumVarArray & y
   }
 
   if(K_MULTI_THREAD)
-    std::cout << "multi thread" << std::endl;
+    std::cout << "multi thread " << cplex.getNumCores() << std::endl;
   if(!K_MULTI_THREAD) cplex.setParam(IloCplex::Param::Threads, 1);
 
   if((initial_cuts != nullptr)&&(!(initial_cuts->empty())))

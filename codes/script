@@ -4,7 +4,7 @@
 
 # valgrind --leak-check=yes --track-origins=yes
 
-dir0="../instances/R-STOP-DP-reduced-0.5"
+dir0="../instances/R-STOP-DP-reduced-0.8-100"
 
 # ./bin/stop --compact --baseline --time-limit 3600 --instance "../instances/R-STOP-DP/test.txt" --num-vehicles 1 --uncertainty-budget 3 --service-time-deviation 0.25
 # ./bin/stop --compact --capacity-based --time-limit 3600 --instance "../instances/R-STOP-DP/test.txt" --num-vehicles 1 --uncertainty-budget 3 --service-time-deviation 0.25
@@ -34,7 +34,6 @@ do
 	substr=$(echo $file | rev | cut -d'/' -f 1 | rev)
 	if [ "$substr" > "$curr_instance" ]
 	then
-		# echo $file
 		# echo $substr
 		for num_vehicles in ${num_vehicles_vec[@]}
         do
