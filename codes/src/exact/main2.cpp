@@ -448,7 +448,7 @@ void GenerateLPImprovementsLatexTable()
 int main()
 {
 	GenerateLPImprovementsLatexTable();
-	GenerateAlgorithmsLatexTable(4600);
+	GenerateAlgorithmsLatexTable(3600);
 	return 0;
 	Instance inst("../instances/R-STOP-DP/","test.txt",1,0.25,3,false);
 	
