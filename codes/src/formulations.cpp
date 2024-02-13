@@ -13,9 +13,9 @@ ILOSTLBEGIN
 // Implementation class for the user-defined user cut callback.
 // The function BendersUserCallback allows to add Benders' cuts as user cuts.
 //
-ILOUSERCUTCALLBACK7(BendersUserCutCallback, IloCplex&, worker_cplex, IloObjective&, worker_obj,
-                           DualVariables&, dual_vars, IloNumVarArray&, y, IloNumVarArray&, x,
-                           IloNumVar&, dual_bound, Instance&, instance)
+ILOUSERCUTCALLBACK6(BendersUserCutCallback, IloCplex&, worker_cplex, IloObjective&, worker_obj,
+                           DualVariables&, dual_vars, MasterVariables&, master_vars, Instance&, instance,
+                           bool, combine_feas_op_cuts)
 {
   // only separate user cuts ad root node
   if(getNnodes() > 0)
@@ -28,13 +28,13 @@ ILOUSERCUTCALLBACK7(BendersUserCutCallback, IloCplex&, worker_cplex, IloObjectiv
   // Get the current solution.
   IloNumArray x_values(master_env);
   IloNumArray y_values(master_env);
-  IloNum dual_bound_value = getValue(dual_bound);
-  getValues(y_values, y);
-  getValues(x_values, x);
+  IloNum dual_bound_value = getValue(master_vars.dual_bound);
+  getValues(y_values, master_vars.y);
+  getValues(x_values, master_vars.x);
 
   // Benders' cut separation.
   IloExpr cut_expr(master_env);
-  IloBool sep_status = SeparateBendersCut(master_env,x,y,dual_bound,x_values,y_values,dual_bound_value, worker_cplex, dual_vars, instance, worker_obj, cut_expr);
+  IloBool sep_status = SeparateBendersCut(master_env,master_vars.x,master_vars.y,master_vars.dual_bound,x_values,y_values,dual_bound_value, worker_cplex, dual_vars, instance, worker_obj, cut_expr,combine_feas_op_cuts);
   if(sep_status)
   {
     //std::cout << "found new Cut" << std::endl;
@@ -53,21 +53,21 @@ ILOUSERCUTCALLBACK7(BendersUserCutCallback, IloCplex&, worker_cplex, IloObjectiv
 // Implementation class for the user-defined lazy constraint callback.
 // The function BendersLazyCallback allows to add Benders' cuts as lazy constraints.
 //
-ILOLAZYCONSTRAINTCALLBACK7(BendersLazyCallback, IloCplex&, worker_cplex, IloObjective&, worker_obj,
-                           DualVariables&, dual_vars, IloNumVarArray&, y, IloNumVarArray&, x,
-                           IloNumVar&, dual_bound, Instance&, instance)
+ILOLAZYCONSTRAINTCALLBACK6(BendersLazyCallback, IloCplex&, worker_cplex, IloObjective&, worker_obj,
+                           DualVariables&, dual_vars, MasterVariables&, master_vars, Instance&, instance,
+                           bool, combine_feas_op_cuts)
 {
   IloEnv master_env = getEnv();
   // Get the current solution.
   IloNumArray x_values(master_env);
   IloNumArray y_values(master_env);
-  IloNum dual_bound_value = getValue(dual_bound);
-  getValues(y_values, y);
-  getValues(x_values, x);
+  IloNum dual_bound_value = getValue(master_vars.dual_bound);
+  getValues(y_values, master_vars.y);
+  getValues(x_values, master_vars.x);
 
   // Benders' cut separation.
   IloExpr cut_expr(master_env);
-  IloBool sep_status = SeparateBendersCut(master_env,x,y,dual_bound,x_values,y_values,dual_bound_value, worker_cplex, dual_vars, instance, worker_obj, cut_expr);
+  IloBool sep_status = SeparateBendersCut(master_env,master_vars.x,master_vars.y,master_vars.dual_bound,x_values,y_values,dual_bound_value, worker_cplex, dual_vars, instance, worker_obj, cut_expr,combine_feas_op_cuts);
   if(sep_status)
   {
     //std::cout << "found new Cut" << std::endl;
@@ -86,7 +86,7 @@ ILOLAZYCONSTRAINTCALLBACK7(BendersLazyCallback, IloCplex&, worker_cplex, IloObje
 // This routine separates Benders' cuts violated by the current x solution.
 // Violated cuts are found by solving the worker LP
 //
-IloBool SeparateBendersCut(IloEnv& master_env, IloNumVarArray &x, IloNumVarArray &y, IloNumVar& dual_bound, IloNumArray &x_values, IloNumArray &y_values, IloNum dual_bound_value, IloCplex& worker_cplex, DualVariables& dual_vars, Instance & instance, IloObjective& worker_obj, IloExpr& cut_expr)
+IloBool SeparateBendersCut(IloEnv& master_env, IloNumVarArray &x, IloNumVarArray &y, IloNumVar& dual_bound, IloNumArray &x_values, IloNumArray &y_values, IloNum dual_bound_value, IloCplex& worker_cplex, DualVariables& dual_vars, Instance & instance, IloObjective& worker_obj, IloExpr& cut_expr, bool combine_feas_op_cuts)
 {
   // std::cout << "try to separate benders cut" << std::endl; 
   IloBool violatedCutFound = IloFalse;
@@ -97,7 +97,7 @@ IloBool SeparateBendersCut(IloEnv& master_env, IloNumVarArray &x, IloNumVarArray
   worker_model.remove(worker_obj);
   IloExpr obj_expr = worker_obj.getExpr();
   obj_expr.clear();
-  FillObjectiveExpressionDualCompactBaselineContinuousSpace(obj_expr,dual_vars,x_values,y_values,instance);
+  FillObjectiveExpressionDualCompactBaselineContinuousSpace(obj_expr,dual_vars,x_values,y_values,dual_bound_value,instance, combine_feas_op_cuts);
   worker_obj.setExpr(obj_expr);
   worker_model.add(worker_obj);
   obj_expr.end(); 
@@ -815,7 +815,7 @@ static void addArcVertexInferenceCuts(IloCplex& cplex, IloModel& model, IloEnv& 
   //cplex.exportModel("Testando.lp");
 }
 
-static void AddNamesToDualVariables(DualVariables& dual_vars, Instance& inst)
+static void AddNamesToDualVariables(DualVariables& dual_vars, Instance& inst, bool combine_feas_op_cuts)
 {
   const Graph* graph = inst.graph();
   const int num_vertices = graph->num_vertices();
@@ -875,6 +875,9 @@ static void AddNamesToDualVariables(DualVariables& dual_vars, Instance& inst)
       }
     }
   }
+
+  if(combine_feas_op_cuts)
+    dual_vars.u_dual_bound.setName("u_dual_bound");
 }
 
 void SetPriorityOrder(IloCplex & cplex, IloEnv & env, IloNumVarArray & x, Instance & instance, double * R0)
@@ -906,7 +909,7 @@ void SetPriorityOrder(IloCplex & cplex, IloEnv & env, IloNumVarArray & x, Instan
 cplex.setPriorities(x, pri_order);*/
 }
 
-void optimize(IloCplex & cplex, IloEnv& env, IloModel& model, IloNumVarArray & y, IloNumVarArray & x, std::optional<std::reference_wrapper<IloNumVar>> dual_bound_opt, Instance& instance, double total_time_limit, bool solve_relax, bool apply_benders, bool use_valid_inequalities, bool find_root_cuts, double * R0, double * Rn, std::list<UserCutGeneral*> * initial_cuts, HeuristicSolution * initial_sol, bool export_model, std::list<UserCutGeneral*>* root_cuts, Solution<double>& solution)
+void optimize(IloCplex & cplex, IloEnv& env, IloModel& model, MasterVariables& master_vars, Instance& instance, double total_time_limit, bool solve_relax, bool apply_benders, bool combine_feas_op_cuts, bool use_valid_inequalities, bool find_root_cuts, double * R0, double * Rn, std::list<UserCutGeneral*> * initial_cuts, HeuristicSolution * initial_sol, bool export_model, std::list<UserCutGeneral*>* root_cuts, Solution<double>& solution)
 {
   const Graph* graph = instance.graph();
   int num_vertices = graph->num_vertices();
@@ -938,7 +941,7 @@ void optimize(IloCplex & cplex, IloEnv& env, IloModel& model, IloNumVarArray & y
     }
 
     if((*CALLBACKS_SELECTION)[K_TYPE_INITIAL_ARC_VERTEX_INFERENCE_CUT])
-      addArcVertexInferenceCuts(cplex,model,env,x,y,instance,solve_relax,solution);
+      addArcVertexInferenceCuts(cplex,model,env,master_vars.x,master_vars.y,instance,solve_relax,solution);
   }
   
   if(apply_benders)
@@ -966,13 +969,13 @@ void optimize(IloCplex & cplex, IloEnv& env, IloModel& model, IloNumVarArray & y
     worker_model.add(*worker_obj);
 
     worker_vars = DualVariables{};
-    AllocateDualVariables(*worker_env,*worker_vars,instance);
+    AllocateDualVariables(*worker_env,*worker_vars,instance,combine_feas_op_cuts);
 
-    PopulateByRowDualCompactBaselineContinuousSpace(*worker_env,worker_model,*worker_vars,instance);
-    SetDualVariablesProperties(env,*worker_vars,x,y,instance);
+    PopulateByRowDualCompactBaselineContinuousSpace(*worker_env,worker_model,*worker_vars,instance,combine_feas_op_cuts);
+    SetDualVariablesProperties(env,*worker_vars,master_vars.x,master_vars.y,instance,master_vars.dual_bound,combine_feas_op_cuts);
 
     if(export_model)
-      AddNamesToDualVariables(*worker_vars,instance);
+      AddNamesToDualVariables(*worker_vars,instance,combine_feas_op_cuts);
 
     // only add lazy constraint callback if solving the integer problem.
     if(!solve_relax)
@@ -982,7 +985,7 @@ void optimize(IloCplex & cplex, IloEnv& env, IloModel& model, IloNumVarArray & y
       // Turn on traditional search for use with control callbacks.
       cplex.setParam(IloCplex::Param::MIP::Strategy::Search,
                             IloCplex::Traditional);
-      cplex.use(BendersLazyCallback(env,*worker_cplex,*worker_obj,*worker_vars,y,x,dual_bound_opt->get(),instance));
+      cplex.use(BendersLazyCallback(env,*worker_cplex,*worker_obj,*worker_vars,master_vars,instance,combine_feas_op_cuts));
       //cplex.use(BendersUserCutCallback(env,*worker_cplex,*worker_obj,*worker_vars,y,x,dual_bound_opt->get(),instance));
     }
   }
@@ -1008,14 +1011,14 @@ void optimize(IloCplex & cplex, IloEnv& env, IloModel& model, IloNumVarArray & y
             int v1 = (*it2).first;
             int v2 = (*it2).second;
             //std::cout << "(" << v1 << "," << v2 << ") ";
-            exp += operator*(x[graph->pos(v1,v2)],(curr_user_cut->lhs_)[graph->pos(v1,v2)]);
+            exp += operator*(master_vars.x[graph->pos(v1,v2)],(curr_user_cut->lhs_)[graph->pos(v1,v2)]);
           }
 
           //std::cout << "y ";
           for(std::list<int>::iterator it2 = curr_user_cut->rhs_nonzero_coefficients_indexes_.begin(); it2 != curr_user_cut->rhs_nonzero_coefficients_indexes_.end(); it2++)
           {
             //std::cout << *it2 << " ";
-            exp -= y[*it2];
+            exp -= master_vars.y[*it2];
           }
           // std::cout << std::endl;
 
@@ -1092,16 +1095,16 @@ void optimize(IloCplex & cplex, IloEnv& env, IloModel& model, IloNumVarArray & y
     {
       IloNumArray x_values(env);
       IloNumArray y_values(env);
-      cplex.getValues(y_values, y);
-      cplex.getValues(x_values, x);
+      cplex.getValues(y_values, master_vars.y);
+      cplex.getValues(x_values, master_vars.x);
 
       if (apply_benders)
       {
-        IloNum dual_bound_value = cplex.getValue(dual_bound_opt->get());
+        IloNum dual_bound_value = cplex.getValue(master_vars.dual_bound);
 
         // Benders' cut separation.
         IloExpr cut_expr(env);
-        IloBool sep_status = SeparateBendersCut(env,x,y,dual_bound_opt->get(),x_values,y_values,dual_bound_value, *worker_cplex, *worker_vars, instance, *worker_obj, cut_expr);
+        IloBool sep_status = SeparateBendersCut(env,master_vars.x,master_vars.y,master_vars.dual_bound,x_values,y_values,dual_bound_value, *worker_cplex, *worker_vars, instance, *worker_obj, cut_expr, combine_feas_op_cuts);
         if(sep_status)
         {
           //std::cout << "found new Cut" << std::endl;
@@ -1115,7 +1118,7 @@ void optimize(IloCplex & cplex, IloEnv& env, IloModel& model, IloNumVarArray & y
       }
 
       if( (use_valid_inequalities || find_root_cuts) && double_less(curr_bound,previous_bound,K_TAILING_OFF_TOLERANCE))
-        found_cuts |= FindAndAddValidInqualities(cplex,env,model,y,x,y_values,x_values,instance,solution,root_cuts);
+        found_cuts |= FindAndAddValidInqualities(cplex,env,model,master_vars.y,master_vars.x,y_values,x_values,instance,solution,root_cuts);
 
       // Free memory.
       x_values.end();
@@ -1193,36 +1196,22 @@ void optimizeLP(IloCplex & cplex, IloEnv& env, IloModel& model, Instance& instan
   tf = nullptr;
 }
 
-void BendersCompactBaseline(Instance& inst, double * R0, double * Rn, double time_limit, bool solve_relax, bool use_valid_inequalities, bool find_root_cuts, std::list<UserCutGeneral*> * initial_cuts, HeuristicSolution * initial_sol, bool force_use_all_vehicles, bool export_model, Solution<double>& solution)
+void BendersCompactBaseline(Instance& inst, double * R0, double * Rn, double time_limit, bool combine_feas_op_cuts, bool solve_relax, bool use_valid_inequalities, bool find_root_cuts, std::list<UserCutGeneral*> * initial_cuts, HeuristicSolution * initial_sol, bool force_use_all_vehicles, bool export_model, Solution<double>& solution)
 {
   const Graph * graph = inst.graph();
   const int num_vertices = graph->num_vertices();
-  const int num_arcs = graph->num_arcs();
-  const int num_routes = inst.num_vehicles();
+  //const int num_arcs = graph->num_arcs();
+  //const int num_routes = inst.num_vehicles();
   const int num_arcs_from_origin = size(graph->AdjVerticesOut(0));
 
   IloEnv env;
   IloCplex cplex(env);
   IloModel model(env);
   cplex.extract(model);
+  MasterVariables master_vars{};
 
-  IloNumVar slack(env, 0, force_use_all_vehicles? 0: num_routes, ILOFLOAT);
-  IloNumVar dual_bound(env, -IloInfinity, 0, ILOFLOAT);
-  IloNumVarArray x(env);
-  IloNumVarArray y(env);
-
-  if(solve_relax)
-  {
-        x = IloNumVarArray(env, num_arcs, 0.0, 1.0, ILOFLOAT);
-        y = IloNumVarArray(env, num_vertices, 0.0, 1.0, ILOFLOAT);
-  }
-  else
-  {
-        x = IloNumVarArray(env, num_arcs, 0.0, 1.0, ILOINT);
-        y = IloNumVarArray(env, num_vertices, 0.0, 1.0, ILOINT);
-  }
-
-  PopulateByRowCommon(env,model,slack,y,x,inst,force_use_all_vehicles);
+  AllocateMasterVariables(env,master_vars,inst,force_use_all_vehicles,solve_relax);
+  PopulateByRowCommon(env,model,master_vars,inst,force_use_all_vehicles);
 	
   const int num_mandatory = inst.num_mandatory();
   const auto vertices_info = graph->vertices_info();
@@ -1233,10 +1222,10 @@ void BendersCompactBaseline(Instance& inst, double * R0, double * Rn, double tim
   for(int i = num_mandatory + 1; i < num_vertices; ++i)
   {
     const auto& vertex_info = vertices_info[i];
-    obj += operator*(vertex_info.profit_,y[i]);
+    obj += operator*(vertex_info.profit_,master_vars.y[i]);
   }
 
-  obj += dual_bound;
+  obj += master_vars.dual_bound;
   model.add(IloMaximize(env, obj));
   obj.end();
 
@@ -1247,23 +1236,23 @@ void BendersCompactBaseline(Instance& inst, double * R0, double * Rn, double tim
     {
       char strnum3[15];
       sprintf(strnum3,"y(%d)",i);
-      y[i].setName(strnum3);
+      master_vars.y[i].setName(strnum3);
 
       for(const auto j: graph->AdjVerticesOut(i))
       {
         char strnum[26];
         sprintf(strnum,"x(%d)(%d)",i,j);
-        x[graph->pos(i,j)].setName(strnum);
+        master_vars.x[graph->pos(i,j)].setName(strnum);
       }
     }
 
-    slack.setName("slack");
-    dual_bound.setName("dual_bound");
+    master_vars.slack.setName("slack");
+    master_vars.dual_bound.setName("dual_bound");
 
     cplex.exportModel("model_Benders_compact_baseline.lp");
   }
 
-  optimize(cplex,env,model,y,x,dual_bound,inst,time_limit,solve_relax,true,use_valid_inequalities,find_root_cuts, R0, Rn, initial_cuts, initial_sol, export_model, nullptr, solution);
+  optimize(cplex,env,model,master_vars,inst,time_limit,solve_relax,true,combine_feas_op_cuts,use_valid_inequalities,find_root_cuts, R0, Rn, initial_cuts, initial_sol, export_model, nullptr, solution);
 
   // // print solution.
   // IloNumArray y_solution(env);
@@ -1300,26 +1289,15 @@ void CompactBaseline(Instance& inst, double * R0, double * Rn, double time_limit
   IloModel model(env);
   cplex.extract(model);
 
-  IloNumVar slack(env, 0, force_use_all_vehicles? 0: num_routes, ILOFLOAT);
-  IloNumVarArray x(env);
-  IloNumVarArray y(env);
+  MasterVariables master_vars{};
+
+  AllocateMasterVariables(env,master_vars,inst,force_use_all_vehicles,solve_relax);
   // budget + 1 to consider level 0 of budget! 0,..., budget
   IloNumVarArray a(env, (budget+1)*num_vertices, 0, IloInfinity, ILOFLOAT);
 
-  if(solve_relax)
-  {
-        x = IloNumVarArray(env, num_arcs, 0.0, 1.0, ILOFLOAT);
-        y = IloNumVarArray(env, num_vertices, 0.0, 1.0, ILOFLOAT);
-    }
-  else
-  {
-        x = IloNumVarArray(env, num_arcs, 0.0, 1.0, ILOINT);
-        y = IloNumVarArray(env, num_vertices, 0.0, 1.0, ILOINT);
-    }
+	PopulateByRowCompactBaseline(cplex,env,model,master_vars,a,inst,R0,Rn,force_use_all_vehicles,export_model);
 
-	PopulateByRowCompactBaseline(cplex,env,model,slack,y,x,a,inst,R0,Rn,force_use_all_vehicles,export_model);
-
-  optimize(cplex,env,model,y,x,std::nullopt,inst,time_limit,solve_relax,false,use_valid_inequalities,find_root_cuts, R0, Rn, initial_cuts, initial_sol, export_model, root_cuts, solution);
+  optimize(cplex,env,model,master_vars,inst,time_limit,solve_relax,false,false,use_valid_inequalities,find_root_cuts, R0, Rn, initial_cuts, initial_sol, export_model, root_cuts, solution);
 
   // if((cplex.getCplexStatus() == IloCplex::Optimal)||(cplex.getCplexStatus() == IloCplex::OptimalTol))
   // {
@@ -1415,7 +1393,7 @@ void PrimalSubproblemCompactBaseline(Instance& inst, IloNumArray& x_values, IloN
   env.end();
 }
 
-static void SetDualVariablesProperties(IloEnv& master_env, DualVariables& dual_vars, IloNumVarArray& x, IloNumVarArray& y, Instance& instance)
+static void SetDualVariablesProperties(IloEnv& master_env, DualVariables& dual_vars, IloNumVarArray& x, IloNumVarArray& y, Instance& instance, std::optional<std::reference_wrapper<IloNumVar>> dual_bound_opt, bool combine_feas_op_cuts)
 {
   const Graph * graph = instance.graph();
   const int num_vertices = graph->num_vertices();
@@ -1469,9 +1447,16 @@ static void SetDualVariablesProperties(IloEnv& master_env, DualVariables& dual_v
       }
     }
   }
+
+  if(combine_feas_op_cuts)
+  {
+    IloExpr exp5(master_env);
+    exp5 -= dual_bound_opt->get();
+    dual_vars.ext_ray_coef[dual_vars.u_dual_bound.getId()] = exp5;
+  }
 }
 
-static void FillObjectiveExpressionDualCompactBaselineContinuousSpace(IloExpr& obj, DualVariables& dual_vars, IloNumArray& x_values, IloNumArray& y_values, Instance& instance)
+static void FillObjectiveExpressionDualCompactBaselineContinuousSpace(IloExpr& obj, DualVariables& dual_vars, IloNumArray& x_values, IloNumArray& y_values, std::optional<IloNum> dual_bound_value, Instance& instance, bool combine_feas_op_cuts)
 {
   const Graph * graph = instance.graph();
   const int num_vertices = graph->num_vertices();
@@ -1515,9 +1500,12 @@ static void FillObjectiveExpressionDualCompactBaselineContinuousSpace(IloExpr& o
       }
     }
   }
+
+  if(combine_feas_op_cuts)
+    obj -= operator*(*dual_bound_value,dual_vars.u_dual_bound);
 }
 
-static void AllocateDualVariables(IloEnv& env, DualVariables& dual_vars, Instance & instance)
+static void AllocateDualVariables(IloEnv& env, DualVariables& dual_vars, Instance & instance, bool combine_feas_op_cuts)
 {
   const Graph * graph = instance.graph();
   const int num_vertices = graph->num_vertices();
@@ -1534,6 +1522,30 @@ static void AllocateDualVariables(IloEnv& env, DualVariables& dual_vars, Instanc
   dual_vars.u_2 = IloNumVarArray(env, (budget+1)*(num_arcs-num_arcs_from_origin), 0, IloInfinity, ILOFLOAT);
   // u_3 defined for all arcs (i,j) i != 0, 1...budget (considering 0...budget -1)
   dual_vars.u_3 = IloNumVarArray(env, budget*(num_arcs-num_arcs_from_origin), 0, IloInfinity, ILOFLOAT);
+  if(combine_feas_op_cuts)
+    dual_vars.u_dual_bound = IloNumVar(env,0,IloInfinity,ILOFLOAT);
+}
+
+static void AllocateMasterVariables(IloEnv& env, MasterVariables& master_vars, Instance & instance, bool force_use_all_vehicles, bool solve_relax)
+{
+  const Graph * graph = instance.graph();
+  const int num_vertices = graph->num_vertices();
+  const int num_arcs = graph->num_arcs();
+  const int num_routes = instance.num_vehicles();
+
+  master_vars.slack = IloNumVar(env, 0, force_use_all_vehicles? 0: num_routes, ILOFLOAT);
+  master_vars.dual_bound = IloNumVar(env, -IloInfinity, 0, ILOFLOAT);
+
+  if(solve_relax)
+  {
+    master_vars.x = IloNumVarArray(env, num_arcs, 0.0, 1.0, ILOFLOAT);
+    master_vars.y = IloNumVarArray(env, num_vertices, 0.0, 1.0, ILOFLOAT);
+  }
+  else
+  {
+    master_vars.x = IloNumVarArray(env, num_arcs, 0.0, 1.0, ILOINT);
+    master_vars.y = IloNumVarArray(env, num_vertices, 0.0, 1.0, ILOINT);
+  }
 }
 
 void DualSubproblemCompactBaseline(Instance& inst, IloNumArray& x_values, IloNumArray& y_values, double * R0, double * Rn, double time_limit, bool export_model, Solution<double>& solution)
@@ -1548,19 +1560,19 @@ void DualSubproblemCompactBaseline(Instance& inst, IloNumArray& x_values, IloNum
   cplex.extract(model);
 
   DualVariables dual_vars;
-  AllocateDualVariables(env,dual_vars,inst);
+  AllocateDualVariables(env,dual_vars,inst,false);
 
-  PopulateByRowDualCompactBaselineContinuousSpace(env,model,dual_vars,inst);
+  PopulateByRowDualCompactBaselineContinuousSpace(env,model,dual_vars,inst,false);
 
   // add objective function.
   IloExpr obj_expr(env);
-  FillObjectiveExpressionDualCompactBaselineContinuousSpace(obj_expr,dual_vars,x_values,y_values,inst);
+  FillObjectiveExpressionDualCompactBaselineContinuousSpace(obj_expr,dual_vars,x_values,y_values,std::nullopt,inst,false);
   model.add(IloMinimize(env, obj_expr));
   obj_expr.end();
 
   if(export_model)
   {
-    AddNamesToDualVariables(dual_vars,inst);
+    AddNamesToDualVariables(dual_vars,inst,false);
     cplex.exportModel("dual_continuous_model_compact_baseline.lp");
   }
 
@@ -1590,31 +1602,20 @@ void CompactSingleCommodity(Instance& inst, double * R0, double * Rn, double tim
   IloModel model(env);
   cplex.extract(model);
 
-  IloNumVar slack(env, 0, num_routes, ILOFLOAT);
-  IloNumVarArray x(env);
-  IloNumVarArray y(env);
+  MasterVariables master_vars{};
+
+  AllocateMasterVariables(env,master_vars,inst,force_use_all_vehicles,solve_relax);
   // budget + 1 to consider level 0 of budget! 0,..., budget
   IloNumVarArray f(env, num_arcs * (budget+1), 0, IloInfinity, ILOFLOAT);
 
-  if(solve_relax)
-  {
-        x = IloNumVarArray(env, num_arcs, 0.0, 1.0, ILOFLOAT);
-        y = IloNumVarArray(env, num_vertices, 0.0, 1.0, ILOFLOAT);
-    }
-  else
-  {
-        x = IloNumVarArray(env, num_arcs, 0.0, 1.0, ILOINT);
-        y = IloNumVarArray(env, num_vertices, 0.0, 1.0, ILOINT);
-    }
-
-	PopulateByRowCompactSingleCommodity(cplex,env,model,slack,y,x,f,inst,R0,Rn,force_use_all_vehicles, export_model);
+	PopulateByRowCompactSingleCommodity(cplex,env,model,master_vars,f,inst,R0,Rn,force_use_all_vehicles, export_model);
 
   // cplex.setParam(IloCplex::Param::Benders::Strategy, IloCplex::BendersStrategyType::BendersFull);
   // IloCplex::LongAnnotation decomp = cplex.newLongAnnotation(IloCplex::BendersAnnotation,CPX_BENDERS_MASTERVALUE);
   // for (IloInt i = 0; i < f.getSize(); ++i)
   //     cplex.setAnnotation(decomp, f[i], CPX_BENDERS_MASTERVALUE+1);
       
-  optimize(cplex,env,model,y,x,std::nullopt,inst,time_limit,solve_relax,false,use_valid_inequalities,find_root_cuts, R0, Rn, initial_cuts, initial_sol, export_model, root_cuts, solution);
+  optimize(cplex,env,model,master_vars,inst,time_limit,solve_relax,false,false,use_valid_inequalities,find_root_cuts, R0, Rn, initial_cuts, initial_sol, export_model, root_cuts, solution);
 
   // if((cplex.getCplexStatus() == IloCplex::Optimal)||(cplex.getCplexStatus() == IloCplex::OptimalTol))
   // {
@@ -1638,7 +1639,7 @@ void CompactSingleCommodity(Instance& inst, double * R0, double * Rn, double tim
   env.end();
 }
 
-static void PopulateByRowCompactSingleCommodity(IloCplex& cplex, IloEnv& env, IloModel& model, IloNumVar& slack, IloNumVarArray & y, IloNumVarArray & x, IloNumVarArray & f, Instance& instance, double * R0, double* Rn, bool force_use_all_vehicles, bool export_model)
+static void PopulateByRowCompactSingleCommodity(IloCplex& cplex, IloEnv& env, IloModel& model, MasterVariables& master_vars, IloNumVarArray & f, Instance& instance, double * R0, double* Rn, bool force_use_all_vehicles, bool export_model)
 {
   const Graph* graph = instance.graph();
   const int num_vehicles = instance.num_vehicles();
@@ -1649,9 +1650,9 @@ static void PopulateByRowCompactSingleCommodity(IloCplex& cplex, IloEnv& env, Il
   const auto * vertices_info = graph->vertices_info();
   const double route_limit = instance.limit();
 
-  PopulateByRowCommon(env,model,slack,y,x,instance,force_use_all_vehicles);
+  PopulateByRowCommon(env,model,master_vars,instance,force_use_all_vehicles);
 
-  PopulateByRowCompactSingleCommodityContinuousSpace(env, model, x, y, f, std::nullopt, std::nullopt, R0, Rn, instance);
+  PopulateByRowCompactSingleCommodityContinuousSpace(env, model, master_vars.x, master_vars.y, f, std::nullopt, std::nullopt, R0, Rn, instance);
 
   // add objective function.
   IloExpr obj(env);
@@ -1660,8 +1661,8 @@ static void PopulateByRowCompactSingleCommodity(IloCplex& cplex, IloEnv& env, Il
   for(int j = num_mandatory + 1; j < num_vertices; ++j)
   {
     const auto& vertex_info = vertices_info[j];
-    obj += operator*(vertex_info.profit_,y[j]);
-    obj -= operator*(vertex_info.decay_ratio_ * route_limit,y[j]);
+    obj += operator*(vertex_info.profit_,master_vars.y[j]);
+    obj -= operator*(vertex_info.decay_ratio_ * route_limit,master_vars.y[j]);
 
     for (const int&i: graph->AdjVerticesIn(j))
       obj += operator*(vertex_info.decay_ratio_,f[f_var_to_index(graph->pos(i,j),budget,num_arcs)]);
@@ -1677,13 +1678,13 @@ static void PopulateByRowCompactSingleCommodity(IloCplex& cplex, IloEnv& env, Il
     {
       char strnum3[15];
       sprintf(strnum3,"y(%d)",i);
-      y[i].setName(strnum3);
+      master_vars.y[i].setName(strnum3);
 
       for(const auto j: graph->AdjVerticesOut(i))
       {
         char strnum[26];
         sprintf(strnum,"x(%d)(%d)",i,j);
-        x[graph->pos(i,j)].setName(strnum);
+        master_vars.x[graph->pos(i,j)].setName(strnum);
 
         for (int budget_iter = 0; budget_iter <= budget; ++budget_iter)
         {
@@ -1694,13 +1695,13 @@ static void PopulateByRowCompactSingleCommodity(IloCplex& cplex, IloEnv& env, Il
       }
     }
 
-    slack.setName("slack");
+    master_vars.slack.setName("slack");
 
     cplex.exportModel("model_compact_single_commodity.lp");
   }
 }
 
-static void PopulateByRowCommon(IloEnv& env, IloModel& model, IloNumVar& slack, IloNumVarArray & y, IloNumVarArray & x, Instance& instance, bool force_use_all_vehicles)
+static void PopulateByRowCommon(IloEnv& env, IloModel& model, MasterVariables& master_vars, Instance& instance, bool force_use_all_vehicles)
 {
   int num_vehicles = instance.num_vehicles();
   int num_vertices = (instance.graph())->num_vertices();
@@ -1715,35 +1716,35 @@ static void PopulateByRowCommon(IloEnv& env, IloModel& model, IloNumVar& slack, 
     size_t num_adj_arc = adj_vertices.size();
 
     for (const auto j: adj_vertices)
-      exp += x[graph->pos(i,j)];
+      exp += master_vars.x[graph->pos(i,j)];
 
     if (i <= num_mandatory)
     {
-      if(num_adj_arc == 0) model.add(y[i] == 0); // creates infeasibility if a mandatory node is disconnected from graph!
+      if(num_adj_arc == 0) model.add(master_vars.y[i] == 0); // creates infeasibility if a mandatory node is disconnected from graph!
       else model.add(exp == 1);
-      model.add(y[i] == 1);
+      model.add(master_vars.y[i] == 1);
     }
     else
     {
-      if(num_adj_arc == 0) y[i].setUB(0);
-      else model.add(exp == y[i]);
+      if(num_adj_arc == 0) master_vars.y[i].setUB(0);
+      else model.add(exp == master_vars.y[i]);
     }
     exp.end();
   }
 
-  model.add(y[0] == 1);
+  model.add(master_vars.y[0] == 1);
 
   IloExpr expi(env);
   for(const auto& j: graph->AdjVerticesOut(0))
-    expi += x[graph->pos(0,j)];
+    expi += master_vars.x[graph->pos(0,j)];
 
-  expi += slack;
+  expi += master_vars.slack;
 
   model.add(expi == num_vehicles);
   expi.end();
 
   if(force_use_all_vehicles)
-    slack.setUB(0);
+    master_vars.slack.setUB(0);
 
   for(int i = 0; i < num_vertices; ++i)
   {
@@ -1752,8 +1753,8 @@ static void PopulateByRowCommon(IloEnv& env, IloModel& model, IloNumVar& slack, 
       IloExpr exp(env);
       for(int j = 0; j < num_vertices; ++j)
       {
-        if((*(instance.graph()))[i][j]) exp += x[graph->pos(i,j)];
-        if((*(instance.graph()))[j][i]) exp -= x[graph->pos(j,i)];
+        if((*(instance.graph()))[i][j]) exp += master_vars.x[graph->pos(i,j)];
+        if((*(instance.graph()))[j][i]) exp -= master_vars.x[graph->pos(j,i)];
       }
 
       model.add(exp == 0);
@@ -1762,7 +1763,7 @@ static void PopulateByRowCommon(IloEnv& env, IloModel& model, IloNumVar& slack, 
   }
 }
 
-static void PopulateByRowDualCompactBaselineContinuousSpace(IloEnv& env, IloModel& model, DualVariables &dual_vars, Instance& instance)
+static void PopulateByRowDualCompactBaselineContinuousSpace(IloEnv& env, IloModel& model, DualVariables &dual_vars, Instance& instance, bool combine_feas_op_cuts)
 {
   const Graph* graph = instance.graph();
   const int num_vertices = graph->num_vertices();
@@ -1822,13 +1823,35 @@ static void PopulateByRowDualCompactBaselineContinuousSpace(IloEnv& env, IloMode
       }
 
       const auto coef = (budget_iter == budget && i > num_mandatory)? - vertices_info[i].decay_ratio_: 0.0;
-      model.add(exp >= coef);
+      
+      // if combine optimality and feasibility cuts, add contibution of additional dual var.
+      combine_feas_op_cuts? exp -= operator*(coef,dual_vars.u_dual_bound) : exp-= coef;
+      model.add(exp >= 0);
       exp.end();
 
 
       if(!(*graph)[0][i])
         dual_vars.u_0[u_0_var_to_index(i,budget_iter,num_vertices)].setUB(0.0);
     }
+  }
+
+  // add extra constraint to scale/normalize the values of the dual variables.
+  if(combine_feas_op_cuts)
+  {
+    IloExpr exp_normalize(env);
+    // add all dual variables to the expression.
+    for(IloInt var_index = 0; var_index < dual_vars.u_0.getSize(); ++var_index)
+      exp_normalize += dual_vars.u_0[var_index];
+    for(IloInt var_index = 0; var_index < dual_vars.u_1.getSize(); ++var_index)
+      exp_normalize += dual_vars.u_1[var_index];
+    for(IloInt var_index = 0; var_index < dual_vars.u_2.getSize(); ++var_index)
+      exp_normalize += dual_vars.u_2[var_index];
+    for(IloInt var_index = 0; var_index < dual_vars.u_3.getSize(); ++var_index)
+      exp_normalize += dual_vars.u_3[var_index];
+    exp_normalize += dual_vars.u_dual_bound;
+
+    model.add(exp_normalize == 1);
+    exp_normalize.end();
   }
 }
 
@@ -1997,7 +2020,7 @@ static void PopulateByRowCompactBaselineContinuousSpace(IloEnv& env, IloModel& m
   }
 }
 
-static void PopulateByRowCompactBaseline(IloCplex& cplex, IloEnv& env, IloModel& model, IloNumVar& slack, IloNumVarArray & y, IloNumVarArray & x, IloNumVarArray & a, Instance& instance, double * R0, double* Rn, bool force_use_all_vehicles, bool export_model)
+static void PopulateByRowCompactBaseline(IloCplex& cplex, IloEnv& env, IloModel& model, MasterVariables& master_vars, IloNumVarArray & a, Instance& instance, double * R0, double* Rn, bool force_use_all_vehicles, bool export_model)
 {
   int num_vertices = (instance.graph())->num_vertices();
   int num_mandatory = instance.num_mandatory();
@@ -2005,9 +2028,9 @@ static void PopulateByRowCompactBaseline(IloCplex& cplex, IloEnv& env, IloModel&
   const Graph* graph = instance.graph();
   const auto* vertices_info = graph->vertices_info();
 
-  PopulateByRowCommon(env,model,slack,y,x,instance,force_use_all_vehicles);
+  PopulateByRowCommon(env,model,master_vars,instance,force_use_all_vehicles);
 
-  PopulateByRowCompactBaselineContinuousSpace(env,model,x,y,a,std::nullopt,std::nullopt,instance);
+  PopulateByRowCompactBaselineContinuousSpace(env,model,master_vars.x,master_vars.y,a,std::nullopt,std::nullopt,instance);
 
   // add objective function.
   IloExpr obj(env);
@@ -2016,7 +2039,7 @@ static void PopulateByRowCompactBaseline(IloCplex& cplex, IloEnv& env, IloModel&
   for(int i = num_mandatory + 1; i < num_vertices; ++i)
   {
     const auto& vertex_info = vertices_info[i];
-    obj += operator*(vertex_info.profit_,y[i]);
+    obj += operator*(vertex_info.profit_,master_vars.y[i]);
     obj -= operator*(vertex_info.decay_ratio_,a[a_var_to_index(i,budget,num_vertices)]);
   }
 
@@ -2030,13 +2053,13 @@ static void PopulateByRowCompactBaseline(IloCplex& cplex, IloEnv& env, IloModel&
     {
       char strnum3[15];
       sprintf(strnum3,"y(%d)",i);
-      y[i].setName(strnum3);
+      master_vars.y[i].setName(strnum3);
 
       for(const auto j: graph->AdjVerticesOut(i))
       {
         char strnum[26];
         sprintf(strnum,"x(%d)(%d)",i,j);
-        x[graph->pos(i,j)].setName(strnum);
+        master_vars.x[graph->pos(i,j)].setName(strnum);
       }
 
       for (int budget_iter = 0; budget_iter <= budget; ++budget_iter)
@@ -2047,7 +2070,7 @@ static void PopulateByRowCompactBaseline(IloCplex& cplex, IloEnv& env, IloModel&
       }
     }
 
-    slack.setName("slack");
+    master_vars.slack.setName("slack");
 
     cplex.exportModel("model_compact_baseline.lp");
   }

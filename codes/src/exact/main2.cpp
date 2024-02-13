@@ -42,6 +42,7 @@ void GenerateAlgorithmsLatexTable(double total_time_limit)
 	instance_sizes.push_back("50");
 	//instance_sizes.push_back("100");
 
+	instance_limit_quantiles.push_back("0.8");
 	instance_limit_quantiles.push_back("1");
 	//instance_limit_quantiles.push_back("2");
 	instance_limit_quantiles.push_back("3");
@@ -67,7 +68,8 @@ void GenerateAlgorithmsLatexTable(double total_time_limit)
 	std::vector<double> total_avg_time(algorithms.size(),0.0);
 	std::vector<double> total_avg_gap(algorithms.size(),0.0);
 	std::vector<int> total_num_optimal(algorithms.size(),0);
-	size_t num_inst_per_vertex_size_quantile = instance_types.size()*num_vehicles_vec.size()*service_time_deviation_vec.size()*uncertainty_budget_vec.size();
+	size_t num_inst_per_vertex_size_type_quantile = num_vehicles_vec.size()*service_time_deviation_vec.size()*uncertainty_budget_vec.size();
+	size_t num_inst_per_vertex_size_quantile = instance_types.size() * num_inst_per_vertex_size_type_quantile;
 	size_t num_inst_per_vertex_size = num_inst_per_vertex_size_quantile * instance_limit_quantiles.size();
 	size_t total_num_instances = num_inst_per_vertex_size * instance_sizes.size();
 
@@ -155,6 +157,7 @@ void GenerateAlgorithmsLatexTable(double total_time_limit)
 							if((!(double_equals(lb,-1))) && (!(double_equals(ub,-1))))
 							{
 								if((!double_greater(ub,lb)))
+								//if(double_less(time,total_time_limit))
 								{
 									++(num_optimal_inst_size[algo]);
 									++(num_optimal_quantile[algo]);
@@ -211,7 +214,7 @@ void GenerateAlgorithmsLatexTable(double total_time_limit)
 						avg_gap_quantile[algo]/=(1.0*((gap_per_algo_quantile[algo]).size()));
 						st_dev_quantile[algo] = StDev(gap_per_algo_quantile[algo],avg_gap_quantile[algo]);
 					}else avg_gap_quantile[algo] = st_dev_quantile[algo] = -1;
-					output << " & & " << num_optimal_quantile[algo] << "/" << num_inst_per_vertex_size_quantile << " & " << avg_time_quantile[algo] << " & " << avg_gap_quantile[algo] << " & " << st_dev_quantile[algo];
+					output << " & & " << num_optimal_quantile[algo] << "/" << num_inst_per_vertex_size_type_quantile << " & " << avg_time_quantile[algo] << " & " << avg_gap_quantile[algo] << " & " << st_dev_quantile[algo];
 				}
 				output << "\\\\" << std::endl;
 			}
@@ -467,6 +470,7 @@ int main()
 	bool export_model = false;
 	bool solve_relaxed = true;
 	bool use_valid_inequalities = true;
+	bool combine_feas_op_cuts = true;
 	auto root_cuts = new std::list<UserCutGeneral*>();
 	Solution<double> solution(graph->num_vertices());
 
@@ -523,7 +527,7 @@ int main()
 	solution.reset();
 	DeleteCuts(root_cuts);
 
-	BendersCompactBaseline(inst,R0,Rn,-1,solve_relaxed,use_valid_inequalities,false,nullptr,nullptr,force_use_all_vehicles,export_model,solution);
+	BendersCompactBaseline(inst,R0,Rn,-1,combine_feas_op_cuts,solve_relaxed,use_valid_inequalities,false,nullptr,nullptr,force_use_all_vehicles,export_model,solution);
 	if (solve_relaxed)
 	{
 		std::cout <<  " LP: " << solution.lp_ << std::endl;
