@@ -5,10 +5,9 @@
             "includePath": [
                 "/opt/ibm/ILOG/CPLEX_Studio2211/cplex/include",
                 "/opt/ibm/ILOG/CPLEX_Studio2211/concert/include",
-                "/home/lucas/Documents/Research/msca-humanitarian-optimization/codes"
+                "/home/lucas/Documentos/Research/msca-humanitarian-optimization/codes"
             ],
             "defines": [],
-            "compilerPath": "/usr/bin/gcc",
             "cStandard": "c17",
             "cppStandard": "gnu++17",
             "intelliSenseMode": "linux-gcc-x64"
