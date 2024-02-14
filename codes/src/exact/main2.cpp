@@ -447,9 +447,9 @@ void GenerateLPImprovementsLatexTable()
 
 int main()
 {
-	GenerateLPImprovementsLatexTable();
-	GenerateAlgorithmsLatexTable(3600);
-	return 0;
+	// GenerateLPImprovementsLatexTable();
+	// GenerateAlgorithmsLatexTable(3600);
+	// return 0;
 	Instance inst("../instances/R-STOP-DP/","test.txt",1,0.25,3,false);
 	
 
@@ -457,7 +457,7 @@ int main()
 	(*CALLBACKS_SELECTION)[K_TYPE_CLIQUE_CONFLICT_CUT] = true;
 	(*CALLBACKS_SELECTION)[K_TYPE_INITIAL_ARC_VERTEX_INFERENCE_CUT] = false;
 
-	std::cout << inst << std::endl;
+	//std::cout << inst << std::endl;
 	const Graph * graph = inst.graph();
 
 	//std::cout << *graph << std::endl;
@@ -468,9 +468,9 @@ int main()
 	//inst.WriteToFile("../","teste.txt");
 	bool force_use_all_vehicles = false;
 	bool export_model = false;
-	bool solve_relaxed = true;
-	bool use_valid_inequalities = true;
-	bool combine_feas_op_cuts = true;
+	bool solve_relaxed = false;
+	bool use_valid_inequalities = false;
+	bool combine_feas_op_cuts = false;
 	auto root_cuts = new std::list<UserCutGeneral*>();
 	Solution<double> solution(graph->num_vertices());
 
@@ -494,18 +494,34 @@ int main()
 	//solution.reset();
 	//DeleteCuts(root_cuts);
 
-	CompactSingleCommodity(inst,R0,Rn,-1,true,false,false,nullptr,nullptr,force_use_all_vehicles,export_model, nullptr,solution);
+	CompactBaseline(inst,R0,Rn,-1,solve_relaxed,use_valid_inequalities,false,nullptr,nullptr,force_use_all_vehicles,export_model, nullptr,solution);
 
-	std::cout <<  " LP: " << solution.lp_ << std::endl;
+	if (solve_relaxed)
+	{
+		std::cout <<  " LP: " << solution.lp_ << std::endl;
+	}
+	else
+	{
+		solution.is_optimal_? std::cout <<  " optimal: " << solution.lb_ << std::endl
+		: std::cout <<  " non optimal: [" << solution.lb_ << ", " << solution.ub_ << "]" << std::endl;
+	}
 	std::cout << "num cuts: " << solution.num_cuts_found_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << "/" << solution.num_cuts_added_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << std::endl;
 
 	solution.reset();
-	CompactSingleCommodity(inst,R0,Rn,-1,true,use_valid_inequalities,true,nullptr,nullptr,force_use_all_vehicles,export_model, root_cuts,solution);
+	// CompactBaseline(inst,R0,Rn,-1,solve_relaxed,use_valid_inequalities,false,nullptr,nullptr,force_use_all_vehicles,export_model, root_cuts,solution);
 
-	std::cout <<  " LP: " << solution.lp_ << std::endl;
-	std::cout << "num cuts: " << solution.num_cuts_found_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << "/" << solution.num_cuts_added_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << std::endl;
+	// if (solve_relaxed)
+	// {
+	// 	std::cout <<  " LP: " << solution.lp_ << std::endl;
+	// }
+	// else
+	// {
+	// 	solution.is_optimal_? std::cout <<  " optimal: " << solution.lb_ << std::endl
+	// 	: std::cout <<  " non optimal: [" << solution.lb_ << ", " << solution.ub_ << "]" << std::endl;
+	// }
+	// std::cout << "num cuts: " << solution.num_cuts_found_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << "/" << solution.num_cuts_added_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << std::endl;
 
-	solution.reset();
+	// solution.reset();
 	// auto conflicts = inst.conflicts_list();
 	// std::cout << "conflicts: " << std::endl;
 	// for (auto &conflict: conflicts)
@@ -527,7 +543,24 @@ int main()
 	solution.reset();
 	DeleteCuts(root_cuts);
 
-	BendersCompactBaseline(inst,R0,Rn,-1,combine_feas_op_cuts,solve_relaxed,use_valid_inequalities,false,nullptr,nullptr,force_use_all_vehicles,export_model,solution);
+	BendersCompactBaseline(inst,R0,Rn,-1,false,solve_relaxed,use_valid_inequalities,false,nullptr,nullptr,force_use_all_vehicles,export_model,solution);
+	if (solve_relaxed)
+	{
+		std::cout <<  " LP: " << solution.lp_ << std::endl;
+	}
+	else
+	{
+		solution.is_optimal_? std::cout <<  " optimal: " << solution.lb_ << std::endl
+		: std::cout <<  " non optimal: [" << solution.lb_ << ", " << solution.ub_ << "]" << std::endl;
+	}
+	std::cout << "# opt cuts: " << inst.num_opt_cuts_ << std::endl;
+	std::cout << "# feas cuts: " << inst.num_feas_cuts_ << std::endl;
+	std::cout << "num cuts: " << solution.num_cuts_found_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << "/" << solution.num_cuts_added_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << std::endl;
+	inst.num_opt_cuts_ = 0;
+	inst.num_feas_cuts_ = 0;
+	solution.reset();
+
+	BendersCompactBaseline(inst,R0,Rn,-1,true,solve_relaxed,use_valid_inequalities,false,nullptr,nullptr,force_use_all_vehicles,export_model,solution);
 	if (solve_relaxed)
 	{
 		std::cout <<  " LP: " << solution.lp_ << std::endl;

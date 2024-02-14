@@ -112,8 +112,8 @@ IloBool SeparateBendersCut(IloEnv& master_env, IloNumVarArray &x, IloNumVarArray
   //   std::cout << x[i].getName() << " " << x_values[i] << std::endl;
   // }
   
-  //worker_cplex.exportModel("worker_model_Benders_compact_baseline.lp");
-  //getchar(); getchar();
+  // worker_cplex.exportModel("worker_model_Benders_compact_baseline.lp");
+  // getchar(); getchar();
 
   // Solve the worker LP
   worker_cplex.solve();
@@ -155,7 +155,8 @@ IloBool SeparateBendersCut(IloEnv& master_env, IloNumVarArray &x, IloNumVarArray
   if (status == IloAlgorithm::Optimal)
   {
     double new_dual_bound = worker_cplex.getObjValue();
-    if ( double_greater(dual_bound_value,new_dual_bound) )
+    // if combining feas and opt cuts, it suffices to have a bound greater than zero to imply a violated cut.
+    if ( double_greater(dual_bound_value,new_dual_bound) || combine_feas_op_cuts && double_greater(new_dual_bound,0) )
     {
       ++instance.num_opt_cuts_;
       //std::cout << status << " " << new_dual_bound << " x " << dual_bound_value << std::endl;
@@ -214,7 +215,10 @@ IloBool SeparateBendersCut(IloEnv& master_env, IloNumVarArray &x, IloNumVarArray
         }
       }
 
-      cut_expr -= dual_bound;
+      if(combine_feas_op_cuts)
+        cut_expr -= operator*(worker_cplex.getValue(dual_vars.u_dual_bound),dual_bound);
+      else
+        cut_expr -= dual_bound;
 
       // for(IloNum i = 0; i < dual_vars.u_0.getSize(); ++i)
       // {
@@ -965,7 +969,11 @@ void optimize(IloCplex & cplex, IloEnv& env, IloModel& model, MasterVariables& m
     // Set empty initial objective function.
     worker_obj = IloObjective(*worker_env);
     worker_obj->setName("obj1");
+    // if(combine_feas_op_cuts)
+    //   worker_obj->setSense(IloObjective::Maximize);
+    // else
     worker_obj->setSense(IloObjective::Minimize);
+
     worker_model.add(*worker_obj);
 
     worker_vars = DualVariables{};
@@ -1448,12 +1456,12 @@ static void SetDualVariablesProperties(IloEnv& master_env, DualVariables& dual_v
     }
   }
 
-  if(combine_feas_op_cuts)
-  {
-    IloExpr exp5(master_env);
-    exp5 -= dual_bound_opt->get();
-    dual_vars.ext_ray_coef[dual_vars.u_dual_bound.getId()] = exp5;
-  }
+  // if(combine_feas_op_cuts)
+  // {
+  //   IloExpr exp5(master_env);
+  //   exp5 -= dual_bound_opt->get();
+  //   dual_vars.ext_ray_coef[dual_vars.u_dual_bound.getId()] = exp5;
+  // }
 }
 
 static void FillObjectiveExpressionDualCompactBaselineContinuousSpace(IloExpr& obj, DualVariables& dual_vars, IloNumArray& x_values, IloNumArray& y_values, std::optional<IloNum> dual_bound_value, Instance& instance, bool combine_feas_op_cuts)
@@ -1849,6 +1857,9 @@ static void PopulateByRowDualCompactBaselineContinuousSpace(IloEnv& env, IloMode
     for(IloInt var_index = 0; var_index < dual_vars.u_3.getSize(); ++var_index)
       exp_normalize += dual_vars.u_3[var_index];
     exp_normalize += dual_vars.u_dual_bound;
+
+    auto num_vars = 1 + dual_vars.u_0.getSize() + dual_vars.u_1.getSize() + dual_vars.u_2.getSize()+ dual_vars.u_3.getSize();
+    std::cout << num_vars << " " <<  1.0/num_vars << std::endl;
 
     model.add(exp_normalize == 1);
     exp_normalize.end();
