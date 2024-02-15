@@ -1846,20 +1846,23 @@ static void PopulateByRowDualCompactBaselineContinuousSpace(IloEnv& env, IloMode
   // add extra constraint to scale/normalize the values of the dual variables.
   if(combine_feas_op_cuts)
   {
+    double num_dual_vars = 1.0 + dual_vars.u_0.getSize() + dual_vars.u_1.getSize() + dual_vars.u_2.getSize()+ dual_vars.u_3.getSize();
+    double normalized_coef = 1.0/sqrt(1.0*num_dual_vars); // all of these variables have coefficient equal to 1, so the sum of the powers of 2 is equal to their sum,
+    
     IloExpr exp_normalize(env);
     // add all dual variables to the expression.
     for(IloInt var_index = 0; var_index < dual_vars.u_0.getSize(); ++var_index)
-      exp_normalize += dual_vars.u_0[var_index];
+      exp_normalize += operator*(normalized_coef,dual_vars.u_0[var_index]);
     for(IloInt var_index = 0; var_index < dual_vars.u_1.getSize(); ++var_index)
-      exp_normalize += dual_vars.u_1[var_index];
+      exp_normalize += operator*(normalized_coef,dual_vars.u_1[var_index]);
     for(IloInt var_index = 0; var_index < dual_vars.u_2.getSize(); ++var_index)
-      exp_normalize += dual_vars.u_2[var_index];
+      exp_normalize += operator*(normalized_coef,dual_vars.u_2[var_index]);
     for(IloInt var_index = 0; var_index < dual_vars.u_3.getSize(); ++var_index)
-      exp_normalize += dual_vars.u_3[var_index];
-    exp_normalize += dual_vars.u_dual_bound;
+      exp_normalize += operator*(normalized_coef,dual_vars.u_3[var_index]);
+    exp_normalize += operator*(normalized_coef,dual_vars.u_dual_bound);
 
-    auto num_vars = 1 + dual_vars.u_0.getSize() + dual_vars.u_1.getSize() + dual_vars.u_2.getSize()+ dual_vars.u_3.getSize();
-    std::cout << num_vars << " " <<  1.0/num_vars << std::endl;
+  
+    //std::cout << num_dual_vars << " " <<  normalized_coef << std::endl;
 
     model.add(exp_normalize == 1);
     exp_normalize.end();

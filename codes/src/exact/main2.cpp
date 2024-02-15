@@ -450,7 +450,8 @@ int main()
 	// GenerateLPImprovementsLatexTable();
 	// GenerateAlgorithmsLatexTable(3600);
 	// return 0;
-	Instance inst("../instances/R-STOP-DP/","test.txt",1,0.25,3,false);
+	int time_limit = -1;
+	Instance inst("../instances/R-STOP-DP/","test.txt",2,0.25,3,false);
 	
 
 	std::vector<bool> * CALLBACKS_SELECTION = GetCallbackSelection();
@@ -494,7 +495,7 @@ int main()
 	//solution.reset();
 	//DeleteCuts(root_cuts);
 
-	CompactBaseline(inst,R0,Rn,-1,solve_relaxed,use_valid_inequalities,false,nullptr,nullptr,force_use_all_vehicles,export_model, nullptr,solution);
+	CompactBaseline(inst,R0,Rn,time_limit,solve_relaxed,use_valid_inequalities,false,nullptr,nullptr,force_use_all_vehicles,export_model, nullptr,solution);
 
 	if (solve_relaxed)
 	{
@@ -543,7 +544,7 @@ int main()
 	solution.reset();
 	DeleteCuts(root_cuts);
 
-	BendersCompactBaseline(inst,R0,Rn,-1,false,solve_relaxed,use_valid_inequalities,false,nullptr,nullptr,force_use_all_vehicles,export_model,solution);
+	BendersCompactBaseline(inst,R0,Rn,time_limit,false,solve_relaxed,use_valid_inequalities,false,nullptr,nullptr,force_use_all_vehicles,export_model,solution);
 	if (solve_relaxed)
 	{
 		std::cout <<  " LP: " << solution.lp_ << std::endl;
@@ -560,7 +561,7 @@ int main()
 	inst.num_feas_cuts_ = 0;
 	solution.reset();
 
-	BendersCompactBaseline(inst,R0,Rn,-1,true,solve_relaxed,use_valid_inequalities,false,nullptr,nullptr,force_use_all_vehicles,export_model,solution);
+	BendersCompactBaseline(inst,R0,Rn,time_limit,true,solve_relaxed,use_valid_inequalities,false,nullptr,nullptr,force_use_all_vehicles,export_model,solution);
 	if (solve_relaxed)
 	{
 		std::cout <<  " LP: " << solution.lp_ << std::endl;
