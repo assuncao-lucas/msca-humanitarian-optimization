@@ -2657,6 +2657,9 @@ static const struct option longOpts[] = {
 	{ "CCCs", no_argument, NULL, 'l' },
 	{ "AVICs", no_argument, NULL, 'm' },
 	{ "solve-relaxed", no_argument, NULL, 'n' },
+	{ "solve-benders", no_argument, NULL, 'o' },
+	{ "benders-generic-callback", no_argument, NULL, 'p' },
+	{ "combine-feas-opt-cuts", no_argument, NULL, 'q' },
 	{ NULL, no_argument, NULL, 0 }
 };
 
@@ -2666,7 +2669,7 @@ void ParseArgumentsAndRun(int argc, char* argv[] )
 	int c;
 	int num_vehicles = 0, uncertainty_budget = 0;
 	bool solve_compact = false, solve_cb = false, solve_bc = false, baseline = false, capacity_based = false, generate_convex_hull = false;
-	bool solve_relaxed = false;
+	bool solve_relaxed = false, solve_benders = false, solve_generic_callback = false, combine_feas_opt_cuts = false;
 	double time_limit = 0.0, service_time_deviation = 0.0;
 	bool force_use_all_vehicles = false;
 	bool export_model = false;
@@ -2719,10 +2722,20 @@ void ParseArgumentsAndRun(int argc, char* argv[] )
 			case 'n':
 			solve_relaxed = true;
 			break;
+			case 'o':
+			solve_benders = true;
+			break;
+			case 'p':
+			solve_generic_callback = true;
+			break;
+			case 'q':
+			combine_feas_opt_cuts = true;
+			break;
 		}
 	}
 
-	if((solve_compact && solve_bc) || (solve_compact && solve_cb) || (solve_bc && solve_cb) || (generate_convex_hull && (solve_compact || solve_bc || solve_cb))) throw 2;
+	if((solve_compact && solve_bc) || (solve_compact && solve_benders) || (solve_compact && solve_cb) ||
+		(solve_bc && solve_cb) ) throw 2;
 	if(baseline && capacity_based) throw 3;
 
 	split_file_path(instance,folder,file_name);
@@ -2778,7 +2791,7 @@ void ParseArgumentsAndRun(int argc, char* argv[] )
 		}
 	}
 
-	if(solve_cb)
+	if(solve_cb && !solve_benders)
 	{
 		auto root_cuts = new std::list<UserCutGeneral*>();
 
@@ -2823,6 +2836,64 @@ void ParseArgumentsAndRun(int argc, char* argv[] )
 			algo += "cb_csc";
 			//std::cout << algo << std::endl;
 			sol.write_to_file(algo,"//",instance_name);
+		}
+
+		DeleteCuts(root_cuts);
+		if(root_cuts != nullptr)
+		{
+			delete root_cuts;
+			root_cuts = nullptr;
+		}
+	}
+
+	if(solve_benders)
+	{
+		auto root_cuts = new std::list<UserCutGeneral*>();
+
+		if(baseline)
+		{
+			bool use_valid_inequalities = false;
+			bool find_root_cuts = false;
+			if(solve_cb)
+			{
+				use_valid_inequalities = false;
+				find_root_cuts = true;
+
+				Benders(inst,BendersFormulation::baseline,R0,Rn,time_limit,solve_generic_callback,combine_feas_opt_cuts,true,use_valid_inequalities,find_root_cuts,nullptr,nullptr,force_use_all_vehicles,export_model,root_cuts,sol);
+			
+				if(time_limit != -1) time_limit = std::max(0.0, time_limit - sol.root_time_);
+				sol.milp_time_ = sol.root_time_;
+
+				use_valid_inequalities = true;
+				find_root_cuts = false;
+			}else if (solve_relaxed)
+			{
+				Benders(inst,BendersFormulation::baseline,R0,Rn,time_limit,solve_generic_callback,combine_feas_opt_cuts,true,use_valid_inequalities,find_root_cuts,nullptr,nullptr,force_use_all_vehicles,export_model,root_cuts,sol);
+			}
+
+			if(!solve_relaxed)
+				Benders(inst,BendersFormulation::baseline,R0,Rn,time_limit,solve_generic_callback,combine_feas_opt_cuts,false,use_valid_inequalities,find_root_cuts,root_cuts,nullptr,force_use_all_vehicles,export_model,nullptr,sol);
+
+			std::cout << "# opt cuts: " << sol.num_benders_opt_cuts_ << std::endl;
+			std::cout << "# feas cuts: " << sol.num_benders_feas_cuts_ << std::endl;
+			std::cout << "num cuts: " << sol.num_cuts_found_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << "/" << sol.num_cuts_added_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << std::endl;
+
+			std::string algo;
+			if(solve_relaxed)
+				algo += "relax_";
+			if(solve_bc)
+				algo += "cb_";
+			if(combine_feas_opt_cuts)
+				algo += "benders_combined_baseline";
+			else
+				algo += "benders_baseline";
+			std::cout << algo << std::endl;
+			sol.write_to_file(algo,"//",instance_name);
+		}
+
+		if(capacity_based)
+		{
+			// TODO.
 		}
 
 		DeleteCuts(root_cuts);

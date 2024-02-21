@@ -34,6 +34,8 @@ public:
 	int num_tailing_offs_;
 	int num_nodes_;
 	int num_maximal_cliques_;
+	int num_benders_opt_cuts_;
+	int num_benders_feas_cuts_;
 	double separation_time_;
 	double root_time_;
 	double milp_time_;
@@ -90,6 +92,9 @@ template <typename T> Solution<T>::Solution(void)
 	this->num_cuts_added_lp_ = std::vector<int>(K_NUM_TYPES_CALLBACKS,0);
 	this->num_cuts_found_lp_ = std::vector<int>(K_NUM_TYPES_CALLBACKS,0);
 
+	this->num_benders_opt_cuts_ = 0;
+	this->num_benders_feas_cuts_ = 0;
+
 	this->is_root_node_ = true;
 	this->stop_adding_cuts_ = false;
 }
@@ -118,6 +123,9 @@ template <typename T> Solution<T>::Solution(int dimension)
 
 	this->num_cuts_added_lp_ = std::vector<int>(K_NUM_TYPES_CALLBACKS,0);
 	this->num_cuts_found_lp_ = std::vector<int>(K_NUM_TYPES_CALLBACKS,0);
+
+	this->num_benders_opt_cuts_ = 0;
+	this->num_benders_feas_cuts_ = 0;
 
 	this->is_root_node_ = true;
 	this->stop_adding_cuts_ = false;
@@ -150,6 +158,9 @@ template <typename T> void Solution<T>::reset()
 
 	this->num_cuts_added_lp_ = std::vector<int>(K_NUM_TYPES_CALLBACKS,0);
 	this->num_cuts_found_lp_ = std::vector<int>(K_NUM_TYPES_CALLBACKS,0);
+
+	this->num_benders_opt_cuts_ = 0;
+	this->num_benders_feas_cuts_ = 0;
 
 	this->num_nodes_ = 0;
 	this->num_tailing_offs_ = 0;

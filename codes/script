@@ -11,45 +11,71 @@ dir0="../instances/R-STOP-DP-reduced-0.8-100"
 # ./bin/stop --cutting-plane --baseline --AVICs --CCCs --time-limit 3600 --instance "../instances/R-STOP-DP/test.txt" --num-vehicles 1 --uncertainty-budget 3 --service-time-deviation 0.25
 # ./bin/stop --cutting-plane --capacity-based --AVICs --CCCs --time-limit 3600 --instance "../instances/R-STOP-DP/test.txt" --num-vehicles 1 --uncertainty-budget 3 --service-time-deviation 0.25
 
-curr_instance="a"
-files=()
-# total
-num_vehicles_vec=(2 3 4 5)
-service_time_deviation_vec=(0.10 0.25 0.50)
-uncertainty_budget_vec=(0 1 5 10)
-# num_vehicles_vec=(2 4)
-# service_time_deviation_vec=(0.5)
-# uncertainty_budget_vec=(1 5)
-time_limit=-1
+./bin/stop --solve-benders --benders-generic-callback --baseline --time-limit 30 --instance "../instances/R-STOP-DP-reduced-0.8/R25_0.8.txt" --num-vehicles 2 --uncertainty-budget 5 --service-time-deviation 0.5
+# ./bin/stop --solve-benders --benders-generic-callback --cutting-plane --baseline --CCCs --time-limit 120 --instance "../instances/R-STOP-DP-reduced-0.8/R25_0.8.txt" --num-vehicles 2 --uncertainty-budget 5 --service-time-deviation 0.5
+./bin/stop --solve-benders --combine-feas-opt-cuts --benders-generic-callback --baseline --time-limit 30 --instance "../instances/R-STOP-DP-reduced-0.8/R25_0.8.txt" --num-vehicles 2 --uncertainty-budget 5 --service-time-deviation 0.5
+# ./bin/stop --solve-benders --combine-feas-opt-cuts --benders-generic-callback --cutting-plane --baseline --CCCs --time-limit 120 --instance "../instances/R-STOP-DP-reduced-0.8/R25_0.8..txt" --num-vehicles 2 --uncertainty-budget 5 --service-time-deviation 0.5
 
-cont=0
-for file in $dir0/*.txt
-do
-	files[$cont]="$file"
-	((cont++))	
-done
+# ./bin/stop --solve-benders --benders-generic-callback --baseline --time-limit 3600 --instance "../instances/R-STOP-DP/R25_1.txt" --num-vehicles 2 --uncertainty-budget 5 --service-time-deviation 0.5
+# ./bin/stop --solve-benders --benders-generic-callback --cutting-plane --baseline --CCCs --time-limit 3600 --instance "../instances/R-STOP-DP/R25_1.txt" --num-vehicles 2 --uncertainty-budget 5 --service-time-deviation 0.5
+# ./bin/stop --solve-benders --combine-feas-opt-cuts --benders-generic-callback --baseline --time-limit 3600 --instance "../instances/R-STOP-DP/R25_1.txt" --num-vehicles 2 --uncertainty-budget 5 --service-time-deviation 0.5
+# ./bin/stop --solve-benders --combine-feas-opt-cuts --benders-generic-callback --cutting-plane --baseline --CCCs --time-limit 3600 --instance "../instances/R-STOP-DP/R25_1.txt" --num-vehicles 2 --uncertainty-budget 5 --service-time-deviation 0.5
 
-for file in ${files[@]}
-do
-	substr=$(echo $file | rev | cut -d'/' -f 1 | rev)
-	if [ "$substr" > "$curr_instance" ]
-	then
-		# echo $substr
-		for num_vehicles in ${num_vehicles_vec[@]}
-        do
-			for service_time_deviation in ${service_time_deviation_vec[@]}
-        	do
-				for uncertainty_budget in ${uncertainty_budget_vec[@]}
-        		do
-					# echo $num_vehicles
-					# echo $service_time_deviation
-					# echo $uncertainty_budget
-					./bin/stop --solve-relaxed --compact --baseline --time-limit $time_limit --instance $file --num-vehicles $num_vehicles --uncertainty-budget $uncertainty_budget --service-time-deviation $service_time_deviation
-                    ./bin/stop --solve-relaxed --compact --capacity-based --time-limit $time_limit --instance $file --num-vehicles $num_vehicles --uncertainty-budget $uncertainty_budget --service-time-deviation $service_time_deviation
-                    ./bin/stop --solve-relaxed --cutting-plane --baseline --AVICs --CCCs --time-limit $time_limit --instance $file --num-vehicles $num_vehicles --uncertainty-budget $uncertainty_budget --service-time-deviation $service_time_deviation
-                    ./bin/stop --solve-relaxed --cutting-plane --capacity-based --AVICs --CCCs --time-limit $time_limit --instance $file --num-vehicles $num_vehicles --uncertainty-budget $uncertainty_budget --service-time-deviation $service_time_deviation
-                done
-			done
-		done 
-	fi
-done
+# ./bin/stop --solve-benders --benders-generic-callback --baseline --time-limit 3600 --instance "../instances/R-STOP-DP-reduced-0.8/R50_0.8.txt" --num-vehicles 4 --uncertainty-budget 5 --service-time-deviation 0.5
+# ./bin/stop --solve-benders --benders-generic-callback --cutting-plane --baseline --CCCs --time-limit 3600 --instance "../instances/R-STOP-DP-reduced-0.8/R50_0.8.txt" --num-vehicles 4 --uncertainty-budget 5 --service-time-deviation 0.5
+# ./bin/stop --solve-benders --combine-feas-opt-cuts --benders-generic-callback --baseline --time-limit 3600 --instance "../instances/R-STOP-DP-reduced-0.8/R50_0.8.txt" --num-vehicles 4 --uncertainty-budget 5 --service-time-deviation 0.5
+# ./bin/stop --solve-benders --combine-feas-opt-cuts --benders-generic-callback --cutting-plane --baseline --CCCs --time-limit 3600 --instance "../instances/R-STOP-DP-reduced-0.8/R50_0.8..txt" --num-vehicles 4 --uncertainty-budget 5 --service-time-deviation 0.5
+
+# ./bin/stop --solve-benders --benders-generic-callback --baseline --time-limit 3600 --instance "../instances/R-STOP-DP/R50_3.txt" --num-vehicles 2 --uncertainty-budget 5 --service-time-deviation 0.5
+# ./bin/stop --solve-benders --benders-generic-callback --cutting-plane --baseline --CCCs --time-limit 3600 --instance "../instances/R-STOP-DP/R50_3.txt" --num-vehicles 2 --uncertainty-budget 5 --service-time-deviation 0.5
+# ./bin/stop --solve-benders --combine-feas-opt-cuts --benders-generic-callback --baseline --time-limit 3600 --instance "../instances/R-STOP-DP/R50_3.txt" --num-vehicles 2 --uncertainty-budget 5 --service-time-deviation 0.5
+# ./bin/stop --solve-benders --combine-feas-opt-cuts --benders-generic-callback --cutting-plane --baseline --CCCs --time-limit 3600 --instance "../instances/R-STOP-DP/R50_3..txt" --num-vehicles 2 --uncertainty-budget 5 --service-time-deviation 0.5
+
+# ./bin/stop --solve-benders --benders-generic-callback --baseline --time-limit 3600 --instance "../instances/R-STOP-DP/RC50_3.txt" --num-vehicles 2 --uncertainty-budget 5 --service-time-deviation 0.5
+# ./bin/stop --solve-benders --benders-generic-callback --cutting-plane --baseline --CCCs --time-limit 3600 --instance "../instances/R-STOP-DP/RC50_3.txt" --num-vehicles 2 --uncertainty-budget 5 --service-time-deviation 0.5
+# ./bin/stop --solve-benders --combine-feas-opt-cuts --benders-generic-callback --baseline --time-limit 3600 --instance "../instances/R-STOP-DP/RC50_3.txt" --num-vehicles 2 --uncertainty-budget 5 --service-time-deviation 0.5
+# ./bin/stop --solve-benders --combine-feas-opt-cuts --benders-generic-callback --cutting-plane --baseline --CCCs --time-limit 3600 --instance "../instances/R-STOP-DP/RC50_3..txt" --num-vehicles 2 --uncertainty-budget 5 --service-time-deviation 0.5
+
+
+# curr_instance="a"
+# files=()
+# # total
+# num_vehicles_vec=(2 3 4 5)
+# service_time_deviation_vec=(0.10 0.25 0.50)
+# uncertainty_budget_vec=(0 1 5 10)
+# # num_vehicles_vec=(2 4)
+# # service_time_deviation_vec=(0.5)
+# # uncertainty_budget_vec=(1 5)
+# time_limit=-1
+
+# cont=0
+# for file in $dir0/*.txt
+# do
+# 	files[$cont]="$file"
+# 	((cont++))	
+# done
+
+# for file in ${files[@]}
+# do
+# 	substr=$(echo $file | rev | cut -d'/' -f 1 | rev)
+# 	if [ "$substr" > "$curr_instance" ]
+# 	then
+# 		# echo $substr
+# 		for num_vehicles in ${num_vehicles_vec[@]}
+#         do
+# 			for service_time_deviation in ${service_time_deviation_vec[@]}
+#         	do
+# 				for uncertainty_budget in ${uncertainty_budget_vec[@]}
+#         		do
+# 					# echo $num_vehicles
+# 					# echo $service_time_deviation
+# 					# echo $uncertainty_budget
+# 					./bin/stop --solve-relaxed --compact --baseline --time-limit $time_limit --instance $file --num-vehicles $num_vehicles --uncertainty-budget $uncertainty_budget --service-time-deviation $service_time_deviation
+#                     ./bin/stop --solve-relaxed --compact --capacity-based --time-limit $time_limit --instance $file --num-vehicles $num_vehicles --uncertainty-budget $uncertainty_budget --service-time-deviation $service_time_deviation
+#                     ./bin/stop --solve-relaxed --cutting-plane --baseline --AVICs --CCCs --time-limit $time_limit --instance $file --num-vehicles $num_vehicles --uncertainty-budget $uncertainty_budget --service-time-deviation $service_time_deviation
+#                     ./bin/stop --solve-relaxed --cutting-plane --capacity-based --AVICs --CCCs --time-limit $time_limit --instance $file --num-vehicles $num_vehicles --uncertainty-budget $uncertainty_budget --service-time-deviation $service_time_deviation
+#                 done
+# 			done
+# 		done 
+# 	fi
+# done

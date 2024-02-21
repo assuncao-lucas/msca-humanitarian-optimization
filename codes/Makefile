@@ -80,6 +80,10 @@ FORM_SRC=$(PROG_DIR)/formulations.cpp
 FORM_H=$(PROG_DIR)/formulations.h
 FORM_OBJ=$(PROG_BIN)/formulations.o
 
+BENDERS_CALLBACK_SRC=$(PROG_DIR)/benders_generic_callback.cpp
+BENDERS_CALLBACK_H=$(PROG_DIR)/benders_generic_callback.h
+BENDERS_CALLBACK_OBJ=$(PROG_BIN)/benders_generic_callback.o
+
 arc: $(ARC_SRC) $(ARC_H)
 	$(CC) $(CFLAGS) -c $(ARC_SRC) -o $(ARC_OBJ)
 
@@ -125,11 +129,14 @@ matrix: $(MATRIX_HPP)
 formulations: $(FORM_SRC) $(FORM_H)
 	$(CC) $(CFLAGS) $(CFLAGS2) -c $(FORM_SRC) -o $(FORM_OBJ)
 
-stop: arc graph graph_algo GENERAL_OBJ instance route matrix timer solution formulations
-	$(CC) $(CFLAGS) $(CFLAGS2) $(ARC_SRC) $(GRAPH_SRC) $(GRAPH_ALGO_SRC) $(GENERAL_SRC) $(USERCUT_SRC) $(ROUTE_SRC) $(MATRIX_HPP) $(INSTANCE_SRC) $(TIMER_SRC) $(SOLUTION_HPP) $(FORM_SRC) $(MAIN_EXACT_SRC) -o $(PROG_BIN)/stop $(CLNFLAGS)
+benders_callback: $(BENDERS_CALLBACK_SRC) $(BENDERS_CALLBACK_H)
+	$(CC) $(CFLAGS) $(CFLAGS2) -c $(BENDERS_CALLBACK_SRC) -o $(BENDERS_CALLBACK_OBJ)
+
+stop: arc graph graph_algo GENERAL_OBJ instance route matrix timer solution benders_callback formulations
+	$(CC) $(CFLAGS) $(CFLAGS2) $(ARC_SRC) $(GRAPH_SRC) $(GRAPH_ALGO_SRC) $(GENERAL_SRC) $(USERCUT_SRC) $(ROUTE_SRC) $(MATRIX_HPP) $(INSTANCE_SRC) $(TIMER_SRC) $(SOLUTION_HPP) $(BENDERS_CALLBACK_SRC) $(FORM_SRC) $(MAIN_EXACT_SRC) -o $(PROG_BIN)/stop $(CLNFLAGS)
 
 stop2: formulations
-	$(CC) $(CFLAGS) $(CFLAGS2) $(ARC_SRC) $(GRAPH_SRC) $(GRAPH_ALGO_SRC) $(GENERAL_SRC) $(USERCUT_SRC) $(ROUTE_SRC) $(MATRIX_HPP) $(INSTANCE_SRC) $(TIMER_SRC) $(SOLUTION_HPP) $(FORM_SRC) $(MAIN_EXACT_SRC) -o $(PROG_BIN)/stop $(CLNFLAGS)
+	$(CC) $(CFLAGS) $(CFLAGS2) $(ARC_SRC) $(GRAPH_SRC) $(GRAPH_ALGO_SRC) $(GENERAL_SRC) $(USERCUT_SRC) $(ROUTE_SRC) $(MATRIX_HPP) $(INSTANCE_SRC) $(TIMER_SRC) $(SOLUTION_HPP) $(BENDERS_CALLBACK_SRC) $(FORM_SRC) $(MAIN_EXACT_SRC) -o $(PROG_BIN)/stop $(CLNFLAGS)
 
 stop3:
 	$(CC) $(CFLAGS) $(CFLAGS2) $(ARC_SRC) $(GRAPH_SRC) $(GRAPH_ALGO_SRC) $(GENERAL_SRC) $(USERCUT_SRC) $(ROUTE_SRC) $(MATRIX_HPP) $(INSTANCE_SRC) $(TIMER_SRC) $(SOLUTION_HPP) $(FORM_SRC) $(MAIN_EXACT_SRC) -o $(PROG_BIN)/stop $(CLNFLAGS)

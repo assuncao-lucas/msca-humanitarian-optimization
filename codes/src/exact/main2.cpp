@@ -29,10 +29,10 @@ void GenerateAlgorithmsLatexTable(double total_time_limit)
 			for (auto uncertainty_budget: uncertainty_budget_vec)
 				instances_terminations.push_back("_v" + num_vehicles + "_d" + service_time_deviation + "_b" + uncertainty_budget + ".txt");
 
-	//algorithms.push_back("baseline");
-	algorithms.push_back("cb_baseline");
+	algorithms.push_back("baseline");
+	//algorithms.push_back("cb_baseline");
 	//algorithms.push_back("csc");
-	algorithms.push_back("cb_csc");
+	//algorithms.push_back("cb_csc");
 
 	instance_types.push_back("C");
 	instance_types.push_back("R");
@@ -100,7 +100,7 @@ void GenerateAlgorithmsLatexTable(double total_time_limit)
 				for(auto instances_termination: instances_terminations)
 				{
 					std::string instance = instance_prefix + instances_termination;
-					std::cout << instance << std::endl;
+					//std::cout << instance << std::endl;
 					double original_lp = 0.0;
 					for(size_t algo = 0; algo < algorithms.size(); ++algo)
 					{
@@ -151,6 +151,9 @@ void GenerateAlgorithmsLatexTable(double total_time_limit)
 						pos = line.find_first_of(":");
 						s_time << line.substr(pos + 2);
 						s_time >> time;
+
+						if((status == "OPTIMAL")||(status == "INFEASIBLE"))
+							std::cout << instance << std::endl;
 
 						if((status != "OPTIMAL") && (status != "INFEASIBLE"))
 						{
@@ -448,8 +451,8 @@ void GenerateLPImprovementsLatexTable()
 int main()
 {
 	// GenerateLPImprovementsLatexTable();
-	// GenerateAlgorithmsLatexTable(3600);
-	// return 0;
+	//GenerateAlgorithmsLatexTable(3600);
+	//return 0;
 	int time_limit = -1;
 	Instance inst("../instances/R-STOP-DP/","test.txt",2,0.25,3,false);
 	
@@ -471,7 +474,8 @@ int main()
 	bool export_model = false;
 	bool solve_relaxed = false;
 	bool use_valid_inequalities = false;
-	bool combine_feas_op_cuts = false;
+	bool combine_feas_op_cuts = true;
+	bool apply_benders_generic_callback = true;
 	auto root_cuts = new std::list<UserCutGeneral*>();
 	Solution<double> solution(graph->num_vertices());
 
@@ -544,7 +548,7 @@ int main()
 	solution.reset();
 	DeleteCuts(root_cuts);
 
-	BendersCompactBaseline(inst,R0,Rn,time_limit,false,solve_relaxed,use_valid_inequalities,false,nullptr,nullptr,force_use_all_vehicles,export_model,solution);
+	Benders(inst,BendersFormulation::baseline,R0,Rn,time_limit,apply_benders_generic_callback,false,solve_relaxed,use_valid_inequalities,false,nullptr,nullptr,force_use_all_vehicles,export_model,nullptr,solution);
 	if (solve_relaxed)
 	{
 		std::cout <<  " LP: " << solution.lp_ << std::endl;
@@ -554,14 +558,13 @@ int main()
 		solution.is_optimal_? std::cout <<  " optimal: " << solution.lb_ << std::endl
 		: std::cout <<  " non optimal: [" << solution.lb_ << ", " << solution.ub_ << "]" << std::endl;
 	}
-	std::cout << "# opt cuts: " << inst.num_opt_cuts_ << std::endl;
-	std::cout << "# feas cuts: " << inst.num_feas_cuts_ << std::endl;
+	std::cout << "# opt cuts: " << solution.num_benders_opt_cuts_ << std::endl;
+	std::cout << "# feas cuts: " << solution.num_benders_feas_cuts_ << std::endl;
 	std::cout << "num cuts: " << solution.num_cuts_found_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << "/" << solution.num_cuts_added_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << std::endl;
-	inst.num_opt_cuts_ = 0;
-	inst.num_feas_cuts_ = 0;
+
 	solution.reset();
 
-	BendersCompactBaseline(inst,R0,Rn,time_limit,true,solve_relaxed,use_valid_inequalities,false,nullptr,nullptr,force_use_all_vehicles,export_model,solution);
+	Benders(inst,BendersFormulation::baseline,R0,Rn,time_limit,apply_benders_generic_callback,true,solve_relaxed,use_valid_inequalities,false,nullptr,nullptr,force_use_all_vehicles,export_model,nullptr,solution);
 	if (solve_relaxed)
 	{
 		std::cout <<  " LP: " << solution.lp_ << std::endl;
@@ -571,8 +574,8 @@ int main()
 		solution.is_optimal_? std::cout <<  " optimal: " << solution.lb_ << std::endl
 		: std::cout <<  " non optimal: [" << solution.lb_ << ", " << solution.ub_ << "]" << std::endl;
 	}
-	std::cout << "# opt cuts: " << inst.num_opt_cuts_ << std::endl;
-	std::cout << "# feas cuts: " << inst.num_feas_cuts_ << std::endl;
+	std::cout << "# opt cuts: " << solution.num_benders_opt_cuts_ << std::endl;
+	std::cout << "# feas cuts: " << solution.num_benders_feas_cuts_ << std::endl;
 	std::cout << "num cuts: " << solution.num_cuts_found_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << "/" << solution.num_cuts_added_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << std::endl;
 	solution.reset();
 	// IloEnv env;

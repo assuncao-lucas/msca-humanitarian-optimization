@@ -1,0 +1,613 @@
+#include "src/benders_generic_callback.h"
+#include "src/solution.hpp"
+
+typedef lemon::ListDigraph LemonGraph;
+typedef int LimitValueType;
+
+ILOSTLBEGIN
+
+int u_0_var_to_index(int vertex, int budget, int num_vertices)
+{
+  assert(num_vertices > 1);
+  return budget * (num_vertices-1) + vertex - 1;
+} 
+
+int u_1_var_to_index(int vertex, int budget, int num_vertices)
+{
+  return budget * num_vertices + vertex;
+}
+
+int u_2_var_to_index(int arc_pos, int budget, int num_arcs_from_zero, int num_arcs)
+{
+  assert(num_arcs > num_arcs_from_zero);
+  return budget * (num_arcs-num_arcs_from_zero) + arc_pos - num_arcs_from_zero;
+}
+
+int u_3_var_to_index(int arc_pos, int budget, int num_arcs_from_zero, int num_arcs)
+{
+  assert(num_arcs > num_arcs_from_zero);
+  assert(budget > 0);
+  return (budget-1) * (num_arcs-num_arcs_from_zero) + arc_pos - num_arcs_from_zero;
+}
+
+void FillObjectiveExpressionDualCompactBaselineContinuousSpace(IloExpr& obj, DualVariablesBaseline& dual_vars, IloNumArray& x_values, IloNumArray& y_values, std::optional<IloNum> dual_bound_value, const Instance& instance, bool combine_feas_op_cuts)
+{
+  const Graph * graph = instance.graph();
+  const int num_vertices = graph->num_vertices();
+  const int num_arcs = graph->num_arcs();
+  const int num_arcs_from_origin = size(graph->AdjVerticesOut(0));
+  const auto * vertices_info = graph->vertices_info();
+  const int budget = instance.uncertainty_budget();
+  const double route_limit = instance.limit();
+  const int num_mandatory = instance.num_mandatory();
+
+  for (int budget_iter = 0; budget_iter <= budget; ++budget_iter)
+  {
+    for(auto j: graph->AdjVerticesOut(0))
+      obj -= operator*(dual_vars.u_0_[u_0_var_to_index(j,budget_iter,num_vertices)], (*graph)[0][j]->distance())*(y_values[j]);
+
+    for (int i = 0; i < num_vertices; ++i)
+    {
+      const auto vertex_info = vertices_info[i];
+      double vertex_deadline = (i <= num_mandatory)? route_limit: round_decimals(vertex_info.profit_/vertex_info.decay_ratio_,2);
+      
+      if(i <= num_mandatory)
+        obj += operator*(dual_vars.u_1_[u_1_var_to_index(i,budget_iter,num_vertices)], route_limit);
+      else
+        obj += operator*(dual_vars.u_1_[u_1_var_to_index(i,budget_iter,num_vertices)], vertex_deadline * y_values[i]);
+    
+      if (i > 0) // only profitable and mandatory.
+      {
+        for(auto j: graph->AdjVerticesOut(i))
+        {
+          GArc * arc = (*graph)[i][j];
+          const int arc_pos = graph->pos(i,j);
+          double coef1 = (vertex_deadline + vertex_info.nominal_service_time_ + arc->distance())*(1-x_values[arc_pos]) - vertex_info.nominal_service_time_ - arc->distance();
+          obj += operator*(dual_vars.u_2_[u_2_var_to_index(arc_pos,budget_iter,num_arcs_from_origin,num_arcs)], coef1);
+
+          if(budget_iter > 0)
+          {
+            double coef2 = (vertex_deadline + vertex_info.nominal_service_time_ + vertex_info.dev_service_time_ + arc->distance())*(1-x_values[arc_pos]) - vertex_info.nominal_service_time_  - vertex_info.dev_service_time_ - arc->distance();
+            obj += operator*(dual_vars.u_3_[u_3_var_to_index(arc_pos,budget_iter,num_arcs_from_origin,num_arcs)], coef2);
+          }
+        }
+      }
+    }
+  }
+
+  if(combine_feas_op_cuts)
+    obj -= operator*(*dual_bound_value,dual_vars.u_dual_bound_);
+}
+
+// This routine separates Benders' cuts violated by the current x solution.
+// Violated cuts are found by solving the worker LP
+//
+IloBool SeparateBendersCutBaseline(IloEnv& master_env, IloNumVarArray &x, IloNumVarArray &y, IloNumVar& dual_bound, IloNumArray &x_values, IloNumArray &y_values, IloNum dual_bound_value, IloCplex& worker_cplex, DualVariablesBaseline* dual_vars, const Instance & instance, IloObjective& worker_obj, IloExpr& cut_expr, bool combine_feas_op_cuts, Solution<double>& solution)
+{
+  // std::cout << "try to separate benders cut" << std::endl; 
+  IloBool violatedCutFound = IloFalse;
+  IloEnv worker_env = worker_cplex.getEnv();
+  IloModel worker_model = worker_cplex.getModel();
+
+  // Update the objective function in the worker LP.
+  worker_model.remove(worker_obj);
+  IloExpr obj_expr = worker_obj.getExpr();
+  obj_expr.clear();
+  FillObjectiveExpressionDualCompactBaselineContinuousSpace(obj_expr,*dual_vars,x_values,y_values,dual_bound_value,instance, combine_feas_op_cuts);
+  worker_obj.setExpr(obj_expr);
+  worker_model.add(worker_obj);
+  obj_expr.end(); 
+
+  // for(IloNum i = 0; i < y.getSize(); ++i)
+  // {
+  //   std::cout << y[i].getName() << " " << y_values[i] << std::endl;
+  // }
+
+  // for(IloNum i = 0; i < x.getSize(); ++i)
+  // {
+  //   std::cout << x[i].getName() << " " << x_values[i] << std::endl;
+  // }
+  
+  // worker_cplex.exportModel("worker_model_Benders_compact_baseline.lp");
+  // getchar(); getchar();
+
+  // Solve the worker LP
+  worker_cplex.solve();
+
+  auto status = worker_cplex.getStatus();
+  //std::cout << status << std::endl;
+
+  if (status == IloAlgorithm::InfeasibleOrUnbounded || status == IloAlgorithm::Infeasible )
+    std::cout << "DEU RUIM!" << std::endl;
+
+  // Get the violated cut as an unbounded ray of the worker LP
+  if ( status == IloAlgorithm::Unbounded)
+  {
+    ++solution.num_benders_feas_cuts_;
+    //std::cout << "found new feasibility cut " << instance.num_feas_cuts_ << std::endl;
+    IloNumVarArray var(worker_env);
+    IloNumArray val(worker_env);
+
+    worker_cplex.getRay(val, var);
+    IloInt var_id = 0;
+
+    for(IloInt i = 0; i < val.getSize(); ++i)
+    {
+      var_id = var[i].getId();
+      cut_expr += operator*(val[i],dual_vars->ext_ray_coef_[var_id]);
+      //std::cout << var[i].getName() << " " << val[i] << " " << dual_vars.ext_ray_coef[var_id] << std::endl;
+    }
+
+    // std::cout << cut_expr << std::endl;
+    // getchar();getchar();
+
+    var.end();
+    val.end();
+
+    return IloTrue;
+  }
+
+  // if the problem is solved to optimality and the current master solution is violated, a new optimality cut is found.
+  if (status == IloAlgorithm::Optimal)
+  {
+    double new_dual_bound = worker_cplex.getObjValue();
+    // if combining feas and opt cuts, it suffices to have a bound greater than zero to imply a violated cut.
+    if ( double_greater(dual_bound_value,new_dual_bound) || combine_feas_op_cuts && double_greater(new_dual_bound,0) )
+    {
+      ++solution.num_benders_opt_cuts_;
+      //std::cout << status << " " << new_dual_bound << " x " << dual_bound_value << std::endl;
+      //std::cout << "found new optimality cut " << instance.num_opt_cuts_ << std::endl;
+      IloNumArray u_0_values(worker_env);
+      worker_cplex.getValues(u_0_values, dual_vars->u_0_);
+      IloNumArray u_1_values(worker_env);
+      worker_cplex.getValues(u_1_values, dual_vars->u_1_);
+      IloNumArray u_2_values(worker_env);
+      worker_cplex.getValues(u_2_values, dual_vars->u_2_);
+      IloNumArray u_3_values(worker_env);
+      worker_cplex.getValues(u_3_values, dual_vars->u_3_);
+
+      const Graph * graph = instance.graph();
+      const int num_vertices = graph->num_vertices();
+      const int num_arcs = graph->num_arcs();
+      const int num_arcs_from_origin = size(graph->AdjVerticesOut(0));
+      const auto * vertices_info = graph->vertices_info();
+      const int budget = instance.uncertainty_budget();
+      const double route_limit = instance.limit();
+      const int num_mandatory = instance.num_mandatory();
+
+      for (int budget_iter = 0; budget_iter <= budget; ++budget_iter)
+      {
+        for(auto j: graph->AdjVerticesOut(0))
+          cut_expr -= operator*(u_0_values[u_0_var_to_index(j,budget_iter,num_vertices)]*(*graph)[0][j]->distance(),(y[j]));
+
+        for (int i = 0; i < num_vertices; ++i)
+        {
+          const auto vertex_info = vertices_info[i];
+          double vertex_deadline = (i <= num_mandatory)? route_limit: round_decimals(vertex_info.profit_/vertex_info.decay_ratio_,2);
+          if(i <= num_mandatory)
+            cut_expr += u_1_values[u_1_var_to_index(i,budget_iter,num_vertices)]*route_limit;
+          else
+            cut_expr += operator*(u_1_values[u_1_var_to_index(i,budget_iter,num_vertices)]*vertex_deadline,y[i]);
+        
+          if (i > 0) // only profitable and mandatory.
+          {
+            for(auto j: graph->AdjVerticesOut(i))
+            {
+              GArc * arc = (*graph)[i][j];
+              const int arc_pos = graph->pos(i,j);
+              IloExpr coef1(master_env);
+              coef1 += (operator*(vertex_deadline + vertex_info.nominal_service_time_ + arc->distance(),1-x[arc_pos]) - vertex_info.nominal_service_time_ - arc->distance());
+              cut_expr += operator*(u_2_values[u_2_var_to_index(arc_pos,budget_iter,num_arcs_from_origin,num_arcs)], coef1);
+              coef1.end();
+              if(budget_iter > 0)
+              {
+                IloExpr coef2(master_env);
+                coef2 += (operator*(vertex_deadline + vertex_info.nominal_service_time_ + vertex_info.dev_service_time_ + arc->distance(),1-x[arc_pos]) - vertex_info.nominal_service_time_  - vertex_info.dev_service_time_ - arc->distance());
+                cut_expr += operator*(u_3_values[u_3_var_to_index(arc_pos,budget_iter,num_arcs_from_origin,num_arcs)], coef2);
+                coef2.end();
+              }
+            }
+          }
+        }
+      }
+
+      if(combine_feas_op_cuts)
+        cut_expr -= operator*(worker_cplex.getValue(dual_vars->u_dual_bound_),dual_bound);
+      else
+        cut_expr -= dual_bound;
+
+      // for(IloNum i = 0; i < dual_vars.u_0.getSize(); ++i)
+      // {
+      //   std::cout << dual_vars.u_0[i].getName() << " " << u_0_values[i] << std::endl;
+      // }
+
+      // for(IloNum i = 0; i < dual_vars.u_1.getSize(); ++i)
+      // {
+      //   std::cout << dual_vars.u_1[i].getName() << " " << u_1_values[i] << std::endl;
+      // }
+
+      // for(IloNum i = 0; i < dual_vars.u_2.getSize(); ++i)
+      // {
+      //   std::cout << dual_vars.u_2[i].getName() << " " << u_2_values[i] << std::endl;
+      // }
+
+      // for(IloNum i = 0; i < dual_vars.u_3.getSize(); ++i)
+      // {
+      //   std::cout << dual_vars.u_3[i].getName() << " " << u_3_values[i] << std::endl;
+      // }
+
+      // std::cout << cut_expr << std::endl;
+      // getchar();getchar();
+
+      u_0_values.end();
+      u_1_values.end();
+      u_2_values.end();
+      u_3_values.end();
+
+      return IloTrue;
+    }
+  }
+
+  return violatedCutFound;
+
+} // END separate
+
+DualVariablesBaseline::DualVariablesBaseline(IloEnv& env,const Instance & instance, bool combine_feas_op_cuts):DualVariables(instance,combine_feas_op_cuts)
+{
+  const Graph * graph = instance.graph();
+  const int num_vertices = graph->num_vertices();
+  const int num_arcs = graph->num_arcs();
+  const int budget = instance.uncertainty_budget();
+  const int num_arcs_from_origin = size(graph->AdjVerticesOut(0));
+
+  // budget + 1 to consider level 0 of budget! 0,..., budget
+  // u_0 defined for all i \in S U P, 0...budget
+  u_0_ = IloNumVarArray(env, (budget+1)*(num_vertices-1), 0, IloInfinity, ILOFLOAT);
+  // u_1 defined for all i \in N, 0...budget
+  u_1_ = IloNumVarArray(env, (budget+1)*num_vertices, 0, IloInfinity, ILOFLOAT);
+  // u_2 defined for all arcs (i,j) i != 0, 0...budget
+  u_2_ = IloNumVarArray(env, (budget+1)*(num_arcs-num_arcs_from_origin), 0, IloInfinity, ILOFLOAT);
+  // u_3 defined for all arcs (i,j) i != 0, 1...budget (considering 0...budget -1)
+  u_3_ = IloNumVarArray(env, budget*(num_arcs-num_arcs_from_origin), 0, IloInfinity, ILOFLOAT);
+  if(combine_feas_op_cuts)
+    u_dual_bound_ = IloNumVar(env,0,IloInfinity,ILOFLOAT);
+}
+
+DualVariablesBaseline::~DualVariablesBaseline()
+{
+  u_0_.end();
+  u_1_.end();
+  u_2_.end();
+  u_3_.end();
+
+  if(combine_feas_op_cuts_)
+    u_dual_bound_.end();
+
+  for (auto& it: ext_ray_coef_)
+    it.second.end();
+
+  ext_ray_coef_.clear();
+}
+
+void DualVariablesBaseline::AddNamesToDualVariables()
+{
+  const Graph* graph = instance_.graph();
+  const int num_vertices = graph->num_vertices();
+  const int num_arcs = graph->num_arcs();
+  const int budget = instance_.uncertainty_budget();
+  const int num_arcs_from_origin = size(graph->AdjVerticesOut(0));
+
+  // add name to variables.
+  // u_0.
+  for(int i = 1; i < num_vertices; ++i)
+  {
+    for (int budget_iter = 0; budget_iter <= budget; ++budget_iter)
+    {
+      char strnum[28];
+      sprintf(strnum,"u_0(%d)(%d)",i,budget_iter);
+      u_0_[u_0_var_to_index(i,budget_iter,num_vertices)].setName(strnum);
+    }
+  }
+
+  // u_1.
+  for(int i = 0; i < num_vertices; ++i)
+  {
+    for (int budget_iter = 0; budget_iter <= budget; ++budget_iter)
+    {
+      char strnum[28];
+      sprintf(strnum,"u_1(%d)(%d)",i,budget_iter);
+      u_1_[u_1_var_to_index(i,budget_iter,num_vertices)].setName(strnum);
+    }
+  }
+
+  // u_2.
+  for(int i = 1; i < num_vertices; ++i)
+  {
+    for (int j: graph->AdjVerticesOut(i))
+    {
+      for (int budget_iter = 0; budget_iter <= budget; ++budget_iter)
+      {
+        char strnum[31];
+        const int arc_pos = graph->pos(i,j);
+        sprintf(strnum,"u_2(%d)(%d)(%d)",i,j,budget_iter);
+        u_2_[u_2_var_to_index(arc_pos,budget_iter,num_arcs_from_origin,num_arcs)].setName(strnum);
+      }
+    }
+  }
+
+  // u_3.
+  for(int i = 1; i < num_vertices; ++i)
+  {
+    for (int j: graph->AdjVerticesOut(i))
+    {
+      for (int budget_iter = 1; budget_iter <= budget; ++budget_iter)
+      {
+        char strnum[31];
+        const int arc_pos = graph->pos(i,j);
+        sprintf(strnum,"u_3(%d)(%d)(%d)",i,j,budget_iter);
+        u_3_[u_3_var_to_index(arc_pos,budget_iter,num_arcs_from_origin,num_arcs)].setName(strnum);
+      }
+    }
+  }
+
+  if(combine_feas_op_cuts_)
+    u_dual_bound_.setName("u_dual_bound");
+}
+
+void DualVariablesBaseline::SetDualVariablesProperties(IloEnv& master_env, MasterVariables& master_vars)
+{
+  const Graph * graph = instance_.graph();
+  const int num_vertices = graph->num_vertices();
+  const int num_arcs = graph->num_arcs();
+  const int num_arcs_from_origin = size(graph->AdjVerticesOut(0));
+  const auto * vertices_info = graph->vertices_info();
+  const int budget = instance_.uncertainty_budget();
+  const double route_limit = instance_.limit();
+  const int num_mandatory = instance_.num_mandatory();
+  for (int budget_iter = 0; budget_iter <= budget; ++budget_iter)
+  {
+    for(auto j: graph->AdjVerticesOut(0))
+    {
+      IloExpr exp1(master_env);
+      exp1 -= operator*((*graph)[0][j]->distance(),master_vars.y[j]);
+      ext_ray_coef_[u_0_[u_0_var_to_index(j,budget_iter,num_vertices)].getId()] = exp1;
+    }
+
+    for (int i = 0; i < num_vertices; ++i)
+    {
+      const auto vertex_info = vertices_info[i];
+      double vertex_deadline = (i <= num_mandatory)? route_limit: round_decimals(vertex_info.profit_/vertex_info.decay_ratio_,2);
+      
+      IloExpr exp2(master_env);
+      if(i <= num_mandatory)
+      {
+        exp2 += route_limit;
+        ext_ray_coef_[u_1_[u_1_var_to_index(i,budget_iter,num_vertices)].getId()] = exp2;
+      }else
+      {
+        exp2 +=operator*(vertex_deadline,master_vars.y[i]);
+        ext_ray_coef_[u_1_[u_1_var_to_index(i,budget_iter,num_vertices)].getId()] = exp2;
+      }
+      if (i > 0) // only profitable and mandatory.
+      {
+        for(auto j: graph->AdjVerticesOut(i))
+        {
+          GArc * arc = (*graph)[i][j];
+          const int arc_pos = graph->pos(i,j);
+          IloExpr exp3(master_env);
+          exp3 += (operator*(vertex_deadline + vertex_info.nominal_service_time_ + arc->distance(),1-master_vars.x[arc_pos]) - vertex_info.nominal_service_time_ - arc->distance());
+          ext_ray_coef_[u_2_[u_2_var_to_index(arc_pos,budget_iter,num_arcs_from_origin,num_arcs)].getId()] = exp3;
+          if(budget_iter > 0)
+          {
+            IloExpr exp4(master_env);
+            exp4 += (operator*(vertex_deadline + vertex_info.nominal_service_time_ + vertex_info.dev_service_time_ + arc->distance(),1-master_vars.x[arc_pos]) - vertex_info.nominal_service_time_  - vertex_info.dev_service_time_ - arc->distance());
+            ext_ray_coef_[u_3_[u_3_var_to_index(arc_pos,budget_iter,num_arcs_from_origin,num_arcs)].getId()] = exp4;
+          }
+        }
+      }
+    }
+  }
+
+  // if(combine_feas_op_cuts)
+  // {
+  //   IloExpr exp5(master_env);
+  //   exp5 -= dual_bound_opt->get();
+  //   dual_vars.ext_ray_coef[dual_vars.u_dual_bound.getId()] = exp5;
+  // }
+}
+
+DualVariablesSingleCommodity::DualVariablesSingleCommodity(IloEnv& env,const Instance & instance, bool combine_feas_op_cuts):DualVariables(instance,combine_feas_op_cuts)
+{
+// TODO.
+}
+
+DualVariablesSingleCommodity::~DualVariablesSingleCommodity()
+{
+// TODO.
+}
+
+void DualVariablesSingleCommodity::AddNamesToDualVariables()
+{
+// TODO.
+}
+
+void DualVariablesSingleCommodity::SetDualVariablesProperties(IloEnv& master_env, MasterVariables& master_vars)
+{
+// TODO.
+}
+
+
+void PopulateByRowDualCompactSingleCommodityContinuousSpaceBaseline(IloEnv& env, IloModel& model, DualVariablesSingleCommodity * dual_vars, const Instance& instance, bool combine_feas_op_cuts)
+{
+  //TODO
+}
+
+void PopulateByRowDualCompactBaselineContinuousSpaceBaseline(IloEnv& env, IloModel& model, DualVariablesBaseline * dual_vars, const Instance& instance, bool combine_feas_op_cuts)
+{
+  const Graph* graph = instance.graph();
+  const int num_vertices = graph->num_vertices();
+  const int num_mandatory = instance.num_mandatory();
+  const int num_arcs = graph->num_arcs();
+  const int num_arcs_from_origin = size(graph->AdjVerticesOut(0));
+  const auto* vertices_info = graph->vertices_info();
+  const int budget = instance.uncertainty_budget();
+
+  IloExpr exp(env);
+
+  exp += dual_vars->u_1_[u_1_var_to_index(0,0,num_vertices)];
+  for (auto j: graph->AdjVerticesIn(0))
+    exp -= dual_vars->u_2_[u_2_var_to_index(graph->pos(j,0),0, num_arcs_from_origin, num_arcs)];
+
+  model.add(exp >= 0);
+  exp.end();
+
+  for(int budget_iter = 1; budget_iter <= budget; ++budget_iter)
+  {
+    IloExpr exp(env);
+    exp += dual_vars->u_1_[u_1_var_to_index(0,budget_iter,num_vertices)];
+
+    for (auto j: graph->AdjVerticesIn(0))
+    {
+      exp -= dual_vars->u_2_[u_2_var_to_index(graph->pos(j,0),budget_iter, num_arcs_from_origin, num_arcs)];
+      exp -= dual_vars->u_3_[u_3_var_to_index(graph->pos(j,0),budget_iter, num_arcs_from_origin, num_arcs)];
+    }
+    model.add(exp >= 0);
+    exp.end();
+  }
+
+  for(int budget_iter = 0; budget_iter <= budget; ++budget_iter)
+  {
+    for (int i = 1; i < num_vertices; ++i)
+    {
+      IloExpr exp(env);
+
+      exp -= dual_vars->u_0_[u_0_var_to_index(i,budget_iter,num_vertices)];
+      exp += dual_vars->u_1_[u_1_var_to_index(i,budget_iter,num_vertices)];
+
+      for(auto j: graph->AdjVerticesOut(i))
+      {
+        exp += dual_vars->u_2_[u_2_var_to_index(graph->pos(i,j),budget_iter,num_arcs_from_origin,num_arcs)];
+        if(budget_iter < budget)
+          exp += dual_vars->u_3_[u_3_var_to_index(graph->pos(i,j),budget_iter+1,num_arcs_from_origin,num_arcs)];
+      }
+
+      for(auto j: graph->AdjVerticesIn(i))
+      {
+        if (j != 0)
+        {
+          exp -= dual_vars->u_2_[u_2_var_to_index(graph->pos(j,i),budget_iter,num_arcs_from_origin,num_arcs)];
+          if (budget_iter > 0)
+            exp -= dual_vars->u_3_[u_3_var_to_index(graph->pos(j,i),budget_iter,num_arcs_from_origin,num_arcs)];
+        }
+      }
+
+      const auto coef = (budget_iter == budget && i > num_mandatory)? - vertices_info[i].decay_ratio_: 0.0;
+      
+      // if combine optimality and feasibility cuts, add contibution of additional dual var.
+      combine_feas_op_cuts? exp -= operator*(coef,dual_vars->u_dual_bound_) : exp-= coef;
+      model.add(exp >= 0);
+      exp.end();
+
+
+      if(!(*graph)[0][i])
+        dual_vars->u_0_[u_0_var_to_index(i,budget_iter,num_vertices)].setUB(0.0);
+    }
+  }
+
+  // add extra constraint to scale/normalize the values of the dual variables.
+  if(combine_feas_op_cuts)
+  {
+    double num_dual_vars = 1.0 + dual_vars->u_0_.getSize() + dual_vars->u_1_.getSize() + dual_vars->u_2_.getSize()+ dual_vars->u_3_.getSize();
+    double normalized_coef = 1.0/sqrt(1.0*num_dual_vars); // all of these variables have coefficient equal to 1, so the sum of the powers of 2 is equal to their sum,
+    
+    IloExpr exp_normalize(env);
+    // add all dual variables to the expression.
+    for(IloInt var_index = 0; var_index < dual_vars->u_0_.getSize(); ++var_index)
+      exp_normalize += operator*(normalized_coef,dual_vars->u_0_[var_index]);
+    for(IloInt var_index = 0; var_index < dual_vars->u_1_.getSize(); ++var_index)
+      exp_normalize += operator*(normalized_coef,dual_vars->u_1_[var_index]);
+    for(IloInt var_index = 0; var_index < dual_vars->u_2_.getSize(); ++var_index)
+      exp_normalize += operator*(normalized_coef,dual_vars->u_2_[var_index]);
+    for(IloInt var_index = 0; var_index < dual_vars->u_3_.getSize(); ++var_index)
+      exp_normalize += operator*(normalized_coef,dual_vars->u_3_[var_index]);
+    exp_normalize += operator*(normalized_coef,dual_vars->u_dual_bound_);
+
+  
+    //std::cout << num_dual_vars << " " <<  normalized_coef << std::endl;
+
+    model.add(exp_normalize == 1);
+    exp_normalize.end();
+  }
+}
+
+WorkerI::WorkerI(IloEnv& master_env, const Instance& instance, MasterVariables& master_vars, bool combine_feas_op_cuts, bool export_model)
+    : worker_vars_(nullptr), worker_cplex_(worker_env_), worker_obj_(worker_env_), combine_feas_op_cuts_(combine_feas_op_cuts) 
+{}
+
+WorkerBaseline::WorkerBaseline(IloEnv& master_env, const Instance& instance, MasterVariables& master_vars, bool combine_feas_op_cuts, bool export_model)
+    : WorkerI(master_env,instance,master_vars,combine_feas_op_cuts,export_model)
+    {
+
+    worker_vars_ = new DualVariablesBaseline(worker_env_,instance,combine_feas_op_cuts);
+    // create the worker subproblem!
+    // The subproblem will be always the same, except for the objective function, which relies
+    // on the values of X and y variables. Then, we can create a unique model beforehand.
+    worker_cplex_.setOut(worker_env_.getNullStream());
+
+    // Turn off the presolve reductions and set the CPLEX optimizer
+    // to solve the worker LP with primal simplex method.
+    worker_cplex_.setParam(IloCplex::Param::Preprocessing::Reduce, 0);
+    worker_cplex_.setParam(IloCplex::Param::RootAlgorithm, IloCplex::Primal);
+
+    IloModel worker_model(worker_env_);
+    worker_cplex_.extract(worker_model);
+
+    // Set empty initial objective function.
+    worker_obj_ = IloObjective(worker_env_);
+    worker_obj_.setName("obj1");
+
+    worker_obj_.setSense(IloObjective::Minimize);
+
+    worker_model.add(worker_obj_);
+
+    worker_vars_->SetDualVariablesProperties(master_env,master_vars);
+
+    PopulateByRowDualCompactBaselineContinuousSpaceBaseline(worker_env_,worker_model,static_cast<DualVariablesBaseline*>(worker_vars_),instance,combine_feas_op_cuts);
+
+    if(export_model)
+      worker_vars_->AddNamesToDualVariables();
+}
+
+WorkerSingleCommodity::WorkerSingleCommodity(IloEnv& master_env, const Instance& instance, MasterVariables& master_vars, bool combine_feas_op_cuts, bool export_model)
+    : WorkerI(master_env,instance,master_vars,combine_feas_op_cuts,export_model)
+    {
+
+    worker_vars_ = new DualVariablesSingleCommodity(worker_env_,instance,combine_feas_op_cuts);
+    // create the worker subproblem!
+    // The subproblem will be always the same, except for the objective function, which relies
+    // on the values of X and y variables. Then, we can create a unique model beforehand.
+    worker_cplex_.setOut(worker_env_.getNullStream());
+
+    // Turn off the presolve reductions and set the CPLEX optimizer
+    // to solve the worker LP with primal simplex method.
+    worker_cplex_.setParam(IloCplex::Param::Preprocessing::Reduce, 0);
+    worker_cplex_.setParam(IloCplex::Param::RootAlgorithm, IloCplex::Primal);
+
+    IloModel worker_model(worker_env_);
+    worker_cplex_.extract(worker_model);
+
+    // Set empty initial objective function.
+    worker_obj_ = IloObjective(worker_env_);
+    worker_obj_.setName("obj1");
+
+    worker_obj_.setSense(IloObjective::Minimize);
+
+    worker_model.add(worker_obj_);
+
+    worker_vars_->SetDualVariablesProperties(master_env,master_vars);
+
+    PopulateByRowDualCompactSingleCommodityContinuousSpaceBaseline(worker_env_,worker_model,static_cast<DualVariablesSingleCommodity*>(worker_vars_),instance,combine_feas_op_cuts);
+
+    if(export_model)
+      worker_vars_->AddNamesToDualVariables();
+}

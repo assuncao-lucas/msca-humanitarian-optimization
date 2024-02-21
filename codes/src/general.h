@@ -24,7 +24,7 @@ const double K_CUTS_ANGLE_COSIN_LIMIT = 0.03;
 
 const bool K_DISABLE_PREPROCESS_HEURISTICS = false;
 const bool K_SET_PRIORITY_ORDER = false;
-const bool K_MULTI_THREAD = false;
+const bool K_MULTI_THREAD = true;
 const bool K_ONLY_MAXIMUM_CLIQUES_PER_VERTEX = false;
 const bool K_ADD_INITIAL_HEURISTIC_SOLUTION = true;
 const bool K_PREPROCESS_REDUCED_COSTS = false;
