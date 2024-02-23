@@ -1193,6 +1193,81 @@ void PrimalSubproblemCompactBaseline(Instance& inst, IloNumArray& x_values, IloN
   env.end();
 }
 
+void PrimalSubproblemCompactSingleCommodity(Instance& inst, IloNumArray& x_values, IloNumArray& y_values, double * R0, double * Rn, double time_limit, bool export_model, Solution<double>& solution)
+{
+  const Graph * graph = inst.graph();
+  const int num_vertices = graph->num_vertices();
+  const int num_arcs = graph->num_arcs();
+  const int budget = inst.uncertainty_budget();
+  const int num_mandatory = inst.num_mandatory();
+  const auto* vertices_info = inst.graph()->vertices_info();
+
+  IloEnv env;
+  IloCplex cplex(env);
+  IloModel model(env);
+  cplex.extract(model);
+
+  // budget + 1 to consider level 0 of budget! 0,..., budget
+  IloNumVarArray f(env, num_arcs * (budget+1), 0, IloInfinity, ILOFLOAT);
+
+  // empty.
+  IloNumVarArray y(env);
+  IloNumVarArray x(env);
+
+  PopulateByRowCompactSingleCommodityContinuousSpace(env,model,x,y,f,x_values,y_values,R0,Rn,inst);
+
+  // add objective function.
+  IloExpr obj(env);
+
+  for(int j = num_mandatory + 1; j < num_vertices; ++j)
+  {
+    const auto& vertex_info = vertices_info[j];
+    for (const int&i: graph->AdjVerticesIn(j))
+      obj += operator*(vertex_info.decay_ratio_,f[f_var_to_index(graph->pos(i,j),budget,num_arcs)]);
+  }
+
+  model.add(IloMaximize(env, obj));
+  obj.end();
+
+  if(export_model)
+  {
+    // add name to variables.
+    for(int i = 0; i < num_vertices; ++i)
+    {
+      for(const auto j: graph->AdjVerticesOut(i))
+      {
+        for (int budget_iter = 0; budget_iter <= budget; ++budget_iter)
+        {
+          char strnum[29];
+          sprintf(strnum,"f(%d)(%d)(%d)",i,j,budget_iter);
+          f[f_var_to_index(graph->pos(i,j),budget_iter,num_arcs)].setName(strnum);
+        }
+      }
+    }
+    cplex.exportModel("primal_continuous_model_compact_single_commodity.lp");
+  }
+
+  optimizeLP(cplex,env,model,inst,time_limit, R0, Rn, solution);
+
+  // print solution.
+  // IloNumArray f_solution(env);
+  // cplex.getValues(f_solution,f);
+  // for (int budget_iter = 0; budget_iter <= budget; ++budget_iter)
+  // {
+  //   for(int i = 0; i < num_vertices; ++i)
+  //   {
+  //     for(const auto j: graph->AdjVerticesOut(i))
+  //     {
+  //       std::cout << "f[" << i << "," << j << "," << budget_iter << "]: " << f_solution[f_var_to_index(graph->pos(i,j),budget_iter,num_arcs)] << std::endl;
+  //     }
+  //   }
+  // }
+  // f_solution.end();
+
+  cplex.end();
+  env.end();
+}
+
 static void AllocateMasterVariables(IloEnv& env, MasterVariables& master_vars, Instance & instance, bool force_use_all_vehicles, bool solve_relax)
 {
   const Graph * graph = instance.graph();
@@ -1226,19 +1301,19 @@ void DualSubproblemCompactBaseline(Instance& inst, IloNumArray& x_values, IloNum
   IloModel model(env);
   cplex.extract(model);
 
-  DualVariablesBaseline dual_vars(env,inst,false);
+  DualVariablesBaseline* dual_vars = new DualVariablesBaseline(env,inst,false);
 
-  PopulateByRowDualCompactBaselineContinuousSpaceBaseline(env,model,&dual_vars,inst,false);
+  PopulateByRowDualCompactBaselineContinuousSpaceBaseline(env,model,dual_vars,inst,false);
 
   // add objective function.
   IloExpr obj_expr(env);
-  FillObjectiveExpressionDualCompactBaselineContinuousSpace(obj_expr,dual_vars,x_values,y_values,std::nullopt,inst,false);
+  FillObjectiveExpressionDualCompactBaselineContinuousSpace(obj_expr,*dual_vars,x_values,y_values,std::nullopt,inst,false);
   model.add(IloMinimize(env, obj_expr));
   obj_expr.end();
 
   if(export_model)
   {
-    dual_vars.AddNamesToDualVariables();
+    dual_vars->AddNamesToDualVariables();
     cplex.exportModel("dual_continuous_model_compact_baseline.lp");
   }
 
@@ -1250,6 +1325,50 @@ void DualSubproblemCompactBaseline(Instance& inst, IloNumArray& x_values, IloNum
   // for (int budget_iter = 0; budget_iter <= budget; ++budget_iter)
   //   for (int i = 0; i < num_vertices; ++i)
   //     std::cout << "a[" << i << "," << budget_iter << "]: " << a_solution[a_var_to_index(i,budget_iter,num_vertices)] << std::endl;
+
+  delete dual_vars;
+  dual_vars = nullptr;
+  cplex.end();
+  env.end();
+}
+
+void DualSubproblemCompactSingleCommodity(Instance& inst, IloNumArray& x_values, IloNumArray& y_values, double * R0, double * Rn, double time_limit, bool export_model, Solution<double>& solution)
+{
+  const Graph * graph = inst.graph();
+  const int num_vertices = graph->num_vertices();
+  const int num_arcs = graph->num_arcs();
+
+  IloEnv env;
+  IloCplex cplex(env);
+  IloModel model(env);
+  cplex.extract(model);
+
+  DualVariablesSingleCommodity* dual_vars = new DualVariablesSingleCommodity(env,inst,false);
+  PopulateByRowDualCompactSingleCommodityContinuousSpaceBaseline(env,model,dual_vars,inst,false);
+  
+  // add objective function.
+  IloExpr obj_expr(env);
+  FillObjectiveExpressionDualCompactSingleCommodityContinuousSpace(obj_expr,*dual_vars,x_values,y_values,std::nullopt,R0,Rn,inst,false);
+  model.add(IloMinimize(env, obj_expr));
+  obj_expr.end();
+
+  if(export_model)
+  {
+    dual_vars->AddNamesToDualVariables();
+    cplex.exportModel("dual_continuous_model_compact_single_commodity.lp");
+  }
+
+  optimizeLP(cplex,env,model,inst,time_limit, R0, Rn, solution);
+
+  // // print solution.
+  // IloNumArray a_solution(env);
+  // cplex.getValues(a_solution,a);
+  // for (int budget_iter = 0; budget_iter <= budget; ++budget_iter)
+  //   for (int i = 0; i < num_vertices; ++i)
+  //     std::cout << "a[" << i << "," << budget_iter << "]: " << a_solution[a_var_to_index(i,budget_iter,num_vertices)] << std::endl;
+
+  delete dual_vars;
+  dual_vars = nullptr;
 
   cplex.end();
   env.end();

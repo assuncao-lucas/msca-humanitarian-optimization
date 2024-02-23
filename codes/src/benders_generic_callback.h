@@ -20,11 +20,10 @@ class DualVariables
 {
    public:
       explicit DualVariables(const Instance& instance, bool combine_feas_op_cuts):instance_(instance),combine_feas_op_cuts_(combine_feas_op_cuts){}
-      virtual ~DualVariables() = default;
+      virtual ~DualVariables();
    
       virtual void AddNamesToDualVariables() = 0;
       virtual void SetDualVariablesProperties(IloEnv& master_env, MasterVariables& master_vars) = 0;
-      IloNumVar u_dual_bound_;
       std::unordered_map<IloInt,IloExpr> ext_ray_coef_;
       bool combine_feas_op_cuts_;
       const Instance& instance_;
@@ -37,10 +36,16 @@ class DualVariablesBaseline: public DualVariables
       virtual ~DualVariablesBaseline(); 
       void AddNamesToDualVariables() final;
       void SetDualVariablesProperties(IloEnv& master_env, MasterVariables& master_vars) final;
+      int u_0_var_to_index(int vertex, int budget, int num_vertices);
+      int u_1_var_to_index(int vertex, int budget, int num_vertices);
+      int u_2_var_to_index(int arc_pos, int budget, int num_arcs_from_zero, int num_arcs);
+      int u_3_var_to_index(int arc_pos, int budget, int num_arcs_from_zero, int num_arcs);
+
       IloNumVarArray u_0_;
       IloNumVarArray u_1_;
       IloNumVarArray u_2_;
       IloNumVarArray u_3_;
+      IloNumVar u_dual_bound_;
 };
 
 class DualVariablesSingleCommodity: public DualVariables
@@ -50,23 +55,25 @@ class DualVariablesSingleCommodity: public DualVariables
       virtual ~DualVariablesSingleCommodity(); 
       void AddNamesToDualVariables() final;
       void SetDualVariablesProperties(IloEnv& master_env, MasterVariables& master_vars) final;
-      IloNumVarArray u_0_;
-      IloNumVarArray u_1_;
-      IloNumVarArray u_2_;
-      IloNumVarArray u_3_;
+      int v_0_var_to_index(int arc_pos, int budget, int num_arcs);
+      int v_1_var_to_index(int arc_pos, int budget, int num_arcs);
+      int v_2_var_to_index(int arc_pos, int budget, int num_arcs);
+      int v_3_var_to_index(int arc_pos, int budget, int num_arcs);
+
+      IloNumVarArray v_0_;
+      IloNumVarArray v_1_;
+      IloNumVarArray v_2_;
+      IloNumVarArray v_3_;
+      IloNumVar v_dual_bound_;
 };
 
 ILOSTLBEGIN
 
-// dual problem variables.
-int u_0_var_to_index(int vertex, int budget, int num_vertices);
-int u_1_var_to_index(int vertex, int budget, int num_vertices);
-int u_2_var_to_index(int arc_pos, int budget, int num_arcs_from_zero, int num_arcs);
-int u_3_var_to_index(int arc_pos, int budget, int num_arcs_from_zero, int num_arcs);
-
 void FillObjectiveExpressionDualCompactBaselineContinuousSpace(IloExpr& obj, DualVariablesBaseline& dual_vars, IloNumArray& x_values, IloNumArray& y_values, std::optional<IloNum> dual_bound_value, const Instance& instance, bool combine_feas_op_cuts);
 IloBool SeparateBendersCutBaseline(IloEnv& master_env, IloNumVarArray &x, IloNumVarArray &y, IloNumVar& dual_bound, IloNumArray &x_values, IloNumArray &y_values, IloNum dual_bound_value, IloCplex& worker_cplex, DualVariablesBaseline* dual_vars, const Instance & instance, IloObjective& worker_obj, IloExpr& cut_expr, bool combine_feas_op_cuts, Solution<double>& solution);
 void PopulateByRowDualCompactBaselineContinuousSpaceBaseline(IloEnv& env, IloModel& model, DualVariablesBaseline* dual_vars, const Instance& instance, bool combine_feas_op_cuts);
+
+void FillObjectiveExpressionDualCompactSingleCommodityContinuousSpace(IloExpr& obj, DualVariablesSingleCommodity& dual_vars, IloNumArray& x_values, IloNumArray& y_values, std::optional<IloNum> dual_bound_value, double * R0, double * Rn, const Instance& instance, bool combine_feas_op_cuts);
 void PopulateByRowDualCompactSingleCommodityContinuousSpaceBaseline(IloEnv& env, IloModel& model, DualVariablesSingleCommodity* dual_vars, const Instance& instance, bool combine_feas_op_cuts);
 
 /** The Benders' worker thread-local class. */

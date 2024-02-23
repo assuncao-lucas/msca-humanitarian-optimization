@@ -6,30 +6,6 @@ typedef int LimitValueType;
 
 ILOSTLBEGIN
 
-int u_0_var_to_index(int vertex, int budget, int num_vertices)
-{
-  assert(num_vertices > 1);
-  return budget * (num_vertices-1) + vertex - 1;
-} 
-
-int u_1_var_to_index(int vertex, int budget, int num_vertices)
-{
-  return budget * num_vertices + vertex;
-}
-
-int u_2_var_to_index(int arc_pos, int budget, int num_arcs_from_zero, int num_arcs)
-{
-  assert(num_arcs > num_arcs_from_zero);
-  return budget * (num_arcs-num_arcs_from_zero) + arc_pos - num_arcs_from_zero;
-}
-
-int u_3_var_to_index(int arc_pos, int budget, int num_arcs_from_zero, int num_arcs)
-{
-  assert(num_arcs > num_arcs_from_zero);
-  assert(budget > 0);
-  return (budget-1) * (num_arcs-num_arcs_from_zero) + arc_pos - num_arcs_from_zero;
-}
-
 void FillObjectiveExpressionDualCompactBaselineContinuousSpace(IloExpr& obj, DualVariablesBaseline& dual_vars, IloNumArray& x_values, IloNumArray& y_values, std::optional<IloNum> dual_bound_value, const Instance& instance, bool combine_feas_op_cuts)
 {
   const Graph * graph = instance.graph();
@@ -44,7 +20,7 @@ void FillObjectiveExpressionDualCompactBaselineContinuousSpace(IloExpr& obj, Dua
   for (int budget_iter = 0; budget_iter <= budget; ++budget_iter)
   {
     for(auto j: graph->AdjVerticesOut(0))
-      obj -= operator*(dual_vars.u_0_[u_0_var_to_index(j,budget_iter,num_vertices)], (*graph)[0][j]->distance())*(y_values[j]);
+      obj -= operator*(dual_vars.u_0_[dual_vars.u_0_var_to_index(j,budget_iter,num_vertices)], (*graph)[0][j]->distance())*(y_values[j]);
 
     for (int i = 0; i < num_vertices; ++i)
     {
@@ -52,9 +28,9 @@ void FillObjectiveExpressionDualCompactBaselineContinuousSpace(IloExpr& obj, Dua
       double vertex_deadline = (i <= num_mandatory)? route_limit: round_decimals(vertex_info.profit_/vertex_info.decay_ratio_,2);
       
       if(i <= num_mandatory)
-        obj += operator*(dual_vars.u_1_[u_1_var_to_index(i,budget_iter,num_vertices)], route_limit);
+        obj += operator*(dual_vars.u_1_[dual_vars.u_1_var_to_index(i,budget_iter,num_vertices)], route_limit);
       else
-        obj += operator*(dual_vars.u_1_[u_1_var_to_index(i,budget_iter,num_vertices)], vertex_deadline * y_values[i]);
+        obj += operator*(dual_vars.u_1_[dual_vars.u_1_var_to_index(i,budget_iter,num_vertices)], vertex_deadline * y_values[i]);
     
       if (i > 0) // only profitable and mandatory.
       {
@@ -63,12 +39,12 @@ void FillObjectiveExpressionDualCompactBaselineContinuousSpace(IloExpr& obj, Dua
           GArc * arc = (*graph)[i][j];
           const int arc_pos = graph->pos(i,j);
           double coef1 = (vertex_deadline + vertex_info.nominal_service_time_ + arc->distance())*(1-x_values[arc_pos]) - vertex_info.nominal_service_time_ - arc->distance();
-          obj += operator*(dual_vars.u_2_[u_2_var_to_index(arc_pos,budget_iter,num_arcs_from_origin,num_arcs)], coef1);
+          obj += operator*(dual_vars.u_2_[dual_vars.u_2_var_to_index(arc_pos,budget_iter,num_arcs_from_origin,num_arcs)], coef1);
 
           if(budget_iter > 0)
           {
             double coef2 = (vertex_deadline + vertex_info.nominal_service_time_ + vertex_info.dev_service_time_ + arc->distance())*(1-x_values[arc_pos]) - vertex_info.nominal_service_time_  - vertex_info.dev_service_time_ - arc->distance();
-            obj += operator*(dual_vars.u_3_[u_3_var_to_index(arc_pos,budget_iter,num_arcs_from_origin,num_arcs)], coef2);
+            obj += operator*(dual_vars.u_3_[dual_vars.u_3_var_to_index(arc_pos,budget_iter,num_arcs_from_origin,num_arcs)], coef2);
           }
         }
       }
@@ -77,6 +53,53 @@ void FillObjectiveExpressionDualCompactBaselineContinuousSpace(IloExpr& obj, Dua
 
   if(combine_feas_op_cuts)
     obj -= operator*(*dual_bound_value,dual_vars.u_dual_bound_);
+}
+
+void FillObjectiveExpressionDualCompactSingleCommodityContinuousSpace(IloExpr& obj, DualVariablesSingleCommodity& dual_vars, IloNumArray& x_values, IloNumArray& y_values, std::optional<IloNum> dual_bound_value, double * R0, double * Rn, const Instance& instance, bool combine_feas_op_cuts)
+{
+  const Graph * graph = instance.graph();
+  const int num_vertices = graph->num_vertices();
+  const int num_arcs = graph->num_arcs();
+  const int num_arcs_from_origin = size(graph->AdjVerticesOut(0));
+  const auto * vertices_info = graph->vertices_info();
+  const int budget = instance.uncertainty_budget();
+  const double route_limit = instance.limit();
+  const int num_mandatory = instance.num_mandatory();
+
+  for (int budget_iter = 0; budget_iter <= budget; ++budget_iter)
+  {
+    for (int i = 0; i < num_vertices; ++i)
+    {
+      const auto vertex_info = vertices_info[i];
+      double vertex_deadline = (i <= num_mandatory)? route_limit: round_decimals(vertex_info.profit_/vertex_info.decay_ratio_,2);
+
+      for (int j : graph->AdjVerticesOut(i))
+      {
+        const GArc * arc = (*graph)[i][j];
+        const int arc_pos = graph->pos(i,j);
+        double coef1 = (route_limit - R0[i] - vertex_info.nominal_service_time_ - arc->distance())*x_values[arc_pos];
+        obj += operator*(dual_vars.v_0_[dual_vars.v_0_var_to_index(arc_pos,budget_iter,num_arcs)], coef1);
+
+        if(i > 0)
+        {
+          double coef2 = max(route_limit - vertex_deadline,vertex_info.nominal_service_time_ + Rn[i])*x_values[arc_pos];
+          obj -= operator*(dual_vars.v_1_[dual_vars.v_1_var_to_index(arc_pos,budget_iter,num_arcs)], coef2);
+        }
+
+        double coef3 = (vertex_info.nominal_service_time_ + arc->distance())*x_values[arc_pos];
+        obj -= operator*(dual_vars.v_2_[dual_vars.v_2_var_to_index(arc_pos,budget_iter,num_arcs)], coef3);
+
+        if(budget_iter > 0)
+        {
+          double coef4 = (vertex_info.nominal_service_time_ + vertex_info.dev_service_time_ + arc->distance())*x_values[arc_pos];
+          obj -= operator*(dual_vars.v_3_[dual_vars.v_3_var_to_index(arc_pos,budget_iter,num_arcs)], coef4);
+        }
+      }
+    }
+  }
+
+  if(combine_feas_op_cuts)
+    obj -= operator*(*dual_bound_value,dual_vars.v_dual_bound_);
 }
 
 // This routine separates Benders' cuts violated by the current x solution.
@@ -118,7 +141,7 @@ IloBool SeparateBendersCutBaseline(IloEnv& master_env, IloNumVarArray &x, IloNum
   //std::cout << status << std::endl;
 
   if (status == IloAlgorithm::InfeasibleOrUnbounded || status == IloAlgorithm::Infeasible )
-    std::cout << "DEU RUIM!" << std::endl;
+    throw "Infeasible Benders' subproblem";
 
   // Get the violated cut as an unbounded ray of the worker LP
   if ( status == IloAlgorithm::Unbounded)
@@ -178,16 +201,16 @@ IloBool SeparateBendersCutBaseline(IloEnv& master_env, IloNumVarArray &x, IloNum
       for (int budget_iter = 0; budget_iter <= budget; ++budget_iter)
       {
         for(auto j: graph->AdjVerticesOut(0))
-          cut_expr -= operator*(u_0_values[u_0_var_to_index(j,budget_iter,num_vertices)]*(*graph)[0][j]->distance(),(y[j]));
+          cut_expr -= operator*(u_0_values[dual_vars->u_0_var_to_index(j,budget_iter,num_vertices)]*(*graph)[0][j]->distance(),(y[j]));
 
         for (int i = 0; i < num_vertices; ++i)
         {
           const auto vertex_info = vertices_info[i];
           double vertex_deadline = (i <= num_mandatory)? route_limit: round_decimals(vertex_info.profit_/vertex_info.decay_ratio_,2);
           if(i <= num_mandatory)
-            cut_expr += u_1_values[u_1_var_to_index(i,budget_iter,num_vertices)]*route_limit;
+            cut_expr += u_1_values[dual_vars->u_1_var_to_index(i,budget_iter,num_vertices)]*route_limit;
           else
-            cut_expr += operator*(u_1_values[u_1_var_to_index(i,budget_iter,num_vertices)]*vertex_deadline,y[i]);
+            cut_expr += operator*(u_1_values[dual_vars->u_1_var_to_index(i,budget_iter,num_vertices)]*vertex_deadline,y[i]);
         
           if (i > 0) // only profitable and mandatory.
           {
@@ -197,13 +220,13 @@ IloBool SeparateBendersCutBaseline(IloEnv& master_env, IloNumVarArray &x, IloNum
               const int arc_pos = graph->pos(i,j);
               IloExpr coef1(master_env);
               coef1 += (operator*(vertex_deadline + vertex_info.nominal_service_time_ + arc->distance(),1-x[arc_pos]) - vertex_info.nominal_service_time_ - arc->distance());
-              cut_expr += operator*(u_2_values[u_2_var_to_index(arc_pos,budget_iter,num_arcs_from_origin,num_arcs)], coef1);
+              cut_expr += operator*(u_2_values[dual_vars->u_2_var_to_index(arc_pos,budget_iter,num_arcs_from_origin,num_arcs)], coef1);
               coef1.end();
               if(budget_iter > 0)
               {
                 IloExpr coef2(master_env);
                 coef2 += (operator*(vertex_deadline + vertex_info.nominal_service_time_ + vertex_info.dev_service_time_ + arc->distance(),1-x[arc_pos]) - vertex_info.nominal_service_time_  - vertex_info.dev_service_time_ - arc->distance());
-                cut_expr += operator*(u_3_values[u_3_var_to_index(arc_pos,budget_iter,num_arcs_from_origin,num_arcs)], coef2);
+                cut_expr += operator*(u_3_values[dual_vars->u_3_var_to_index(arc_pos,budget_iter,num_arcs_from_origin,num_arcs)], coef2);
                 coef2.end();
               }
             }
@@ -252,6 +275,15 @@ IloBool SeparateBendersCutBaseline(IloEnv& master_env, IloNumVarArray &x, IloNum
 
 } // END separate
 
+
+DualVariables::~DualVariables()
+{
+  for (auto& it: ext_ray_coef_)
+    it.second.end();
+
+  ext_ray_coef_.clear();
+}
+
 DualVariablesBaseline::DualVariablesBaseline(IloEnv& env,const Instance & instance, bool combine_feas_op_cuts):DualVariables(instance,combine_feas_op_cuts)
 {
   const Graph * graph = instance.graph();
@@ -282,11 +314,6 @@ DualVariablesBaseline::~DualVariablesBaseline()
 
   if(combine_feas_op_cuts_)
     u_dual_bound_.end();
-
-  for (auto& it: ext_ray_coef_)
-    it.second.end();
-
-  ext_ray_coef_.clear();
 }
 
 void DualVariablesBaseline::AddNamesToDualVariables()
@@ -416,19 +443,118 @@ void DualVariablesBaseline::SetDualVariablesProperties(IloEnv& master_env, Maste
   // }
 }
 
+int DualVariablesBaseline::u_0_var_to_index(int vertex, int budget, int num_vertices)
+{
+  assert(num_vertices > 1);
+  return budget * (num_vertices-1) + vertex - 1;
+} 
+
+int DualVariablesBaseline::u_1_var_to_index(int vertex, int budget, int num_vertices)
+{
+  return budget * num_vertices + vertex;
+}
+
+int DualVariablesBaseline::u_2_var_to_index(int arc_pos, int budget, int num_arcs_from_zero, int num_arcs)
+{
+  assert(num_arcs > num_arcs_from_zero);
+  return budget * (num_arcs-num_arcs_from_zero) + arc_pos - num_arcs_from_zero;
+}
+
+int DualVariablesBaseline::u_3_var_to_index(int arc_pos, int budget, int num_arcs_from_zero, int num_arcs)
+{
+  assert(num_arcs > num_arcs_from_zero);
+  assert(budget > 0);
+  return (budget-1) * (num_arcs-num_arcs_from_zero) + arc_pos - num_arcs_from_zero;
+}
+
 DualVariablesSingleCommodity::DualVariablesSingleCommodity(IloEnv& env,const Instance & instance, bool combine_feas_op_cuts):DualVariables(instance,combine_feas_op_cuts)
 {
-// TODO.
+  const Graph * graph = instance.graph();
+  const int num_arcs = graph->num_arcs();
+  const int budget = instance.uncertainty_budget();
+
+  // budget + 1 to consider level 0 of budget! 0,..., budget.
+  // u_0 defined for all (i,j) \in A, 0...budget.
+  v_0_ = IloNumVarArray(env, (budget+1)*num_arcs, 0, IloInfinity, ILOFLOAT);
+  // u_1 defined for all (i,j) \in A, 0...budget.
+  v_1_ = IloNumVarArray(env, (budget+1)*num_arcs, 0, IloInfinity, ILOFLOAT);
+  // u_2 defined for all (i,j) \in A, 0...budget.
+  v_2_ = IloNumVarArray(env, (budget+1)*num_arcs, 0, IloInfinity, ILOFLOAT);
+  // u_3 defined for all (i,j) \in A, 1...budget.
+  v_3_ = IloNumVarArray(env, budget*num_arcs, 0, IloInfinity, ILOFLOAT);
+  if(combine_feas_op_cuts)
+    v_dual_bound_ = IloNumVar(env,0,IloInfinity,ILOFLOAT);
 }
 
 DualVariablesSingleCommodity::~DualVariablesSingleCommodity()
 {
-// TODO.
+  v_0_.end();
+  v_1_.end();
+  v_2_.end();
+  v_3_.end();
+
+  if(combine_feas_op_cuts_)
+    v_dual_bound_.end();
 }
 
 void DualVariablesSingleCommodity::AddNamesToDualVariables()
 {
-// TODO.
+  const Graph* graph = instance_.graph();
+  const int num_vertices = graph->num_vertices();
+  const int num_arcs = graph->num_arcs();
+  const int budget = instance_.uncertainty_budget();
+
+  // add name to variables.
+  for (int budget_iter = 0; budget_iter <= budget; ++budget_iter)
+  {
+    for(int i = 0; i < num_vertices; ++i)
+    {
+      for(int j = i+1; j < num_vertices; ++j)
+      {
+          GArc* arc = (*graph)[i][j];
+          GArc* arc_inv = (*graph)[j][i];
+          if(arc != nullptr)
+          {
+            char strnum[41], strnum1[41], strnum2[41];
+            sprintf(strnum,"v_0(%d)(%d)(%d)",i,j,budget_iter);
+            sprintf(strnum1,"v_1(%d)(%d)(%d)",i,j,budget_iter);
+            sprintf(strnum2,"v_2(%d)(%d)(%d)",i,j,budget_iter);
+            
+            v_0_[v_0_var_to_index(graph->pos(i,j),budget_iter,num_arcs)].setName(strnum);
+            v_1_[v_1_var_to_index(graph->pos(i,j),budget_iter,num_arcs)].setName(strnum1);
+            v_2_[v_2_var_to_index(graph->pos(i,j),budget_iter,num_arcs)].setName(strnum2);
+
+            if(budget_iter > 0)
+            {
+              char strnum3[41];
+              sprintf(strnum3,"v_3(%d)(%d)(%d)",i,j,budget_iter);
+              v_3_[v_3_var_to_index(graph->pos(i,j),budget_iter,num_arcs)].setName(strnum3);
+            }
+          }
+
+          if(arc_inv != nullptr)
+          {
+            char strnum[41], strnum1[41], strnum2[41];
+            sprintf(strnum,"v_0(%d)(%d)(%d)",j,i,budget_iter);
+            sprintf(strnum1,"v_1(%d)(%d)(%d)",j,i,budget_iter);
+            sprintf(strnum2,"v_2(%d)(%d)(%d)",j,i,budget_iter);
+            v_0_[v_0_var_to_index(graph->pos(j,i),budget_iter,num_arcs)].setName(strnum);
+            v_1_[v_1_var_to_index(graph->pos(j,i),budget_iter,num_arcs)].setName(strnum1);
+            v_2_[v_2_var_to_index(graph->pos(j,i),budget_iter,num_arcs)].setName(strnum2);
+
+            if(budget_iter > 0)
+            {
+              char strnum3[41];
+              sprintf(strnum3,"v_3(%d)(%d)(%d)",j,i,budget_iter);
+              v_3_[v_3_var_to_index(graph->pos(j,i),budget_iter,num_arcs)].setName(strnum3);
+            }
+          }
+      }
+    }
+  }
+
+  if(combine_feas_op_cuts_)
+    v_dual_bound_.setName("v_dual_bound");
 }
 
 void DualVariablesSingleCommodity::SetDualVariablesProperties(IloEnv& master_env, MasterVariables& master_vars)
@@ -436,10 +562,108 @@ void DualVariablesSingleCommodity::SetDualVariablesProperties(IloEnv& master_env
 // TODO.
 }
 
+int DualVariablesSingleCommodity::v_0_var_to_index(int arc_pos, int budget, int num_arcs)
+{
+  return budget * num_arcs + arc_pos;
+} 
+
+int DualVariablesSingleCommodity::v_1_var_to_index(int arc_pos, int budget, int num_arcs)
+{
+  return budget * num_arcs + arc_pos;
+}
+
+int DualVariablesSingleCommodity::v_2_var_to_index(int arc_pos, int budget, int num_arcs)
+{
+  return budget * num_arcs + arc_pos;
+}
+
+int DualVariablesSingleCommodity::v_3_var_to_index(int arc_pos, int budget, int num_arcs)
+{
+  assert(budget > 0);
+  return (budget-1) * num_arcs + arc_pos;
+}
+
 
 void PopulateByRowDualCompactSingleCommodityContinuousSpaceBaseline(IloEnv& env, IloModel& model, DualVariablesSingleCommodity * dual_vars, const Instance& instance, bool combine_feas_op_cuts)
 {
-  //TODO
+  const Graph* graph = instance.graph();
+  const int num_vertices = graph->num_vertices();
+  const int num_mandatory = instance.num_mandatory();
+  const int num_arcs = graph->num_arcs();
+  const int num_arcs_from_origin = size(graph->AdjVerticesOut(0));
+  const auto* vertices_info = graph->vertices_info();
+  const int budget = instance.uncertainty_budget();
+
+  for (int i = 0; i < num_vertices; ++i)
+  {
+    for (int j : graph->AdjVerticesOut(i))
+    {
+      assert((*graph)[i][j] != nullptr);
+      const int arc_pos = graph->pos(i,j);
+      for(int budget_iter = 0; budget_iter <= budget; ++budget_iter)
+      {
+        IloExpr exp(env);
+
+        exp += dual_vars->v_0_[dual_vars->v_0_var_to_index(arc_pos,budget_iter,num_arcs)];
+        exp -= dual_vars->v_1_[dual_vars->v_1_var_to_index(arc_pos,budget_iter,num_arcs)];
+        exp += dual_vars->v_2_[dual_vars->v_2_var_to_index(arc_pos,budget_iter,num_arcs)];
+
+        for (int k: graph->AdjVerticesOut(j))
+          exp -= dual_vars->v_2_[dual_vars->v_2_var_to_index(graph->pos(j,k),budget_iter,num_arcs)];
+        
+        if (budget_iter > 0)
+          exp += dual_vars->v_3_[dual_vars->v_3_var_to_index(arc_pos,budget_iter,num_arcs)];
+        
+        if (budget_iter < budget)
+        {
+          for (int k: graph->AdjVerticesOut(j))
+            exp -= dual_vars->v_3_[dual_vars->v_3_var_to_index(graph->pos(j,k),budget_iter+1,num_arcs)];
+        }
+
+        const auto coef = (budget_iter == budget && j > num_mandatory)? vertices_info[j].decay_ratio_: 0.0;
+
+        // if combine optimality and feasibility cuts, add contibution of additional dual var.
+        combine_feas_op_cuts? exp -= operator*(coef,dual_vars->v_dual_bound_) : exp-= coef;
+        model.add(exp >= 0);
+        exp.end();
+
+        if(j == 0)
+          dual_vars->v_1_[dual_vars->v_1_var_to_index(arc_pos,budget_iter,num_arcs)].setUB(0.0);
+
+        if(i == 0)
+        {
+          dual_vars->v_2_[dual_vars->v_2_var_to_index(arc_pos,budget_iter,num_arcs)].setUB(0.0);
+          if(budget_iter > 0)
+            dual_vars->v_3_[dual_vars->v_3_var_to_index(arc_pos,budget_iter,num_arcs)].setUB(0.0);
+        }
+      }
+    }
+  }
+
+  // add extra constraint to scale/normalize the values of the dual variables.
+  if(combine_feas_op_cuts)
+  {
+    double num_dual_vars = 1.0 + dual_vars->v_0_.getSize() + dual_vars->v_1_.getSize() + dual_vars->v_2_.getSize()+ dual_vars->v_3_.getSize();
+    double normalized_coef = 1.0/sqrt(1.0*num_dual_vars); // all of these variables have coefficient equal to 1, so the sum of the powers of 2 is equal to their sum,
+    
+    IloExpr exp_normalize(env);
+    // add all dual variables to the expression.
+    for(IloInt var_index = 0; var_index < dual_vars->v_0_.getSize(); ++var_index)
+      exp_normalize += operator*(normalized_coef,dual_vars->v_0_[var_index]);
+    for(IloInt var_index = 0; var_index < dual_vars->v_1_.getSize(); ++var_index)
+      exp_normalize += operator*(normalized_coef,dual_vars->v_1_[var_index]);
+    for(IloInt var_index = 0; var_index < dual_vars->v_2_.getSize(); ++var_index)
+      exp_normalize += operator*(normalized_coef,dual_vars->v_2_[var_index]);
+    for(IloInt var_index = 0; var_index < dual_vars->v_3_.getSize(); ++var_index)
+      exp_normalize += operator*(normalized_coef,dual_vars->v_3_[var_index]);
+    exp_normalize += operator*(normalized_coef,dual_vars->v_dual_bound_);
+
+  
+    //std::cout << num_dual_vars << " " <<  normalized_coef << std::endl;
+
+    model.add(exp_normalize == 1);
+    exp_normalize.end();
+  }
 }
 
 void PopulateByRowDualCompactBaselineContinuousSpaceBaseline(IloEnv& env, IloModel& model, DualVariablesBaseline * dual_vars, const Instance& instance, bool combine_feas_op_cuts)
@@ -454,9 +678,9 @@ void PopulateByRowDualCompactBaselineContinuousSpaceBaseline(IloEnv& env, IloMod
 
   IloExpr exp(env);
 
-  exp += dual_vars->u_1_[u_1_var_to_index(0,0,num_vertices)];
+  exp += dual_vars->u_1_[dual_vars->u_1_var_to_index(0,0,num_vertices)];
   for (auto j: graph->AdjVerticesIn(0))
-    exp -= dual_vars->u_2_[u_2_var_to_index(graph->pos(j,0),0, num_arcs_from_origin, num_arcs)];
+    exp -= dual_vars->u_2_[dual_vars->u_2_var_to_index(graph->pos(j,0),0, num_arcs_from_origin, num_arcs)];
 
   model.add(exp >= 0);
   exp.end();
@@ -464,12 +688,12 @@ void PopulateByRowDualCompactBaselineContinuousSpaceBaseline(IloEnv& env, IloMod
   for(int budget_iter = 1; budget_iter <= budget; ++budget_iter)
   {
     IloExpr exp(env);
-    exp += dual_vars->u_1_[u_1_var_to_index(0,budget_iter,num_vertices)];
+    exp += dual_vars->u_1_[dual_vars->u_1_var_to_index(0,budget_iter,num_vertices)];
 
     for (auto j: graph->AdjVerticesIn(0))
     {
-      exp -= dual_vars->u_2_[u_2_var_to_index(graph->pos(j,0),budget_iter, num_arcs_from_origin, num_arcs)];
-      exp -= dual_vars->u_3_[u_3_var_to_index(graph->pos(j,0),budget_iter, num_arcs_from_origin, num_arcs)];
+      exp -= dual_vars->u_2_[dual_vars->u_2_var_to_index(graph->pos(j,0),budget_iter, num_arcs_from_origin, num_arcs)];
+      exp -= dual_vars->u_3_[dual_vars->u_3_var_to_index(graph->pos(j,0),budget_iter, num_arcs_from_origin, num_arcs)];
     }
     model.add(exp >= 0);
     exp.end();
@@ -481,23 +705,23 @@ void PopulateByRowDualCompactBaselineContinuousSpaceBaseline(IloEnv& env, IloMod
     {
       IloExpr exp(env);
 
-      exp -= dual_vars->u_0_[u_0_var_to_index(i,budget_iter,num_vertices)];
-      exp += dual_vars->u_1_[u_1_var_to_index(i,budget_iter,num_vertices)];
+      exp -= dual_vars->u_0_[dual_vars->u_0_var_to_index(i,budget_iter,num_vertices)];
+      exp += dual_vars->u_1_[dual_vars->u_1_var_to_index(i,budget_iter,num_vertices)];
 
       for(auto j: graph->AdjVerticesOut(i))
       {
-        exp += dual_vars->u_2_[u_2_var_to_index(graph->pos(i,j),budget_iter,num_arcs_from_origin,num_arcs)];
+        exp += dual_vars->u_2_[dual_vars->u_2_var_to_index(graph->pos(i,j),budget_iter,num_arcs_from_origin,num_arcs)];
         if(budget_iter < budget)
-          exp += dual_vars->u_3_[u_3_var_to_index(graph->pos(i,j),budget_iter+1,num_arcs_from_origin,num_arcs)];
+          exp += dual_vars->u_3_[dual_vars->u_3_var_to_index(graph->pos(i,j),budget_iter+1,num_arcs_from_origin,num_arcs)];
       }
 
       for(auto j: graph->AdjVerticesIn(i))
       {
         if (j != 0)
         {
-          exp -= dual_vars->u_2_[u_2_var_to_index(graph->pos(j,i),budget_iter,num_arcs_from_origin,num_arcs)];
+          exp -= dual_vars->u_2_[dual_vars->u_2_var_to_index(graph->pos(j,i),budget_iter,num_arcs_from_origin,num_arcs)];
           if (budget_iter > 0)
-            exp -= dual_vars->u_3_[u_3_var_to_index(graph->pos(j,i),budget_iter,num_arcs_from_origin,num_arcs)];
+            exp -= dual_vars->u_3_[dual_vars->u_3_var_to_index(graph->pos(j,i),budget_iter,num_arcs_from_origin,num_arcs)];
         }
       }
 
@@ -510,7 +734,7 @@ void PopulateByRowDualCompactBaselineContinuousSpaceBaseline(IloEnv& env, IloMod
 
 
       if(!(*graph)[0][i])
-        dual_vars->u_0_[u_0_var_to_index(i,budget_iter,num_vertices)].setUB(0.0);
+        dual_vars->u_0_[dual_vars->u_0_var_to_index(i,budget_iter,num_vertices)].setUB(0.0);
     }
   }
 
