@@ -23,7 +23,7 @@ class DualVariables
       virtual ~DualVariables();
    
       virtual void AddNamesToDualVariables() = 0;
-      virtual void SetDualVariablesProperties(IloEnv& master_env, MasterVariables& master_vars) = 0;
+      virtual void SetDualVariablesProperties(IloEnv& master_env, MasterVariables& master_vars, const double* R0, const double* Rn) = 0;
       std::unordered_map<IloInt,IloExpr> ext_ray_coef_;
       bool combine_feas_op_cuts_;
       const Instance& instance_;
@@ -35,7 +35,7 @@ class DualVariablesBaseline: public DualVariables
       explicit DualVariablesBaseline(IloEnv& env,const Instance & instance, bool combine_feas_op_cuts);
       virtual ~DualVariablesBaseline(); 
       void AddNamesToDualVariables() final;
-      void SetDualVariablesProperties(IloEnv& master_env, MasterVariables& master_vars) final;
+      void SetDualVariablesProperties(IloEnv& master_env, MasterVariables& master_vars,const double* R0,const double* Rn) final;
       int u_0_var_to_index(int vertex, int budget, int num_vertices);
       int u_1_var_to_index(int vertex, int budget, int num_vertices);
       int u_2_var_to_index(int arc_pos, int budget, int num_arcs_from_zero, int num_arcs);
@@ -54,7 +54,7 @@ class DualVariablesSingleCommodity: public DualVariables
       explicit DualVariablesSingleCommodity(IloEnv& env,const Instance & instance, bool combine_feas_op_cuts);
       virtual ~DualVariablesSingleCommodity(); 
       void AddNamesToDualVariables() final;
-      void SetDualVariablesProperties(IloEnv& master_env, MasterVariables& master_vars) final;
+      void SetDualVariablesProperties(IloEnv& master_env, MasterVariables& master_vars, const double* R0, const double* Rn) final;
       int v_0_var_to_index(int arc_pos, int budget, int num_arcs);
       int v_1_var_to_index(int arc_pos, int budget, int num_arcs);
       int v_2_var_to_index(int arc_pos, int budget, int num_arcs);
@@ -73,7 +73,8 @@ void FillObjectiveExpressionDualCompactBaselineContinuousSpace(IloExpr& obj, Dua
 IloBool SeparateBendersCutBaseline(IloEnv& master_env, IloNumVarArray &x, IloNumVarArray &y, IloNumVar& dual_bound, IloNumArray &x_values, IloNumArray &y_values, IloNum dual_bound_value, IloCplex& worker_cplex, DualVariablesBaseline* dual_vars, const Instance & instance, IloObjective& worker_obj, IloExpr& cut_expr, bool combine_feas_op_cuts, Solution<double>& solution);
 void PopulateByRowDualCompactBaselineContinuousSpaceBaseline(IloEnv& env, IloModel& model, DualVariablesBaseline* dual_vars, const Instance& instance, bool combine_feas_op_cuts);
 
-void FillObjectiveExpressionDualCompactSingleCommodityContinuousSpace(IloExpr& obj, DualVariablesSingleCommodity& dual_vars, IloNumArray& x_values, IloNumArray& y_values, std::optional<IloNum> dual_bound_value, double * R0, double * Rn, const Instance& instance, bool combine_feas_op_cuts);
+void FillObjectiveExpressionDualCompactSingleCommodityContinuousSpace(IloExpr& obj, DualVariablesSingleCommodity& dual_vars, IloNumArray& x_values, IloNumArray& y_values, std::optional<IloNum> dual_bound_value, const double* R0, const double* Rn, const Instance& instance, bool combine_feas_op_cuts);
+IloBool SeparateBendersCutSingleCommodity(IloEnv& master_env, IloNumVarArray &x, IloNumVarArray &y, IloNumVar& dual_bound, IloNumArray &x_values, IloNumArray &y_values, IloNum dual_bound_value, IloCplex& worker_cplex, DualVariablesSingleCommodity* dual_vars, const double* R0, const double* Rn, const Instance & instance,  IloObjective& worker_obj, IloExpr& cut_expr, bool combine_feas_op_cuts, Solution<double>& solution);
 void PopulateByRowDualCompactSingleCommodityContinuousSpaceBaseline(IloEnv& env, IloModel& model, DualVariablesSingleCommodity* dual_vars, const Instance& instance, bool combine_feas_op_cuts);
 
 /** The Benders' worker thread-local class. */
@@ -137,7 +138,7 @@ class WorkerSingleCommodity: public WorkerI
 public:
    // The constructor sets up the IloCplex algorithm to solve the worker LP, and
    // creates the worker LP.
-   explicit WorkerSingleCommodity(IloEnv& master_env, const Instance& instance, MasterVariables& master_vars, bool combine_feas_op_cuts, bool export_model);
+   explicit WorkerSingleCommodity(IloEnv& master_env, const Instance& instance, MasterVariables& master_vars, const double* R0, const double* Rn, bool combine_feas_op_cuts, bool export_model);
 
    ~WorkerSingleCommodity()
    {
@@ -188,7 +189,7 @@ public:
     // teardown
     if (context.inThreadDown()) {
         delete workers_[thread_num];
-        workers_[thread_num] = 0;
+        workers_[thread_num] = nullptr;
         return;
     }
 
@@ -222,7 +223,6 @@ public:
     // Benders' cut separation.
     IloExpr cut_expr(master_env);
     IloBool sep_status = SeparateBendersCutBaseline(master_env,master_vars_.x,master_vars_.y,master_vars_.dual_bound,x_values,y_values,dual_bound_value, curr_worker->worker_cplex(), static_cast<DualVariablesBaseline*>(curr_worker->worker_vars()), instance_, curr_worker->worker_obj(), cut_expr,combine_feas_op_cuts_,solution_);
-    
     if (sep_status)
     {
       // std::cout << "Adicionou corte " << solution_.num_benders_feas_cuts_ << std::endl;
@@ -244,7 +244,7 @@ public:
                throw IloCplex::Exception(-1, "Unexpected contextID");
       }
       cut.end();
-    }
+    }else cut_expr.end();
    }
 protected:
    IloEnv& master_env_;
@@ -274,13 +274,16 @@ public:
 class BendersGenericCallbackSingleCommodity : public BendersGenericCallbackI
 {
 public:
-   BendersGenericCallbackSingleCommodity(IloEnv& master_env, Instance& instance, MasterVariables& master_vars, bool combine_feas_op_cuts, bool export_model, Solution<double>& solution, IloInt num_workers=1)
-      : BendersGenericCallbackI(master_env,instance,master_vars,combine_feas_op_cuts,export_model, solution, num_workers) {}
+   BendersGenericCallbackSingleCommodity(IloEnv& master_env, Instance& instance, MasterVariables& master_vars, bool combine_feas_op_cuts, bool export_model, Solution<double>& solution, const double* R0, const double* Rn, IloInt num_workers=1)
+      : BendersGenericCallbackI(master_env,instance,master_vars,combine_feas_op_cuts,export_model, solution, num_workers), R0_(R0), Rn_(Rn) {}
 
    virtual ~BendersGenericCallbackSingleCommodity() = default;
 
    virtual WorkerI* AllocateNewWorker() final
    {
-      return new WorkerSingleCommodity(master_env_,instance_,master_vars_,combine_feas_op_cuts_,export_model_);
+      return new WorkerSingleCommodity(master_env_,instance_,master_vars_,R0_,Rn_,combine_feas_op_cuts_,export_model_);
    }
+
+   const double* R0_;
+   const double* Rn_;
 };

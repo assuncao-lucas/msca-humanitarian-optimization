@@ -55,7 +55,7 @@ void FillObjectiveExpressionDualCompactBaselineContinuousSpace(IloExpr& obj, Dua
     obj -= operator*(*dual_bound_value,dual_vars.u_dual_bound_);
 }
 
-void FillObjectiveExpressionDualCompactSingleCommodityContinuousSpace(IloExpr& obj, DualVariablesSingleCommodity& dual_vars, IloNumArray& x_values, IloNumArray& y_values, std::optional<IloNum> dual_bound_value, double * R0, double * Rn, const Instance& instance, bool combine_feas_op_cuts)
+void FillObjectiveExpressionDualCompactSingleCommodityContinuousSpace(IloExpr& obj, DualVariablesSingleCommodity& dual_vars, IloNumArray& x_values, IloNumArray& y_values, std::optional<IloNum> dual_bound_value, const double* R0, const double* Rn, const Instance& instance, bool combine_feas_op_cuts)
 {
   const Graph * graph = instance.graph();
   const int num_vertices = graph->num_vertices();
@@ -160,7 +160,6 @@ IloBool SeparateBendersCutBaseline(IloEnv& master_env, IloNumVarArray &x, IloNum
       cut_expr += operator*(val[i],dual_vars->ext_ray_coef_[var_id]);
       //std::cout << var[i].getName() << " " << val[i] << " " << dual_vars.ext_ray_coef[var_id] << std::endl;
     }
-
     // std::cout << cut_expr << std::endl;
     // getchar();getchar();
 
@@ -174,6 +173,7 @@ IloBool SeparateBendersCutBaseline(IloEnv& master_env, IloNumVarArray &x, IloNum
   if (status == IloAlgorithm::Optimal)
   {
     double new_dual_bound = worker_cplex.getObjValue();
+    //std::cout << status << " " << new_dual_bound << " x " << dual_bound_value << std::endl;
     // if combining feas and opt cuts, it suffices to have a bound greater than zero to imply a violated cut.
     if ( double_greater(dual_bound_value,new_dual_bound) || combine_feas_op_cuts && double_greater(new_dual_bound,0) )
     {
@@ -201,7 +201,7 @@ IloBool SeparateBendersCutBaseline(IloEnv& master_env, IloNumVarArray &x, IloNum
       for (int budget_iter = 0; budget_iter <= budget; ++budget_iter)
       {
         for(auto j: graph->AdjVerticesOut(0))
-          cut_expr -= operator*(u_0_values[dual_vars->u_0_var_to_index(j,budget_iter,num_vertices)]*(*graph)[0][j]->distance(),(y[j]));
+          cut_expr -= operator*(u_0_values[dual_vars->u_0_var_to_index(j,budget_iter,num_vertices)]*(*graph)[0][j]->distance(),y[j]);
 
         for (int i = 0; i < num_vertices; ++i)
         {
@@ -266,6 +266,176 @@ IloBool SeparateBendersCutBaseline(IloEnv& master_env, IloNumVarArray &x, IloNum
       u_1_values.end();
       u_2_values.end();
       u_3_values.end();
+
+      return IloTrue;
+    }
+  }
+
+  return violatedCutFound;
+
+} // END separate
+
+// This routine separates Benders' cuts violated by the current x solution.
+// Violated cuts are found by solving the worker LP
+//
+IloBool SeparateBendersCutSingleCommodity(IloEnv& master_env, IloNumVarArray &x, IloNumVarArray &y, IloNumVar& dual_bound, IloNumArray &x_values, IloNumArray &y_values, IloNum dual_bound_value, IloCplex& worker_cplex, DualVariablesSingleCommodity* dual_vars, const double* R0, const double* Rn, const Instance & instance,  IloObjective& worker_obj, IloExpr& cut_expr, bool combine_feas_op_cuts, Solution<double>& solution)
+{
+  // std::cout << "try to separate benders cut" << std::endl; 
+  IloBool violatedCutFound = IloFalse;
+  IloEnv worker_env = worker_cplex.getEnv();
+  IloModel worker_model = worker_cplex.getModel();
+
+  // Update the objective function in the worker LP.
+  worker_model.remove(worker_obj);
+  IloExpr obj_expr = worker_obj.getExpr();
+  obj_expr.clear();
+  FillObjectiveExpressionDualCompactSingleCommodityContinuousSpace(obj_expr,*dual_vars,x_values,y_values,dual_bound_value,R0,Rn,instance,combine_feas_op_cuts);
+  worker_obj.setExpr(obj_expr);
+  worker_model.add(worker_obj);
+  obj_expr.end(); 
+
+  // for(IloNum i = 0; i < y.getSize(); ++i)
+  // {
+  //   std::cout << y[i].getName() << " " << y_values[i] << std::endl;
+  // }
+
+  // for(IloNum i = 0; i < x.getSize(); ++i)
+  // {
+  //   std::cout << x[i].getName() << " " << x_values[i] << std::endl;
+  // }
+  
+  // worker_cplex.exportModel("worker_model_Benders_compact_single_commodity.lp");
+  // getchar(); getchar();
+
+  // Solve the worker LP
+  worker_cplex.solve();
+
+  auto status = worker_cplex.getStatus();
+  //std::cout << status << std::endl;
+
+  if (status == IloAlgorithm::InfeasibleOrUnbounded || status == IloAlgorithm::Infeasible )
+    throw "Infeasible Benders' subproblem";
+
+  // Get the violated cut as an unbounded ray of the worker LP
+  if ( status == IloAlgorithm::Unbounded)
+  {
+    ++solution.num_benders_feas_cuts_;
+    //std::cout << "found new feasibility cut " << instance.num_feas_cuts_ << std::endl;
+    IloNumVarArray var(worker_env);
+    IloNumArray val(worker_env);
+
+    worker_cplex.getRay(val, var);
+    IloInt var_id = 0;
+
+    for(IloInt i = 0; i < val.getSize(); ++i)
+    {
+      var_id = var[i].getId();
+      cut_expr += operator*(val[i],dual_vars->ext_ray_coef_[var_id]);
+      //std::cout << var[i].getName() << " " << val[i] << " " << dual_vars.ext_ray_coef[var_id] << std::endl;
+    }
+
+    // std::cout << cut_expr << std::endl;
+    // getchar();getchar();
+
+    var.end();
+    val.end();
+
+    return IloTrue;
+  }
+
+  // if the problem is solved to optimality and the current master solution is violated, a new optimality cut is found.
+  if (status == IloAlgorithm::Optimal)
+  {
+    double new_dual_bound = worker_cplex.getObjValue();
+    //std::cout << status << " " << new_dual_bound << " x " << dual_bound_value << std::endl;
+    // if combining feas and opt cuts, it suffices to have a bound greater than zero to imply a violated cut.
+    if ( double_greater(dual_bound_value,new_dual_bound) || combine_feas_op_cuts && double_greater(new_dual_bound,0) )
+    {
+      ++solution.num_benders_opt_cuts_;
+      //std::cout << status << " " << new_dual_bound << " x " << dual_bound_value << std::endl;
+      //std::cout << "found new optimality cut " << solution.num_benders_opt_cuts_ << std::endl;
+      IloNumArray v_0_values(worker_env);
+      worker_cplex.getValues(v_0_values, dual_vars->v_0_);
+      IloNumArray v_1_values(worker_env);
+      worker_cplex.getValues(v_1_values, dual_vars->v_1_);
+      IloNumArray v_2_values(worker_env);
+      worker_cplex.getValues(v_2_values, dual_vars->v_2_);
+      IloNumArray v_3_values(worker_env);
+      worker_cplex.getValues(v_3_values, dual_vars->v_3_);
+
+      const Graph * graph = instance.graph();
+      const int num_vertices = graph->num_vertices();
+      const int num_arcs = graph->num_arcs();
+      const int num_arcs_from_origin = size(graph->AdjVerticesOut(0));
+      const auto * vertices_info = graph->vertices_info();
+      const int budget = instance.uncertainty_budget();
+      const double route_limit = instance.limit();
+      const int num_mandatory = instance.num_mandatory();
+
+      for (int budget_iter = 0; budget_iter <= budget; ++budget_iter)
+      {
+        for (int i = 0; i < num_vertices; ++i)
+        {
+          const auto vertex_info = vertices_info[i];
+          double vertex_deadline = (i <= num_mandatory)? route_limit: round_decimals(vertex_info.profit_/vertex_info.decay_ratio_,2);
+
+          for (int j : graph->AdjVerticesOut(i))
+          {
+            const GArc * arc = (*graph)[i][j];
+            const int arc_pos = graph->pos(i,j);
+            double coef1 = (route_limit - R0[i] - vertex_info.nominal_service_time_ - arc->distance())*v_0_values[dual_vars->v_0_var_to_index(arc_pos,budget_iter,num_arcs)];
+            cut_expr += operator*(coef1, x[arc_pos]);
+
+            if(i > 0)
+            {
+              double coef2 = max(route_limit - vertex_deadline,vertex_info.nominal_service_time_ + Rn[i])* v_1_values[dual_vars->v_1_var_to_index(arc_pos,budget_iter,num_arcs)];
+              cut_expr -= operator*(coef2, x[arc_pos]);
+            }
+
+            double coef3 = (vertex_info.nominal_service_time_ + arc->distance())*v_2_values[dual_vars->v_2_var_to_index(arc_pos,budget_iter,num_arcs)];
+            cut_expr -= operator*(coef3, x[arc_pos]);
+
+            if(budget_iter > 0)
+            {
+              double coef4 = (vertex_info.nominal_service_time_ + vertex_info.dev_service_time_ + arc->distance())* v_3_values[dual_vars->v_3_var_to_index(arc_pos,budget_iter,num_arcs)];
+              cut_expr -= operator*(coef4, x[arc_pos]);
+            }
+          }
+        }
+      }
+
+      if(combine_feas_op_cuts)
+        cut_expr -= operator*(worker_cplex.getValue(dual_vars->v_dual_bound_),dual_bound);
+      else
+        cut_expr -= dual_bound;
+
+      // for(IloNum i = 0; i < dual_vars->v_0_.getSize(); ++i)
+      // {
+      //   std::cout << dual_vars->v_0_[i].getName() << " " << v_0_values[i] << std::endl;
+      // }
+
+      // for(IloNum i = 0; i < dual_vars->v_1_.getSize(); ++i)
+      // {
+      //   std::cout << dual_vars->v_1_[i].getName() << " " << v_1_values[i] << std::endl;
+      // }
+
+      // for(IloNum i = 0; i < dual_vars->v_2_.getSize(); ++i)
+      // {
+      //   std::cout << dual_vars->v_2_[i].getName() << " " << v_2_values[i] << std::endl;
+      // }
+
+      // for(IloNum i = 0; i < dual_vars->v_3_.getSize(); ++i)
+      // {
+      //   std::cout << dual_vars->v_3_[i].getName() << " " << v_3_values[i] << std::endl;
+      // }
+
+      // std::cout << cut_expr << std::endl;
+      // getchar();getchar();
+
+      v_0_values.end();
+      v_1_values.end();
+      v_2_values.end();
+      v_3_values.end();
 
       return IloTrue;
     }
@@ -381,8 +551,10 @@ void DualVariablesBaseline::AddNamesToDualVariables()
     u_dual_bound_.setName("u_dual_bound");
 }
 
-void DualVariablesBaseline::SetDualVariablesProperties(IloEnv& master_env, MasterVariables& master_vars)
+void DualVariablesBaseline::SetDualVariablesProperties(IloEnv& master_env, MasterVariables& master_vars, const double* R0, const double* Rn)
 {
+  assert(R0 == nullptr);
+  assert(Rn == nullptr);
   const Graph * graph = instance_.graph();
   const int num_vertices = graph->num_vertices();
   const int num_arcs = graph->num_arcs();
@@ -435,11 +607,12 @@ void DualVariablesBaseline::SetDualVariablesProperties(IloEnv& master_env, Maste
     }
   }
 
-  // if(combine_feas_op_cuts)
+  // won´t be necessary, because, when combine_feas_op_cuts_, the subproblem always has a bounded optimal solution, so no feasibility cut is separated.
+  // if(combine_feas_op_cuts_)
   // {
   //   IloExpr exp5(master_env);
-  //   exp5 -= dual_bound_opt->get();
-  //   dual_vars.ext_ray_coef[dual_vars.u_dual_bound.getId()] = exp5;
+  //   exp5 -= master_vars.dual_bound;
+  //   ext_ray_coef_[u_dual_bound_.getId()] = exp5;
   // }
 }
 
@@ -557,9 +730,60 @@ void DualVariablesSingleCommodity::AddNamesToDualVariables()
     v_dual_bound_.setName("v_dual_bound");
 }
 
-void DualVariablesSingleCommodity::SetDualVariablesProperties(IloEnv& master_env, MasterVariables& master_vars)
+void DualVariablesSingleCommodity::SetDualVariablesProperties(IloEnv& master_env, MasterVariables& master_vars, const double* R0, const double* Rn)
 {
-// TODO.
+  const Graph * graph = instance_.graph();
+  const int num_vertices = graph->num_vertices();
+  const int num_arcs = graph->num_arcs();
+  const int num_arcs_from_origin = size(graph->AdjVerticesOut(0));
+  const auto * vertices_info = graph->vertices_info();
+  const int budget = instance_.uncertainty_budget();
+  const double route_limit = instance_.limit();
+  const int num_mandatory = instance_.num_mandatory();
+
+  for (int budget_iter = 0; budget_iter <= budget; ++budget_iter)
+  {
+    for (int i = 0; i < num_vertices; ++i)
+    {
+      const auto vertex_info = vertices_info[i];
+      double vertex_deadline = (i <= num_mandatory)? route_limit: round_decimals(vertex_info.profit_/vertex_info.decay_ratio_,2);
+
+      for (int j : graph->AdjVerticesOut(i))
+      {
+        const GArc * arc = (*graph)[i][j];
+        const int arc_pos = graph->pos(i,j);
+        IloExpr exp1(master_env);
+        exp1  += operator*(master_vars.x[arc_pos],route_limit - R0[i] - vertex_info.nominal_service_time_ - arc->distance());
+        ext_ray_coef_[v_0_[v_0_var_to_index(arc_pos,budget_iter,num_arcs)].getId()] = exp1;
+
+        if(i > 0)
+        {
+          IloExpr exp2(master_env);
+          exp2 -= operator*(master_vars.x[arc_pos],max(route_limit - vertex_deadline, vertex_info.nominal_service_time_ + Rn[i]));
+          ext_ray_coef_[v_1_[v_1_var_to_index(arc_pos,budget_iter,num_arcs)].getId()] = exp2;
+        }
+
+        IloExpr exp3(master_env);
+        exp3 -= operator*(master_vars.x[arc_pos], vertex_info.nominal_service_time_ + arc->distance());
+        ext_ray_coef_[v_2_[v_2_var_to_index(arc_pos,budget_iter,num_arcs)].getId()] = exp3;
+
+        if(budget_iter > 0)
+        {
+          IloExpr exp4(master_env);
+          exp4 -= operator*(master_vars.x[arc_pos], vertex_info.nominal_service_time_ + vertex_info.dev_service_time_ + arc->distance());
+          ext_ray_coef_[v_3_[v_3_var_to_index(arc_pos,budget_iter,num_arcs)].getId()] = exp4;
+        }
+      }
+    }
+  }
+
+  // won´t be necessary, because, when combine_feas_op_cuts_, the subproblem always has a bounded optimal solution, so no feasibility cut is separated.
+  // if(combine_feas_op_cuts_)
+  // {
+  //   IloExpr exp5(master_env);
+  //   exp5 -= master_vars.dual_bound;
+  //   ext_ray_coef_[this->v_dual_bound_.getId()] = exp5;
+  // }
 }
 
 int DualVariablesSingleCommodity::v_0_var_to_index(int arc_pos, int budget, int num_arcs)
@@ -794,7 +1018,7 @@ WorkerBaseline::WorkerBaseline(IloEnv& master_env, const Instance& instance, Mas
 
     worker_model.add(worker_obj_);
 
-    worker_vars_->SetDualVariablesProperties(master_env,master_vars);
+    worker_vars_->SetDualVariablesProperties(master_env,master_vars,nullptr,nullptr);
 
     PopulateByRowDualCompactBaselineContinuousSpaceBaseline(worker_env_,worker_model,static_cast<DualVariablesBaseline*>(worker_vars_),instance,combine_feas_op_cuts);
 
@@ -802,7 +1026,7 @@ WorkerBaseline::WorkerBaseline(IloEnv& master_env, const Instance& instance, Mas
       worker_vars_->AddNamesToDualVariables();
 }
 
-WorkerSingleCommodity::WorkerSingleCommodity(IloEnv& master_env, const Instance& instance, MasterVariables& master_vars, bool combine_feas_op_cuts, bool export_model)
+WorkerSingleCommodity::WorkerSingleCommodity(IloEnv& master_env, const Instance& instance, MasterVariables& master_vars, const double* R0, const double* Rn, bool combine_feas_op_cuts, bool export_model)
     : WorkerI(master_env,instance,master_vars,combine_feas_op_cuts,export_model)
     {
 
@@ -828,7 +1052,7 @@ WorkerSingleCommodity::WorkerSingleCommodity(IloEnv& master_env, const Instance&
 
     worker_model.add(worker_obj_);
 
-    worker_vars_->SetDualVariablesProperties(master_env,master_vars);
+    worker_vars_->SetDualVariablesProperties(master_env,master_vars,R0,Rn);
 
     PopulateByRowDualCompactSingleCommodityContinuousSpaceBaseline(worker_env_,worker_model,static_cast<DualVariablesSingleCommodity*>(worker_vars_),instance,combine_feas_op_cuts);
 

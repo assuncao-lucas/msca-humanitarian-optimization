@@ -76,6 +76,46 @@ ILOLAZYCONSTRAINTCALLBACK7(BendersLazyCallbackBaseline, IloCplex&, worker_cplex,
 
 } // END BendersLazyCallback
 
+struct CallbackArguments
+{
+  const double *R0;
+  const double *Rn;
+  const Instance* instance;
+};
+
+ILOLAZYCONSTRAINTCALLBACK7(BendersLazyCallbackSingleCommodity, IloCplex&, worker_cplex, IloObjective&, worker_obj,
+                           DualVariablesSingleCommodity*, dual_vars, MasterVariables&, master_vars, CallbackArguments&, arguments,
+                           bool, combine_feas_op_cuts, Solution<double>&, solution)
+{
+  IloEnv master_env = getEnv();
+  // Get the current solution.
+  IloNumArray x_values(master_env);
+  IloNumArray y_values(master_env);
+  IloNum dual_bound_value = getValue(master_vars.dual_bound);
+  
+  // std::cout << "current master obj " << getObjValue() << std::endl;
+  // std::cout << "current dual bound " << dual_bound_value << std::endl;
+  getValues(y_values, master_vars.y);
+  getValues(x_values, master_vars.x);
+
+  // Benders' cut separation.
+  IloExpr cut_expr(master_env);
+  IloBool sep_status = SeparateBendersCutSingleCommodity(master_env,master_vars.x,master_vars.y,master_vars.dual_bound,x_values,y_values,dual_bound_value, worker_cplex, dual_vars, arguments.R0, arguments.Rn, *(arguments.instance), worker_obj, cut_expr,combine_feas_op_cuts,solution);
+  if(sep_status)
+  {
+    //std::cout << "found new Cut" << std::endl;
+    add(cut_expr >= 0).end();
+  }
+
+  // Free memory.
+  cut_expr.end();
+  x_values.end();
+  y_values.end();
+
+  return;
+
+} // END BendersLazyCallback
+
 static bool ConflictIsActive(std::list<int> & curr_conflict, std::vector<double> & nodes_sum, double & curr_conflict_nodes_sum)
 {
   int cont = 0;
@@ -658,6 +698,7 @@ void optimize(IloCplex & cplex, IloEnv& env, IloModel& model, std::optional<Bend
   // std::optional<DualVariables> worker_vars = std::nullopt;
   WorkerI* worker = nullptr;
   BendersGenericCallbackI* generic_callback = nullptr;
+  CallbackArguments arguments{.R0 = R0, .Rn = Rn, .instance = &instance};
 
   cplex.setParam(IloCplex::Param::WorkMem,15000);
   cplex.setParam(IloCplex::IloCplex::Param:: MIP::Strategy::File,3);
@@ -695,7 +736,7 @@ void optimize(IloCplex & cplex, IloEnv& env, IloModel& model, std::optional<Bend
           worker = new WorkerBaseline(env,instance,master_vars,combine_feas_op_cuts,export_model);
           break;
         case BendersFormulation::single_commodity:
-          worker = new WorkerSingleCommodity(env,instance,master_vars,combine_feas_op_cuts,export_model);
+          worker = new WorkerSingleCommodity(env,instance,master_vars,R0,Rn,combine_feas_op_cuts,export_model);
           break;
         default:
           throw "invalid formulation";
@@ -717,7 +758,7 @@ void optimize(IloCplex & cplex, IloEnv& env, IloModel& model, std::optional<Bend
             generic_callback = new BendersGenericCallbackBaseline(env,instance,master_vars,combine_feas_op_cuts,export_model,solution,num_threads);
             break;
           case BendersFormulation::single_commodity:
-            generic_callback = new BendersGenericCallbackSingleCommodity(env,instance,master_vars,combine_feas_op_cuts,export_model,solution,num_threads);
+            generic_callback = new BendersGenericCallbackSingleCommodity(env,instance,master_vars,combine_feas_op_cuts,export_model,solution,R0,Rn,num_threads);
             break;
           default:
             throw "invalid formulation";
@@ -744,7 +785,7 @@ void optimize(IloCplex & cplex, IloEnv& env, IloModel& model, std::optional<Bend
             //cplex.use(BendersUserCutCallback(env,*worker_cplex,*worker_obj,*worker_vars,y,x,dual_bound_opt->get(),instance));
             break;
           case BendersFormulation::single_commodity:
-            // TODO
+            cplex.use(BendersLazyCallbackSingleCommodity(env,worker->worker_cplex(),worker->worker_obj(),static_cast<DualVariablesSingleCommodity*>(worker->worker_vars()),master_vars,arguments,combine_feas_op_cuts,solution));
             break;
           default:
             throw "invalid formulation";
@@ -827,6 +868,7 @@ void optimize(IloCplex & cplex, IloEnv& env, IloModel& model, std::optional<Bend
     // Optimize the problem and obtain solution.
     if (!cplex.solve())
     {
+      std::cout << "2" << std::endl;
       timer->Clock(tf);
       if(worker != nullptr)
       {
@@ -889,7 +931,7 @@ void optimize(IloCplex & cplex, IloEnv& env, IloModel& model, std::optional<Bend
             sep_status = SeparateBendersCutBaseline(env,master_vars.x,master_vars.y,master_vars.dual_bound,x_values,y_values,dual_bound_value, worker->worker_cplex(), static_cast<DualVariablesBaseline*>(worker->worker_vars()), instance, worker->worker_obj(), cut_expr, combine_feas_op_cuts,solution);
             break;
           case BendersFormulation::single_commodity:
-            //sep_status = TODO
+            sep_status = SeparateBendersCutSingleCommodity(env,master_vars.x,master_vars.y,master_vars.dual_bound,x_values,y_values,dual_bound_value, worker->worker_cplex(), static_cast<DualVariablesSingleCommodity*>(worker->worker_vars()), R0, Rn, instance, worker->worker_obj(), cut_expr, combine_feas_op_cuts,solution);
             break;
           default:
             throw "invalid formulation";
@@ -1010,11 +1052,16 @@ void Benders(Instance& inst, BendersFormulation formulation, double * R0, double
   cplex.extract(model);
   MasterVariables master_vars{};
 
-  AllocateMasterVariables(env,master_vars,inst,force_use_all_vehicles,solve_relax);
+  if(formulation == BendersFormulation::baseline)
+    AllocateMasterVariablesBaseline(env,master_vars,inst,force_use_all_vehicles,solve_relax);
+  if(formulation == BendersFormulation::single_commodity)
+    AllocateMasterVariablesSingleCommodity(env,master_vars,inst,force_use_all_vehicles,solve_relax);
+
   PopulateByRowCommon(env,model,master_vars,inst,force_use_all_vehicles);
 	
   const int num_mandatory = inst.num_mandatory();
   const auto vertices_info = graph->vertices_info();
+  const double route_limit = inst.limit();
 
   // add objective function.
   IloExpr obj(env);
@@ -1023,6 +1070,8 @@ void Benders(Instance& inst, BendersFormulation formulation, double * R0, double
   {
     const auto& vertex_info = vertices_info[i];
     obj += operator*(vertex_info.profit_,master_vars.y[i]);
+    if (formulation == BendersFormulation::single_commodity)
+      obj -= operator*(vertex_info.decay_ratio_ * route_limit,master_vars.y[i]);
   }
 
   obj += master_vars.dual_bound;
@@ -1091,7 +1140,7 @@ void CompactBaseline(Instance& inst, double * R0, double * Rn, double time_limit
 
   MasterVariables master_vars{};
 
-  AllocateMasterVariables(env,master_vars,inst,force_use_all_vehicles,solve_relax);
+  AllocateMasterVariablesBaseline(env,master_vars,inst,force_use_all_vehicles,solve_relax);
   // budget + 1 to consider level 0 of budget! 0,..., budget
   IloNumVarArray a(env, (budget+1)*num_vertices, 0, IloInfinity, ILOFLOAT);
 
@@ -1268,7 +1317,7 @@ void PrimalSubproblemCompactSingleCommodity(Instance& inst, IloNumArray& x_value
   env.end();
 }
 
-static void AllocateMasterVariables(IloEnv& env, MasterVariables& master_vars, Instance & instance, bool force_use_all_vehicles, bool solve_relax)
+static void AllocateMasterVariablesBaseline(IloEnv& env, MasterVariables& master_vars, Instance & instance, bool force_use_all_vehicles, bool solve_relax)
 {
   const Graph * graph = instance.graph();
   const int num_vertices = graph->num_vertices();
@@ -1277,6 +1326,28 @@ static void AllocateMasterVariables(IloEnv& env, MasterVariables& master_vars, I
 
   master_vars.slack = IloNumVar(env, 0, force_use_all_vehicles? 0: num_routes, ILOFLOAT);
   master_vars.dual_bound = IloNumVar(env, -IloInfinity, 0, ILOFLOAT);
+
+  if(solve_relax)
+  {
+    master_vars.x = IloNumVarArray(env, num_arcs, 0.0, 1.0, ILOFLOAT);
+    master_vars.y = IloNumVarArray(env, num_vertices, 0.0, 1.0, ILOFLOAT);
+  }
+  else
+  {
+    master_vars.x = IloNumVarArray(env, num_arcs, 0.0, 1.0, ILOINT);
+    master_vars.y = IloNumVarArray(env, num_vertices, 0.0, 1.0, ILOINT);
+  }
+}
+
+static void AllocateMasterVariablesSingleCommodity(IloEnv& env, MasterVariables& master_vars, Instance & instance, bool force_use_all_vehicles, bool solve_relax)
+{
+  const Graph * graph = instance.graph();
+  const int num_vertices = graph->num_vertices();
+  const int num_arcs = graph->num_arcs();
+  const int num_routes = instance.num_vehicles();
+
+  master_vars.slack = IloNumVar(env, 0, force_use_all_vehicles? 0: num_routes, ILOFLOAT);
+  master_vars.dual_bound = IloNumVar(env, 0, IloInfinity, ILOFLOAT);
 
   if(solve_relax)
   {
@@ -1389,7 +1460,7 @@ void CompactSingleCommodity(Instance& inst, double * R0, double * Rn, double tim
 
   MasterVariables master_vars{};
 
-  AllocateMasterVariables(env,master_vars,inst,force_use_all_vehicles,solve_relax);
+  AllocateMasterVariablesSingleCommodity(env,master_vars,inst,force_use_all_vehicles,solve_relax);
   // budget + 1 to consider level 0 of budget! 0,..., budget
   IloNumVarArray f(env, num_arcs * (budget+1), 0, IloInfinity, ILOFLOAT);
 

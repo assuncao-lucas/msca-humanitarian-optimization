@@ -2850,51 +2850,59 @@ void ParseArgumentsAndRun(int argc, char* argv[] )
 	{
 		auto root_cuts = new std::list<UserCutGeneral*>();
 
+		BendersFormulation formulation;
+		std::string formulation_name;
+
 		if(baseline)
 		{
-			bool use_valid_inequalities = false;
-			bool find_root_cuts = false;
-			if(solve_cb)
-			{
-				use_valid_inequalities = false;
-				find_root_cuts = true;
-
-				Benders(inst,BendersFormulation::baseline,R0,Rn,time_limit,solve_generic_callback,combine_feas_opt_cuts,true,use_valid_inequalities,find_root_cuts,nullptr,nullptr,force_use_all_vehicles,export_model,root_cuts,sol);
-			
-				if(time_limit != -1) time_limit = std::max(0.0, time_limit - sol.root_time_);
-				sol.milp_time_ = sol.root_time_;
-
-				use_valid_inequalities = true;
-				find_root_cuts = false;
-			}else if (solve_relaxed)
-			{
-				Benders(inst,BendersFormulation::baseline,R0,Rn,time_limit,solve_generic_callback,combine_feas_opt_cuts,true,use_valid_inequalities,find_root_cuts,nullptr,nullptr,force_use_all_vehicles,export_model,root_cuts,sol);
-			}
-
-			if(!solve_relaxed)
-				Benders(inst,BendersFormulation::baseline,R0,Rn,time_limit,solve_generic_callback,combine_feas_opt_cuts,false,use_valid_inequalities,find_root_cuts,root_cuts,nullptr,force_use_all_vehicles,export_model,nullptr,sol);
-
-			std::cout << "# opt cuts: " << sol.num_benders_opt_cuts_ << std::endl;
-			std::cout << "# feas cuts: " << sol.num_benders_feas_cuts_ << std::endl;
-			std::cout << "num cuts: " << sol.num_cuts_found_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << "/" << sol.num_cuts_added_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << std::endl;
-
-			std::string algo;
-			if(solve_relaxed)
-				algo += "relax_";
-			if(solve_bc)
-				algo += "cb_";
-			if(combine_feas_opt_cuts)
-				algo += "benders_combined_baseline";
-			else
-				algo += "benders_baseline";
-			std::cout << algo << std::endl;
-			sol.write_to_file(algo,"//",instance_name);
+			formulation = BendersFormulation::baseline;
+			formulation_name = "baseline";
 		}
-
 		if(capacity_based)
 		{
-			// TODO.
+			formulation = BendersFormulation::single_commodity;
+			formulation_name = "csc";
 		}
+
+		bool use_valid_inequalities = false;
+		bool find_root_cuts = false;
+		if(solve_cb)
+		{
+			use_valid_inequalities = false;
+			find_root_cuts = true;
+
+			Benders(inst,formulation,R0,Rn,time_limit,solve_generic_callback,combine_feas_opt_cuts,true,use_valid_inequalities,find_root_cuts,nullptr,nullptr,force_use_all_vehicles,export_model,root_cuts,sol);
+		
+			if(time_limit != -1) time_limit = std::max(0.0, time_limit - sol.root_time_);
+			sol.milp_time_ = sol.root_time_;
+
+			use_valid_inequalities = true;
+			find_root_cuts = false;
+		}else if (solve_relaxed)
+		{
+			Benders(inst,formulation,R0,Rn,time_limit,solve_generic_callback,combine_feas_opt_cuts,true,use_valid_inequalities,find_root_cuts,nullptr,nullptr,force_use_all_vehicles,export_model,root_cuts,sol);
+		}
+
+		if(!solve_relaxed)
+			Benders(inst,formulation,R0,Rn,time_limit,solve_generic_callback,combine_feas_opt_cuts,false,use_valid_inequalities,find_root_cuts,root_cuts,nullptr,force_use_all_vehicles,export_model,nullptr,sol);
+
+		std::cout << "# opt cuts: " << sol.num_benders_opt_cuts_ << std::endl;
+		std::cout << "# feas cuts: " << sol.num_benders_feas_cuts_ << std::endl;
+		std::cout << "num cuts: " << sol.num_cuts_found_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << "/" << sol.num_cuts_added_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << std::endl;
+
+		std::string algo;
+		if(solve_relaxed)
+			algo += "relax_";
+		if(solve_bc)
+			algo += "cb_";
+
+		algo += formulation_name + "_";
+		if(combine_feas_opt_cuts)
+			algo += "benders_combined";
+		else
+			algo += "benders";
+		std::cout << algo << std::endl;
+		sol.write_to_file(algo,"//",instance_name);
 
 		DeleteCuts(root_cuts);
 		if(root_cuts != nullptr)
