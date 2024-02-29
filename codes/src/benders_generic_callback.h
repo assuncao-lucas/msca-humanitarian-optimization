@@ -174,6 +174,7 @@ public:
    }
 
    virtual WorkerI* AllocateNewWorker() = 0;
+   virtual IloBool SeparateBendersCut(IloEnv& master_env, IloNumVarArray &x, IloNumVarArray &y, IloNumVar& dual_bound, IloNumArray &x_values, IloNumArray &y_values, IloNum dual_bound_value, IloCplex& worker_cplex, DualVariables* dual_vars, const Instance & instance,  IloObjective& worker_obj, IloExpr& cut_expr, bool combine_feas_op_cuts, Solution<double>& solution) = 0; 
 
    void invoke(const IloCplex::Callback::Context& context) ILO_OVERRIDE
    {
@@ -184,7 +185,6 @@ public:
         workers_[thread_num] = AllocateNewWorker();
         return;
     }
-
 
     // teardown
     if (context.inThreadDown()) {
@@ -220,9 +220,11 @@ public:
     }
 
     auto curr_worker = workers_[thread_num];
+   // std::cout << "current master obj " << context.getCandidateObjective() << std::endl;
+   // std::cout << "current dual bound " << dual_bound_value << std::endl;
     // Benders' cut separation.
     IloExpr cut_expr(master_env);
-    IloBool sep_status = SeparateBendersCutBaseline(master_env,master_vars_.x,master_vars_.y,master_vars_.dual_bound,x_values,y_values,dual_bound_value, curr_worker->worker_cplex(), static_cast<DualVariablesBaseline*>(curr_worker->worker_vars()), instance_, curr_worker->worker_obj(), cut_expr,combine_feas_op_cuts_,solution_);
+    IloBool sep_status = SeparateBendersCut(master_env,master_vars_.x,master_vars_.y,master_vars_.dual_bound,x_values,y_values,dual_bound_value, curr_worker->worker_cplex(), curr_worker->worker_vars(), instance_, curr_worker->worker_obj(), cut_expr,combine_feas_op_cuts_,solution_);
     if (sep_status)
     {
       // std::cout << "Adicionou corte " << solution_.num_benders_feas_cuts_ << std::endl;
@@ -269,6 +271,10 @@ public:
    {
       return new WorkerBaseline(master_env_,instance_,master_vars_,combine_feas_op_cuts_,export_model_);
    }
+   virtual IloBool SeparateBendersCut(IloEnv& master_env, IloNumVarArray &x, IloNumVarArray &y, IloNumVar& dual_bound, IloNumArray &x_values, IloNumArray &y_values, IloNum dual_bound_value, IloCplex& worker_cplex, DualVariables* dual_vars, const Instance & instance,  IloObjective& worker_obj, IloExpr& cut_expr, bool combine_feas_op_cuts, Solution<double>& solution) final
+   {
+      return SeparateBendersCutBaseline(master_env,master_vars_.x,master_vars_.y,master_vars_.dual_bound,x_values,y_values,dual_bound_value, worker_cplex, static_cast<DualVariablesBaseline*>(dual_vars), instance_, worker_obj, cut_expr,combine_feas_op_cuts_,solution_);
+   }
 };
 
 class BendersGenericCallbackSingleCommodity : public BendersGenericCallbackI
@@ -282,6 +288,10 @@ public:
    virtual WorkerI* AllocateNewWorker() final
    {
       return new WorkerSingleCommodity(master_env_,instance_,master_vars_,R0_,Rn_,combine_feas_op_cuts_,export_model_);
+   }
+   virtual IloBool SeparateBendersCut(IloEnv& master_env, IloNumVarArray &x, IloNumVarArray &y, IloNumVar& dual_bound, IloNumArray &x_values, IloNumArray &y_values, IloNum dual_bound_value, IloCplex& worker_cplex, DualVariables* dual_vars, const Instance & instance,  IloObjective& worker_obj, IloExpr& cut_expr, bool combine_feas_op_cuts, Solution<double>& solution) final
+   {
+      return SeparateBendersCutSingleCommodity(master_env,master_vars_.x,master_vars_.y,master_vars_.dual_bound,x_values,y_values,dual_bound_value, worker_cplex, static_cast<DualVariablesSingleCommodity*>(dual_vars), R0_, Rn_, instance_, worker_obj, cut_expr,combine_feas_op_cuts_,solution_);
    }
 
    const double* R0_;

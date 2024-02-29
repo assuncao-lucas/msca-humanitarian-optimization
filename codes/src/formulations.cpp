@@ -58,6 +58,9 @@ ILOLAZYCONSTRAINTCALLBACK7(BendersLazyCallbackBaseline, IloCplex&, worker_cplex,
   getValues(y_values, master_vars.y);
   getValues(x_values, master_vars.x);
 
+  // std::cout << "current master obj " << getObjValue() << std::endl;
+  // std::cout << "current dual bound " << dual_bound_value << std::endl;
+
   // Benders' cut separation.
   IloExpr cut_expr(master_env);
   IloBool sep_status = SeparateBendersCutBaseline(master_env,master_vars.x,master_vars.y,master_vars.dual_bound,x_values,y_values,dual_bound_value, worker_cplex, dual_vars, instance, worker_obj, cut_expr,combine_feas_op_cuts,solution);
@@ -97,6 +100,12 @@ ILOLAZYCONSTRAINTCALLBACK7(BendersLazyCallbackSingleCommodity, IloCplex&, worker
   // std::cout << "current dual bound " << dual_bound_value << std::endl;
   getValues(y_values, master_vars.y);
   getValues(x_values, master_vars.x);
+
+  for (int i =0 ; i < y_values.getSize(); ++i)
+    std::cout << master_vars.y[i].getName() << " " << y_values[i] << std::endl;
+
+  for (int i =0 ; i < x_values.getSize(); ++i)
+    std::cout << master_vars.x[i].getName() << " " << x_values[i] << std::endl;
 
   // Benders' cut separation.
   IloExpr cut_expr(master_env);
@@ -868,7 +877,6 @@ void optimize(IloCplex & cplex, IloEnv& env, IloModel& model, std::optional<Bend
     // Optimize the problem and obtain solution.
     if (!cplex.solve())
     {
-      std::cout << "2" << std::endl;
       timer->Clock(tf);
       if(worker != nullptr)
       {
@@ -902,9 +910,9 @@ void optimize(IloCplex & cplex, IloEnv& env, IloModel& model, std::optional<Bend
       tf = nullptr;
       return;
     }
-    curr_bound = cplex.getObjValue();
-    //std::cout << cplex.getCplexStatus() << ": " << curr_bound << std::endl;
-    //getchar(); getchar();
+    // curr_bound = cplex.getObjValue();
+    // std::cout << cplex.getCplexStatus() << ": " << curr_bound << std::endl;
+    // getchar(); getchar();
     //cont++;
     //std::cout << cont << std::endl;
     found_cuts = false;
@@ -917,11 +925,14 @@ void optimize(IloCplex & cplex, IloEnv& env, IloModel& model, std::optional<Bend
       IloNumArray y_values(env);
       cplex.getValues(y_values, master_vars.y);
       cplex.getValues(x_values, master_vars.x);
-
+   
       if (apply_benders)
       {
         IloNum dual_bound_value = cplex.getValue(master_vars.dual_bound);
         IloBool sep_status = IloFalse;
+
+        // std::cout << "current master obj " << cplex.getObjValue() << std::endl;
+        // std::cout << "current dual bound " << dual_bound_value << std::endl;
   
         // Benders' cut separation.
         IloExpr cut_expr(env);
@@ -1347,7 +1358,7 @@ static void AllocateMasterVariablesSingleCommodity(IloEnv& env, MasterVariables&
   const int num_routes = instance.num_vehicles();
 
   master_vars.slack = IloNumVar(env, 0, force_use_all_vehicles? 0: num_routes, ILOFLOAT);
-  master_vars.dual_bound = IloNumVar(env, 0, IloInfinity, ILOFLOAT);
+  master_vars.dual_bound = IloNumVar(env, 0, instance.limit(), ILOFLOAT);
 
   if(solve_relax)
   {

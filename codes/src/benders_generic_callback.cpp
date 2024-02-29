@@ -173,9 +173,9 @@ IloBool SeparateBendersCutBaseline(IloEnv& master_env, IloNumVarArray &x, IloNum
   if (status == IloAlgorithm::Optimal)
   {
     double new_dual_bound = worker_cplex.getObjValue();
-    //std::cout << status << " " << new_dual_bound << " x " << dual_bound_value << std::endl;
+    std::cout << status << " " << new_dual_bound << " x " << dual_bound_value << std::endl;
     // if combining feas and opt cuts, it suffices to have a bound greater than zero to imply a violated cut.
-    if ( double_greater(dual_bound_value,new_dual_bound) || combine_feas_op_cuts && double_greater(new_dual_bound,0) )
+    if ( !combine_feas_op_cuts && double_greater(dual_bound_value,new_dual_bound) || combine_feas_op_cuts && !double_equals(new_dual_bound,0))
     {
       ++solution.num_benders_opt_cuts_;
       //std::cout << status << " " << new_dual_bound << " x " << dual_bound_value << std::endl;
@@ -239,27 +239,27 @@ IloBool SeparateBendersCutBaseline(IloEnv& master_env, IloNumVarArray &x, IloNum
       else
         cut_expr -= dual_bound;
 
-      // for(IloNum i = 0; i < dual_vars.u_0.getSize(); ++i)
+      // for(IloNum i = 0; i < dual_vars->u_0_.getSize(); ++i)
       // {
-      //   std::cout << dual_vars.u_0[i].getName() << " " << u_0_values[i] << std::endl;
+      //   std::cout << dual_vars->u_0_[i].getName() << " " << u_0_values[i] << std::endl;
       // }
 
-      // for(IloNum i = 0; i < dual_vars.u_1.getSize(); ++i)
+      // for(IloNum i = 0; i < dual_vars->u_1_.getSize(); ++i)
       // {
-      //   std::cout << dual_vars.u_1[i].getName() << " " << u_1_values[i] << std::endl;
+      //   std::cout << dual_vars->u_1_[i].getName() << " " << u_1_values[i] << std::endl;
       // }
 
-      // for(IloNum i = 0; i < dual_vars.u_2.getSize(); ++i)
+      // for(IloNum i = 0; i < dual_vars->u_2_.getSize(); ++i)
       // {
-      //   std::cout << dual_vars.u_2[i].getName() << " " << u_2_values[i] << std::endl;
+      //   std::cout << dual_vars->u_2_[i].getName() << " " << u_2_values[i] << std::endl;
       // }
 
-      // for(IloNum i = 0; i < dual_vars.u_3.getSize(); ++i)
+      // for(IloNum i = 0; i < dual_vars->u_3_.getSize(); ++i)
       // {
-      //   std::cout << dual_vars.u_3[i].getName() << " " << u_3_values[i] << std::endl;
+      //   std::cout << dual_vars->u_3_[i].getName() << " " << u_3_values[i] << std::endl;
       // }
 
-      // std::cout << cut_expr << std::endl;
+      //std::cout << cut_expr << std::endl;
       // getchar();getchar();
 
       u_0_values.end();
@@ -280,7 +280,7 @@ IloBool SeparateBendersCutBaseline(IloEnv& master_env, IloNumVarArray &x, IloNum
 //
 IloBool SeparateBendersCutSingleCommodity(IloEnv& master_env, IloNumVarArray &x, IloNumVarArray &y, IloNumVar& dual_bound, IloNumArray &x_values, IloNumArray &y_values, IloNum dual_bound_value, IloCplex& worker_cplex, DualVariablesSingleCommodity* dual_vars, const double* R0, const double* Rn, const Instance & instance,  IloObjective& worker_obj, IloExpr& cut_expr, bool combine_feas_op_cuts, Solution<double>& solution)
 {
-  // std::cout << "try to separate benders cut" << std::endl; 
+  //std::cout << "try to separate benders cut" << std::endl; 
   IloBool violatedCutFound = IloFalse;
   IloEnv worker_env = worker_cplex.getEnv();
   IloModel worker_model = worker_cplex.getModel();
@@ -304,7 +304,7 @@ IloBool SeparateBendersCutSingleCommodity(IloEnv& master_env, IloNumVarArray &x,
   //   std::cout << x[i].getName() << " " << x_values[i] << std::endl;
   // }
   
-  // worker_cplex.exportModel("worker_model_Benders_compact_single_commodity.lp");
+  //worker_cplex.exportModel("worker_model_Benders_compact_single_commodity.lp");
   // getchar(); getchar();
 
   // Solve the worker LP
@@ -320,7 +320,7 @@ IloBool SeparateBendersCutSingleCommodity(IloEnv& master_env, IloNumVarArray &x,
   if ( status == IloAlgorithm::Unbounded)
   {
     ++solution.num_benders_feas_cuts_;
-    //std::cout << "found new feasibility cut " << instance.num_feas_cuts_ << std::endl;
+    //std::cout << "found new feasibility cut " << solution.num_benders_feas_cuts_ << std::endl;
     IloNumVarArray var(worker_env);
     IloNumArray val(worker_env);
 
@@ -349,7 +349,7 @@ IloBool SeparateBendersCutSingleCommodity(IloEnv& master_env, IloNumVarArray &x,
     double new_dual_bound = worker_cplex.getObjValue();
     //std::cout << status << " " << new_dual_bound << " x " << dual_bound_value << std::endl;
     // if combining feas and opt cuts, it suffices to have a bound greater than zero to imply a violated cut.
-    if ( double_greater(dual_bound_value,new_dual_bound) || combine_feas_op_cuts && double_greater(new_dual_bound,0) )
+    if ( !combine_feas_op_cuts && double_greater(dual_bound_value,new_dual_bound) || combine_feas_op_cuts && !double_equals(new_dual_bound,0))
     {
       ++solution.num_benders_opt_cuts_;
       //std::cout << status << " " << new_dual_bound << " x " << dual_bound_value << std::endl;
@@ -405,8 +405,10 @@ IloBool SeparateBendersCutSingleCommodity(IloEnv& master_env, IloNumVarArray &x,
       }
 
       if(combine_feas_op_cuts)
-        cut_expr -= operator*(worker_cplex.getValue(dual_vars->v_dual_bound_),dual_bound);
-      else
+      {
+        double v_dual_bound = worker_cplex.getValue(dual_vars->v_dual_bound_);
+        cut_expr -= operator*(v_dual_bound,dual_bound);
+      }else
         cut_expr -= dual_bound;
 
       // for(IloNum i = 0; i < dual_vars->v_0_.getSize(); ++i)
