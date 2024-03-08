@@ -101,11 +101,11 @@ ILOLAZYCONSTRAINTCALLBACK7(BendersLazyCallbackSingleCommodity, IloCplex&, worker
   getValues(y_values, master_vars.y);
   getValues(x_values, master_vars.x);
 
-  for (int i =0 ; i < y_values.getSize(); ++i)
-    std::cout << master_vars.y[i].getName() << " " << y_values[i] << std::endl;
+  // for (int i =0 ; i < y_values.getSize(); ++i)
+  //   std::cout << master_vars.y[i].getName() << " " << y_values[i] << std::endl;
 
-  for (int i =0 ; i < x_values.getSize(); ++i)
-    std::cout << master_vars.x[i].getName() << " " << x_values[i] << std::endl;
+  // for (int i =0 ; i < x_values.getSize(); ++i)
+  //   std::cout << master_vars.x[i].getName() << " " << x_values[i] << std::endl;
 
   // Benders' cut separation.
   IloExpr cut_expr(master_env);
@@ -697,6 +697,7 @@ void optimize(IloCplex & cplex, IloEnv& env, IloModel& model, std::optional<Bend
 {
   const Graph* graph = instance.graph();
   int num_vertices = graph->num_vertices();
+  int num_arcs = graph->num_arcs();
   Timestamp * ti = NewTimestamp(), *tf = NewTimestamp();
   Timer * timer = GetTimer();
   timer->Clock(ti);
@@ -734,6 +735,8 @@ void optimize(IloCplex & cplex, IloEnv& env, IloModel& model, std::optional<Bend
 
   if(apply_benders)
   {
+    // cplex.setParam(IloCplex::Param::Emphasis::Numerical,1);
+    // std::cout << "ENFASE!" << std::endl;
     // create subproblem!
       // The subproblem will be always the same, except for the objective function, which relies
       // on the values of x and y variables. Then, we can create a unique model beforehand.
@@ -802,6 +805,65 @@ void optimize(IloCplex & cplex, IloEnv& env, IloModel& model, std::optional<Bend
       }
     }
   }
+
+  if(initial_sol != nullptr)
+  {
+    IloEnv worker_env = worker->worker_cplex().getEnv();
+    IloModel worker_model =worker-> worker_cplex().getModel();
+
+    // Update the objective function in the worker LP.
+    worker_model.remove(worker->worker_obj());
+    IloExpr obj_expr = worker->worker_obj().getExpr();
+    obj_expr.clear();
+
+    IloNumArray y_values(env,num_vertices);
+		for(int i = 0; i < num_vertices; ++i)
+		  y_values[i] = initial_sol->y_values_[i];
+
+    IloNumArray x_values(env,num_arcs);
+		for(int i = 0; i < num_arcs; ++i)
+		  x_values[i] = initial_sol->x_values_[i];
+
+
+    FillObjectiveExpressionDualCompactSingleCommodityContinuousSpace(obj_expr,*static_cast<DualVariablesSingleCommodity*>(worker->worker_vars()),x_values,y_values,std::nullopt,R0,Rn,instance,combine_feas_op_cuts);
+    worker->worker_obj().setExpr(obj_expr);
+    worker_model.add(worker->worker_obj());
+    obj_expr.end(); 
+
+    optimizeLP(worker->worker_cplex(),worker_env,model,instance,-1, R0, Rn, solution);
+
+    initial_sol->dual_bound_ = worker->worker_cplex().getObjValue();
+  }
+
+  // if((initial_sol != nullptr)&&(initial_sol->is_feasible_))
+  // {
+  //   //std::cout << "antes" << std::endl;
+  //   IloNumVarArray startVar(env,num_vertices + num_arcs);
+  //   IloNumArray startVal(env,num_vertices + num_arcs);
+
+  //   for(int i = 0; i < num_vertices; ++i)
+  //   {
+  //     startVar[i] = master_vars.y[i];
+  //     startVal[i] = initial_sol->y_values_[i];
+  //   }
+
+  //   for(int i = num_vertices; i < num_vertices + num_arcs; ++i)
+  //   {
+  //     startVar[i] = master_vars.x[i - num_vertices];
+  //     startVal[i] = initial_sol->x_values_[i];
+  //   }
+
+  //   std::cout << "antes de colocar solucao" << std::endl;
+  //   cplex.addMIPStart(startVar, startVal,IloCplex::MIPStartRepair);
+  //   startVar.end();
+  //   startVal.end();
+  //   //cplex.setParam(IloCplex::Param::MIP::Tolerances::LowerCutoff, 1.0*(initial_sol->profits_sum_));
+  //   std::cout << "colocou solucao" << std::endl;
+
+  //   //cplex.setParam(IloCplex::Param::Advance,2);
+  //   //std::cout << "colocou presolve" << std::endl;
+  //   //std::cout << "depois" << std::endl;
+  // }
 
   if(K_MULTI_THREAD)
     std::cout << "multi thread " << cplex.getNumCores() << std::endl;
@@ -967,7 +1029,71 @@ void optimize(IloCplex & cplex, IloEnv& env, IloModel& model, std::optional<Bend
       x_values.end();
       y_values.end();
     }
-  }while((found_cuts));
+  }while((found_cuts));    
+
+  // if((cplex.getCplexStatus() == IloCplex::Optimal)||(cplex.getCplexStatus() == IloCplex::OptimalTol))
+  // {
+  //   solution.bitset_vertices_ = std::vector<double>(num_vertices);
+  //   solution.bitset_arcs_ = std::vector<double>(graph->num_arcs());
+
+  //   // print solution.
+  //   IloNumArray y_solution(env);
+  //   cplex.getValues(y_solution,master_vars.y);
+  //   for (int i = 0; i < num_vertices; ++i)
+  //   {
+  //     auto vertex_info = graph->vertices_info()[i];
+  //     solution.bitset_vertices_[i] = y_solution[i];
+  //     if(initial_sol != nullptr && !double_equals(initial_sol->y_values_[i],y_solution[i]))
+  //       std::cout << "y[" << i << "]: " << initial_sol->y_values_[i] << " x " <<  y_solution[i] << " decay " << vertex_info.decay_ratio_ << " profit " << vertex_info.profit_ << std::endl;
+  //   }
+
+  //   IloNumArray x_solution(env);
+  //   cplex.getValues(x_solution,master_vars.x);
+  //   for (int i = 0; i < num_vertices; ++i)
+  //   {
+  //     for(const int &j: graph->AdjVerticesOut(i))
+  //     {
+  //       auto arc_pos = graph->pos(i,j);
+  //       solution.bitset_arcs_[arc_pos] = x_solution[arc_pos];
+  //       // if(initial_sol != nullptr && !double_equals(initial_sol->x_values_[arc_pos],x_solution[arc_pos]))
+  //       //   std::cout << "x[" << i << "," << j << "]: " << initial_sol->x_values_[arc_pos] << " x " << x_solution[arc_pos] << std::endl;
+  //     }
+  //   }
+
+  //   // if(apply_benders)
+  //   // {
+  //   //   double obj_value = 0.0;
+  //   //   auto vertices_info = graph->vertices_info();
+
+  //   //   for(int i = instance.num_mandatory() + 1; i < num_vertices; ++i)
+  //   //   {
+  //   //     const auto& vertex_info = vertices_info[i];
+  //   //     obj_value += vertex_info.profit_ * y_solution[i];
+  //   //     // if (formulation == BendersFormulation::single_commodity)
+  //   //      obj_value -= vertex_info.decay_ratio_ * instance.limit() * y_solution[i];
+  //   //   }
+
+  //   //   std::cout << " solution value without dual: " << obj_value << std::endl;
+  //   //   std::cout << "status " << cplex.getCplexStatus() << " " << cplex.getObjValue() - cplex.getValue(master_vars.dual_bound) << " + " << cplex.getValue(master_vars.dual_bound) << " = " << cplex.getObjValue() << std::endl;
+  //   // }else
+  //   // {
+  //   //   double obj_value = 0.0;
+  //   //   auto vertices_info = graph->vertices_info();
+
+  //   //   for(int i = instance.num_mandatory() + 1; i < num_vertices; ++i)
+  //   //   {
+  //   //     const auto& vertex_info = vertices_info[i];
+  //   //     obj_value += vertex_info.profit_ * y_solution[i];
+  //   //     // if (formulation == BendersFormulation::single_commodity)
+  //   //      obj_value -= vertex_info.decay_ratio_ * instance.limit() * y_solution[i];
+  //   //   }
+
+  //   //   std::cout << " solution value without dual: " << obj_value << std::endl;
+  //   // }
+
+  //   x_solution.end();
+  //   y_solution.end();
+  // }
 
   // std::cout << curr_bound << std::endl;
 
@@ -1067,9 +1193,7 @@ void Benders(Instance& inst, BendersFormulation formulation, double * R0, double
     AllocateMasterVariablesBaseline(env,master_vars,inst,force_use_all_vehicles,solve_relax);
   if(formulation == BendersFormulation::single_commodity)
     AllocateMasterVariablesSingleCommodity(env,master_vars,inst,force_use_all_vehicles,solve_relax);
-
   PopulateByRowCommon(env,model,master_vars,inst,force_use_all_vehicles);
-	
   const int num_mandatory = inst.num_mandatory();
   const auto vertices_info = graph->vertices_info();
   const double route_limit = inst.limit();
@@ -1336,7 +1460,7 @@ static void AllocateMasterVariablesBaseline(IloEnv& env, MasterVariables& master
   const int num_routes = instance.num_vehicles();
 
   master_vars.slack = IloNumVar(env, 0, force_use_all_vehicles? 0: num_routes, ILOFLOAT);
-  master_vars.dual_bound = IloNumVar(env, -IloInfinity, 0, ILOFLOAT);
+  master_vars.dual_bound = IloNumVar(env, -instance.limit(), 0, ILOFLOAT);
 
   if(solve_relax)
   {
@@ -1358,7 +1482,7 @@ static void AllocateMasterVariablesSingleCommodity(IloEnv& env, MasterVariables&
   const int num_routes = instance.num_vehicles();
 
   master_vars.slack = IloNumVar(env, 0, force_use_all_vehicles? 0: num_routes, ILOFLOAT);
-  master_vars.dual_bound = IloNumVar(env, 0, instance.limit(), ILOFLOAT);
+  master_vars.dual_bound = IloNumVar(env, 0, 999999, ILOFLOAT);
 
   if(solve_relax)
   {
@@ -1483,24 +1607,6 @@ void CompactSingleCommodity(Instance& inst, double * R0, double * Rn, double tim
   //     cplex.setAnnotation(decomp, f[i], CPX_BENDERS_MASTERVALUE+1);
       
   optimize(cplex,env,model,std::nullopt,master_vars,inst,time_limit,solve_relax,false,false,false,use_valid_inequalities,find_root_cuts, R0, Rn, initial_cuts, initial_sol, export_model, root_cuts, solution);
-
-  // if((cplex.getCplexStatus() == IloCplex::Optimal)||(cplex.getCplexStatus() == IloCplex::OptimalTol))
-  // {
-  //   // print solution.
-  //   IloNumArray y_solution(env);
-  //   cplex.getValues(y_solution,y);
-  //   for (int i = 0; i < num_vertices; ++i)
-  //     std::cout << "y[" << i << "]: " << y_solution[i] << std::endl;
-
-  //   IloNumArray x_solution(env);
-  //   cplex.getValues(x_solution,x);
-  //   for (int i = 0; i < num_vertices; ++i)
-  //     for(const int &j: graph->AdjVerticesOut(i))
-  //       std::cout << "x[" << i << "," << j << "]: " << x_solution[graph->pos(i,j)] << std::endl;
-
-  //   x_solution.end();
-  //   y_solution.end();
-  // }
 
   cplex.end();
   env.end();

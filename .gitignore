@@ -37,3 +37,5 @@
 
 # cplex models
 *.lp
+*.dua
+*.log

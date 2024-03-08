@@ -1652,6 +1652,7 @@ std::string LBHeuristicSolution::GenerateFileName()
 	if(FIXED_FLIP_BASIS) file_name += ("fixed_" + std::to_string(K_FLIP_BASIS));
 	else file_name += std::to_string(int(100*perturbation_flip_percentage));
 	return file_name;*/
+	return "";
 }
 
 void LBHeuristicSolution::WriteToFile(std::string algo, std::string folder, std::string file_name)

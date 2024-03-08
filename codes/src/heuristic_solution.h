@@ -63,6 +63,10 @@ public:
 
 	boost::dynamic_bitset<> bitset_arcs_;
     boost::dynamic_bitset<> bitset_vertices_;
+
+	std::vector<double> x_values_;
+	std::vector<double> y_values_;
+	double dual_bound_ = 0.0;
 	void BuildBitset(Instance &);
 };
 
