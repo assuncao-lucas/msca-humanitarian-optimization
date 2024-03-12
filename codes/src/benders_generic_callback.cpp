@@ -280,254 +280,6 @@ IloBool SeparateBendersCutBaseline(IloEnv& master_env, IloNumVarArray &x, IloNum
 
 } // END separate
 
-void SetSolutionStatus2(IloCplex & cplex, Solution<double> & solution, bool solve_relax)
-{
-  //std::cout << cplex.getCplexStatus() << std::endl;
-  if(solve_relax)
-  {
-    if((cplex.getCplexStatus() == IloCplex::Infeasible)||(cplex.getCplexStatus() == IloCplex::InfOrUnbd)) solution.lp_ = -1;
-    else solution.lp_ = cplex.getObjValue();
-    if((cplex.getCplexStatus() == IloCplex::Optimal)||(cplex.getCplexStatus() == IloCplex::OptimalTol))
-    {
-      solution.is_optimal_ =  true;
-    }
-  }else{
-    if((cplex.getCplexStatus() == IloCplex::Infeasible)||(cplex.getCplexStatus() == IloCplex::InfOrUnbd)) solution.is_feasible_ = false;
-    else
-    {
-      double cost = cplex.getObjValue();
-      if((cplex.getCplexStatus() == IloCplex::Optimal)||(cplex.getCplexStatus() == IloCplex::OptimalTol))
-      {
-        solution.lb_ = cost;
-        solution.ub_ = cost;
-        solution.is_optimal_ =  true;
-      }else
-      {
-        solution.lb_ = cost;
-        solution.ub_ = cplex.getBestObjValue();
-        if(!(double_less(solution.lb_, solution.ub_))) solution.is_optimal_ = true;
-      }
-    }
-  }
-  solution.num_nodes_ = cplex.getNnodes();
-}
-
-void optimizeLP2(IloCplex & cplex, IloEnv& env, IloModel& model,const Instance& instance, double total_time_limit, const double * R0, const double * Rn, Solution<double>& solution)
-{
-  const Graph* graph = instance.graph();
-  int num_vertices = graph->num_vertices();
-  Timestamp * ti = NewTimestamp(), *tf = NewTimestamp();
-  Timer * timer = GetTimer();
-
-  cplex.setParam(IloCplex::Param::WorkMem,15000);
-  cplex.setParam(IloCplex::IloCplex::Param::MIP::Strategy::File,3);
-  cplex.setOut(env.getNullStream());
-
-  if(!K_MULTI_THREAD) cplex.setParam(IloCplex::Param::Threads, 1);
-
-  if(!double_equals(total_time_limit,-1))
-  {
-    //std::cout << total_time_limit - instance.time_spent_in_preprocessing_ << std::endl;
-    cplex.setParam(IloCplex::Param::ClockType,2);
-    cplex.setParam(IloCplex::Param::TimeLimit, total_time_limit - instance.time_spent_in_preprocessing());
-    //std::cout << total_time_limit << " - " << instance.time_spent_in_preprocessing_ << std::endl;
-  }
-
-  timer->Clock(ti);
-  double curr_bound = std::numeric_limits<double>::infinity();
-
-  if (!cplex.solve())
-  {
-    //std::cout << "primal " << cplex.getCplexStatus() << std::endl;
-    timer->Clock(tf);
-    timer->ElapsedTime(ti,tf);
-    if((cplex.getCplexStatus() == IloCplex::Infeasible)||(cplex.getCplexStatus() == IloCplex::InfOrUnbd)) solution.is_feasible_ = false;
-    return;
-  }
-
-  //std::cout << "primal " << cplex.getCplexStatus() << std::endl;
-  curr_bound = cplex.getObjValue();
-
-  timer->Clock(tf);
-  solution.root_time_ = timer->ElapsedTime(ti,tf);
-
-  SetSolutionStatus2(cplex,solution,true);
-
-  delete(ti);
-  ti = nullptr;
-  delete(tf);
-  tf = nullptr;
-}
-
-int f_var_to_index2(int arc_pos, int budget, int num_arcs)
-{
-  return budget * num_arcs + arc_pos;
-}
-
-static void PopulateByRowCompactSingleCommodityContinuousSpace2(IloEnv& env, IloModel& model, IloNumVarArray & x, IloNumVarArray & y, IloNumVarArray &f, std::optional<std::reference_wrapper<IloNumArray>> x_values, std::optional<std::reference_wrapper<IloNumArray>> y_values, const double * R0, const double * Rn, const Instance& instance)
-{
-  const Graph* graph = instance.graph();
-  const int num_vertices = graph->num_vertices();
-  const int num_arcs = graph->num_arcs();
-  const int num_mandatory = instance.num_mandatory();
-  GArc * curr_arc = nullptr;
-  int arc_pos = 0;
-  const auto* vertices_info = graph->vertices_info();
-  const int budget = instance.uncertainty_budget();
-  const double route_time_limit = instance.limit();
-  double vertex_deadline = 0.0;
-
-  for(int budget_iter = 0; budget_iter <= budget; ++budget_iter)
-  {
-    for (int i = 0; i < num_vertices; ++i)
-    {
-      const auto& from_vertex_info = vertices_info[i];
-      for (const int& j: graph->AdjVerticesOut(i))
-      {
-        curr_arc = (*graph)[i][j];
-        arc_pos = graph->pos(i,j);
-        double lb_coef = route_time_limit - R0[i] - from_vertex_info.nominal_service_time_ - curr_arc->distance();
-        x_values.has_value()?
-        model.add(f[f_var_to_index2(arc_pos,budget_iter,num_arcs)] <= (lb_coef)*(x_values->get())[arc_pos])
-        : model.add(f[f_var_to_index2(arc_pos,budget_iter,num_arcs)] <= operator*(lb_coef, x[arc_pos]));
-
-        // also add upper bound if destination vertex is mandatory or profitable.
-        if(j > 0)
-        {
-          const auto& to_vertex_info = vertices_info[j];
-          // if mandatory, the deadline of the vertex D_i is the time limit T.
-          vertex_deadline = (j <= num_mandatory)? route_time_limit: round_decimals(to_vertex_info.profit_/to_vertex_info.decay_ratio_,2);
-        
-          double ub_coef = max(route_time_limit - vertex_deadline,to_vertex_info.nominal_service_time_ + Rn[j]);
-          x_values.has_value()?
-          model.add(f[f_var_to_index2(arc_pos,budget_iter,num_arcs)] >= (ub_coef)*(x_values->get())[arc_pos])
-          : model.add(f[f_var_to_index2(arc_pos,budget_iter,num_arcs)] >= operator*(ub_coef, x[arc_pos]));
-        }
-      }
-    }
-
-    // robust constraints.
-    for (int i = 1; i < num_vertices; ++i)
-    {
-      const auto& vertex_info = vertices_info[i];
-      // if mandatory, the deadline of the vertex D_i is the time limit T.
-      const double vertex_deadline = (i <= num_mandatory)? route_time_limit: round_decimals(vertex_info.profit_/vertex_info.decay_ratio_,2);
-        
-      for (const int& j: graph->AdjVerticesOut(i))
-      {
-        curr_arc = (*graph)[i][j];
-        assert(curr_arc);
-        arc_pos = graph->pos(i,j);
-
-        IloExpr exp(env);
-        exp += f[f_var_to_index2(arc_pos,budget_iter,num_arcs)];
-
-        for (const int& k: graph->AdjVerticesIn(i))
-          exp -= f[f_var_to_index2(graph->pos(k,i),budget_iter,num_arcs)];
-
-        double coef = -(vertex_info.nominal_service_time_ + curr_arc->distance());
-        x_values.has_value()?
-          model.add(exp <= coef * ((x_values->get())[graph->pos(i,j)]))
-          : model.add(exp <= operator*(coef,x[graph->pos(i,j)]));
-        
-        exp.end();
-
-        if(budget_iter > 0)
-        {
-          IloExpr exp2(env);
-          exp2 += f[f_var_to_index2(arc_pos,budget_iter,num_arcs)];
-
-          for (const int& k: graph->AdjVerticesIn(i))
-            exp2 -= f[f_var_to_index2(graph->pos(k,i),budget_iter-1,num_arcs)];
-
-          double coef2 = -(vertex_info.nominal_service_time_ + vertex_info.dev_service_time_ + curr_arc->distance());
-          x_values.has_value()?
-            model.add(exp2 <= coef2 * (x_values->get())[graph->pos(i,j)])
-            : model.add(exp2 <= operator*(coef2,x[graph->pos(i,j)]));
-          
-          exp2.end();
-        }
-      }
-    }
-  }
-}
-
-void PrimalSubproblemCompactSingleCommodity2(const Instance& inst, IloNumArray& x_values, IloNumArray& y_values, const double * R0, const double * Rn, double time_limit, bool export_model, Solution<double>& solution)
-{
-  const Graph * graph = inst.graph();
-  const int num_vertices = graph->num_vertices();
-  const int num_arcs = graph->num_arcs();
-  const int budget = inst.uncertainty_budget();
-  const int num_mandatory = inst.num_mandatory();
-  const auto* vertices_info = inst.graph()->vertices_info();
-
-  IloEnv env;
-  IloCplex cplex(env);
-  IloModel model(env);
-  cplex.extract(model);
-
-  // budget + 1 to consider level 0 of budget! 0,..., budget
-  IloNumVarArray f(env, num_arcs * (budget+1), 0, IloInfinity, ILOFLOAT);
-
-  // empty.
-  IloNumVarArray y(env);
-  IloNumVarArray x(env);
-
-  PopulateByRowCompactSingleCommodityContinuousSpace2(env,model,x,y,f,x_values,y_values,R0,Rn,inst);
-
-  // add objective function.
-  IloExpr obj(env);
-
-  for(int j = num_mandatory + 1; j < num_vertices; ++j)
-  {
-    const auto& vertex_info = vertices_info[j];
-    for (const int&i: graph->AdjVerticesIn(j))
-      obj += operator*(vertex_info.decay_ratio_,f[f_var_to_index2(graph->pos(i,j),budget,num_arcs)]);
-  }
-
-  model.add(IloMaximize(env, obj));
-  obj.end();
-
-  if(export_model)
-  {
-    // add name to variables.
-    for(int i = 0; i < num_vertices; ++i)
-    {
-      for(const auto j: graph->AdjVerticesOut(i))
-      {
-        for (int budget_iter = 0; budget_iter <= budget; ++budget_iter)
-        {
-          char strnum[29];
-          sprintf(strnum,"f(%d)(%d)(%d)",i,j,budget_iter);
-          f[f_var_to_index2(graph->pos(i,j),budget_iter,num_arcs)].setName(strnum);
-        }
-      }
-    }
-    //std::cout << "exportou" << std::endl;
-    //cplex.exportModel("primal_continuous_model_compact_single_commodity.lp");
-  }
-
-  optimizeLP2(cplex,env,model,inst,time_limit, R0, Rn, solution);
-  //std::cout << "terminou!" << std::endl;
-
-  // print solution.
-  // IloNumArray f_solution(env);
-  // cplex.getValues(f_solution,f);
-  // for (int budget_iter = 0; budget_iter <= budget; ++budget_iter)
-  // {
-  //   for(int i = 0; i < num_vertices; ++i)
-  //   {
-  //     for(const auto j: graph->AdjVerticesOut(i))
-  //     {
-  //       std::cout << "f[" << i << "," << j << "," << budget_iter << "]: " << f_solution[f_var_to_index(graph->pos(i,j),budget_iter,num_arcs)] << std::endl;
-  //     }
-  //   }
-  // }
-  // f_solution.end();
-
-  cplex.end();
-  env.end();
-}
 
 // This routine separates Benders' cuts violated by the current x solution.
 // Violated cuts are found by solving the worker LP
@@ -1131,7 +883,7 @@ int DualVariablesSingleCommodity::v_3_var_to_index(int arc_pos, int budget, int 
 }
 
 
-void PopulateByRowDualCompactSingleCommodityContinuousSpaceBaseline(IloEnv& env, IloModel& model, DualVariablesSingleCommodity * dual_vars, const Instance& instance, bool combine_feas_op_cuts)
+void PopulateByRowDualCompactSingleCommodityContinuousSpace(IloEnv& env, IloModel& model, DualVariablesSingleCommodity * dual_vars, const Instance& instance, bool combine_feas_op_cuts)
 {
   const Graph* graph = instance.graph();
   const int num_vertices = graph->num_vertices();
@@ -1213,7 +965,7 @@ void PopulateByRowDualCompactSingleCommodityContinuousSpaceBaseline(IloEnv& env,
   }
 }
 
-void PopulateByRowDualCompactBaselineContinuousSpaceBaseline(IloEnv& env, IloModel& model, DualVariablesBaseline * dual_vars, const Instance& instance, bool combine_feas_op_cuts)
+void PopulateByRowDualCompactBaselineContinuousSpace(IloEnv& env, IloModel& model, DualVariablesBaseline * dual_vars, const Instance& instance, bool combine_feas_op_cuts)
 {
   const Graph* graph = instance.graph();
   const int num_vertices = graph->num_vertices();
@@ -1343,7 +1095,7 @@ WorkerBaseline::WorkerBaseline(IloEnv& master_env, const Instance& instance, Mas
 
     worker_vars_->SetDualVariablesProperties(master_env,master_vars,nullptr,nullptr);
 
-    PopulateByRowDualCompactBaselineContinuousSpaceBaseline(worker_env_,worker_model,static_cast<DualVariablesBaseline*>(worker_vars_),instance,combine_feas_op_cuts);
+    PopulateByRowDualCompactBaselineContinuousSpace(worker_env_,worker_model,static_cast<DualVariablesBaseline*>(worker_vars_),instance,combine_feas_op_cuts);
 
     if(export_model)
       worker_vars_->AddNamesToDualVariables();
@@ -1377,7 +1129,7 @@ WorkerSingleCommodity::WorkerSingleCommodity(IloEnv& master_env, const Instance&
 
     worker_vars_->SetDualVariablesProperties(master_env,master_vars,R0,Rn);
 
-    PopulateByRowDualCompactSingleCommodityContinuousSpaceBaseline(worker_env_,worker_model,static_cast<DualVariablesSingleCommodity*>(worker_vars_),instance,combine_feas_op_cuts);
+    PopulateByRowDualCompactSingleCommodityContinuousSpace(worker_env_,worker_model,static_cast<DualVariablesSingleCommodity*>(worker_vars_),instance,combine_feas_op_cuts);
 
     if(export_model)
       worker_vars_->AddNamesToDualVariables();

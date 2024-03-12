@@ -2886,9 +2886,9 @@ void ParseArgumentsAndRun(int argc, char* argv[] )
 		if(!solve_relaxed)
 			Benders(inst,formulation,R0,Rn,time_limit,solve_generic_callback,combine_feas_opt_cuts,false,use_valid_inequalities,find_root_cuts,root_cuts,nullptr,force_use_all_vehicles,export_model,nullptr,sol);
 
-		std::cout << "# opt cuts: " << sol.num_benders_opt_cuts_ << std::endl;
-		std::cout << "# feas cuts: " << sol.num_benders_feas_cuts_ << std::endl;
-		std::cout << "num cuts: " << sol.num_cuts_found_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << "/" << sol.num_cuts_added_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << std::endl;
+		// std::cout << "# opt cuts: " << sol.num_benders_opt_cuts_ << std::endl;
+		// std::cout << "# feas cuts: " << sol.num_benders_feas_cuts_ << std::endl;
+		// std::cout << "num cuts: " << sol.num_cuts_found_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << "/" << sol.num_cuts_added_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << std::endl;
 
 		std::string algo;
 		if(solve_relaxed)
@@ -2911,6 +2911,21 @@ void ParseArgumentsAndRun(int argc, char* argv[] )
 			root_cuts = nullptr;
 		}
 	}
+
+
+	if (solve_relaxed)
+	{
+		std::cout <<  " LP: " << sol.lp_ << std::endl;
+	}
+	else
+	{
+		sol.is_optimal_? std::cout <<  " optimal: " << sol.lb_ << std::endl
+		: std::cout <<  " non optimal: [" << sol.lb_ << ", " << sol.ub_ << "]" << std::endl;
+	}
+	std::cout << "num cuts: " << sol.num_cuts_found_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << "/" << sol.num_cuts_added_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << std::endl;
+
+	std::cout << "# opt cuts: " << sol.num_benders_opt_cuts_ << std::endl;
+	std::cout << "# feas cuts: " << sol.num_benders_feas_cuts_ << std::endl << std::endl;
 
 	delete [] R0;
 	R0 = nullptr;

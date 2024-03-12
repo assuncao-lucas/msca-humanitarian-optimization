@@ -71,11 +71,11 @@ ILOSTLBEGIN
 
 void FillObjectiveExpressionDualCompactBaselineContinuousSpace(IloExpr& obj, DualVariablesBaseline& dual_vars, IloNumArray& x_values, IloNumArray& y_values, std::optional<IloNum> dual_bound_value, const Instance& instance, bool combine_feas_op_cuts);
 IloBool SeparateBendersCutBaseline(IloEnv& master_env, IloNumVarArray &x, IloNumVarArray &y, IloNumVar& dual_bound, IloNumArray &x_values, IloNumArray &y_values, IloNum dual_bound_value, IloCplex& worker_cplex, DualVariablesBaseline* dual_vars, const Instance & instance, IloObjective& worker_obj, IloExpr& cut_expr, bool combine_feas_op_cuts, Solution<double>& solution);
-void PopulateByRowDualCompactBaselineContinuousSpaceBaseline(IloEnv& env, IloModel& model, DualVariablesBaseline* dual_vars, const Instance& instance, bool combine_feas_op_cuts);
+void PopulateByRowDualCompactBaselineContinuousSpace(IloEnv& env, IloModel& model, DualVariablesBaseline* dual_vars, const Instance& instance, bool combine_feas_op_cuts);
 
 void FillObjectiveExpressionDualCompactSingleCommodityContinuousSpace(IloExpr& obj, DualVariablesSingleCommodity& dual_vars, IloNumArray& x_values, IloNumArray& y_values, std::optional<IloNum> dual_bound_value, const double* R0, const double* Rn, const Instance& instance, bool combine_feas_op_cuts);
 IloBool SeparateBendersCutSingleCommodity(IloEnv& master_env, IloNumVarArray &x, IloNumVarArray &y, IloNumVar& dual_bound, IloNumArray &x_values, IloNumArray &y_values, IloNum dual_bound_value, IloCplex& worker_cplex, DualVariablesSingleCommodity* dual_vars, const double* R0, const double* Rn, const Instance & instance,  IloObjective& worker_obj, IloExpr& cut_expr, bool combine_feas_op_cuts, Solution<double>& solution);
-void PopulateByRowDualCompactSingleCommodityContinuousSpaceBaseline(IloEnv& env, IloModel& model, DualVariablesSingleCommodity* dual_vars, const Instance& instance, bool combine_feas_op_cuts);
+void PopulateByRowDualCompactSingleCommodityContinuousSpace(IloEnv& env, IloModel& model, DualVariablesSingleCommodity* dual_vars, const Instance& instance, bool combine_feas_op_cuts);
 
 /** The Benders' worker thread-local class. */
 class WorkerI

@@ -1460,7 +1460,7 @@ static void AllocateMasterVariablesBaseline(IloEnv& env, MasterVariables& master
   const int num_routes = instance.num_vehicles();
 
   master_vars.slack = IloNumVar(env, 0, force_use_all_vehicles? 0: num_routes, ILOFLOAT);
-  master_vars.dual_bound = IloNumVar(env, -instance.limit(), 0, ILOFLOAT);
+  master_vars.dual_bound = IloNumVar(env, -num_arcs*instance.limit(), 0, ILOFLOAT);
 
   if(solve_relax)
   {
@@ -1482,7 +1482,7 @@ static void AllocateMasterVariablesSingleCommodity(IloEnv& env, MasterVariables&
   const int num_routes = instance.num_vehicles();
 
   master_vars.slack = IloNumVar(env, 0, force_use_all_vehicles? 0: num_routes, ILOFLOAT);
-  master_vars.dual_bound = IloNumVar(env, 0, 999999, ILOFLOAT);
+  master_vars.dual_bound = IloNumVar(env, 0, num_arcs*instance.limit(), ILOFLOAT);
 
   if(solve_relax)
   {
@@ -1509,7 +1509,7 @@ void DualSubproblemCompactBaseline(Instance& inst, IloNumArray& x_values, IloNum
 
   DualVariablesBaseline* dual_vars = new DualVariablesBaseline(env,inst,false);
 
-  PopulateByRowDualCompactBaselineContinuousSpaceBaseline(env,model,dual_vars,inst,false);
+  PopulateByRowDualCompactBaselineContinuousSpace(env,model,dual_vars,inst,false);
 
   // add objective function.
   IloExpr obj_expr(env);
@@ -1550,7 +1550,7 @@ void DualSubproblemCompactSingleCommodity(Instance& inst, IloNumArray& x_values,
   cplex.extract(model);
 
   DualVariablesSingleCommodity* dual_vars = new DualVariablesSingleCommodity(env,inst,false);
-  PopulateByRowDualCompactSingleCommodityContinuousSpaceBaseline(env,model,dual_vars,inst,false);
+  PopulateByRowDualCompactSingleCommodityContinuousSpace(env,model,dual_vars,inst,false);
   
   // add objective function.
   IloExpr obj_expr(env);

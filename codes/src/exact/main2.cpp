@@ -519,22 +519,22 @@ int main()
 		// // DeleteCuts(root_cuts);
 
 		// if(formulation == BendersFormulation::baseline)
-		// {
-		// 	CompactBaseline(inst,R0,Rn,time_limit,solve_relaxed,use_valid_inequalities,false,nullptr,nullptr,force_use_all_vehicles,export_model, nullptr,solution);
+		{
+			CompactBaseline(inst,R0,Rn,time_limit,solve_relaxed,use_valid_inequalities,false,nullptr,nullptr,force_use_all_vehicles,export_model, nullptr,solution);
 
-		// 	if (solve_relaxed)
-		// 	{
-		// 		std::cout <<  " LP: " << solution.lp_ << std::endl;
-		// 	}
-		// 	else
-		// 	{
-		// 		solution.is_optimal_? std::cout <<  " optimal: " << solution.lb_ << std::endl
-		// 		: std::cout <<  " non optimal: [" << solution.lb_ << ", " << solution.ub_ << "]" << std::endl;
-		// 	}
-		// 	std::cout << "num cuts: " << solution.num_cuts_found_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << "/" << solution.num_cuts_added_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << std::endl;
+			if (solve_relaxed)
+			{
+				std::cout <<  " LP: " << solution.lp_ << std::endl;
+			}
+			else
+			{
+				solution.is_optimal_? std::cout <<  " optimal: " << solution.lb_ << std::endl
+				: std::cout <<  " non optimal: [" << solution.lb_ << ", " << solution.ub_ << "]" << std::endl;
+			}
+			std::cout << "num cuts: " << solution.num_cuts_found_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << "/" << solution.num_cuts_added_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << std::endl;
 
-		// 	solution.reset();
-		// }
+			solution.reset();
+		}
 		// // // CompactBaseline(inst,R0,Rn,-1,solve_relaxed,use_valid_inequalities,false,nullptr,nullptr,force_use_all_vehicles,export_model, root_cuts,solution);
 
 		// // if (solve_relaxed)
@@ -561,7 +561,7 @@ int main()
 
 		//if(formulation == BendersFormulation::single_commodity)
 		{
-			CompactSingleCommodity(inst,R0,Rn,time_limit,solve_relaxed,use_valid_inequalities,false,root_cuts,nullptr,force_use_all_vehicles,export_model,nullptr,solution);
+			CompactSingleCommodity(inst,R0,Rn,time_limit,solve_relaxed,use_valid_inequalities,false,nullptr,nullptr,force_use_all_vehicles,export_model,nullptr,solution);
 
 			if (solve_relaxed)
 			{
@@ -611,23 +611,23 @@ int main()
 		// std::cout << "num cuts: " << solution.num_cuts_found_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << "/" << solution.num_cuts_added_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << std::endl;
 		// solution.reset();
 
-		// Benders(inst,BendersFormulation::single_commodity,R0,Rn,time_limit,true,true,solve_relaxed,use_valid_inequalities,false,nullptr,nullptr,force_use_all_vehicles,export_model,nullptr,solution);
-		// if (solve_relaxed)
-		// {
-		// 	std::cout <<  " LP: " << solution.lp_ << std::endl;
-		// }
-		// else
-		// {
-		// 	solution.is_optimal_? std::cout <<  " optimal: " << solution.lb_ << std::endl
-		// 	: std::cout <<  " non optimal: [" << solution.lb_ << ", " << solution.ub_ << "]" << std::endl;
-		// }
-		// std::cout << "# opt cuts: " << solution.num_benders_opt_cuts_ << std::endl;
-		// std::cout << "# feas cuts: " << solution.num_benders_feas_cuts_ << std::endl;
-		// std::cout << "num cuts: " << solution.num_cuts_found_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << "/" << solution.num_cuts_added_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << std::endl;
+		Benders(inst,BendersFormulation::baseline,R0,Rn,time_limit,false,false,solve_relaxed,use_valid_inequalities,false,nullptr,nullptr,force_use_all_vehicles,export_model,nullptr,solution);
+		if (solve_relaxed)
+		{
+			std::cout <<  " LP: " << solution.lp_ << std::endl;
+		}
+		else
+		{
+			solution.is_optimal_? std::cout <<  " optimal: " << solution.lb_ << std::endl
+			: std::cout <<  " non optimal: [" << solution.lb_ << ", " << solution.ub_ << "]" << std::endl;
+		}
+		std::cout << "# opt cuts: " << solution.num_benders_opt_cuts_ << std::endl;
+		std::cout << "# feas cuts: " << solution.num_benders_feas_cuts_ << std::endl;
+		std::cout << "num cuts: " << solution.num_cuts_found_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << "/" << solution.num_cuts_added_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << std::endl;
 
-		// solution.reset();
+		solution.reset();
 
-		Benders(inst,BendersFormulation::single_commodity,R0,Rn,time_limit,false,true,solve_relaxed,use_valid_inequalities,false,nullptr,nullptr,force_use_all_vehicles,export_model,nullptr,solution);
+		Benders(inst,BendersFormulation::single_commodity,R0,Rn,time_limit,true,true,solve_relaxed,use_valid_inequalities,false,nullptr,nullptr,force_use_all_vehicles,export_model,nullptr,solution);
 		if (solve_relaxed)
 		{
 			std::cout <<  " LP: " << solution.lp_ << std::endl;
