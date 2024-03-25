@@ -2660,6 +2660,7 @@ static const struct option longOpts[] = {
 	{ "solve-benders", no_argument, NULL, 'o' },
 	{ "benders-generic-callback", no_argument, NULL, 'p' },
 	{ "combine-feas-opt-cuts", no_argument, NULL, 'q' },
+	{ "separate-benders-cuts-relaxation", no_argument, NULL, 'r' },
 	{ NULL, no_argument, NULL, 0 }
 };
 
@@ -2673,6 +2674,7 @@ void ParseArgumentsAndRun(int argc, char* argv[] )
 	double time_limit = 0.0, service_time_deviation = 0.0;
 	bool force_use_all_vehicles = false;
 	bool export_model = false;
+	bool separate_benders_cuts_relaxation = false;
 
 	std::vector<bool> * CALLBACKS_SELECTION = GetCallbackSelection();
 
@@ -2731,12 +2733,16 @@ void ParseArgumentsAndRun(int argc, char* argv[] )
 			case 'q':
 			combine_feas_opt_cuts = true;
 			break;
+			case 'r':
+			separate_benders_cuts_relaxation=true;
+			break;
 		}
 	}
 
 	if((solve_compact && solve_bc) || (solve_compact && solve_benders) || (solve_compact && solve_cb) ||
 		(solve_bc && solve_cb) ) throw 2;
 	if(baseline && capacity_based) throw 3;
+	if(baseline == capacity_based) throw 4;
 
 	split_file_path(instance,folder,file_name);
 	std::cout << "* " << folder << " " << file_name << std::endl;
@@ -2871,7 +2877,7 @@ void ParseArgumentsAndRun(int argc, char* argv[] )
 			use_valid_inequalities = false;
 			find_root_cuts = true;
 
-			Benders(inst,formulation,R0,Rn,time_limit,solve_generic_callback,combine_feas_opt_cuts,true,use_valid_inequalities,find_root_cuts,nullptr,nullptr,force_use_all_vehicles,export_model,root_cuts,sol);
+			Benders(inst,formulation,R0,Rn,time_limit,solve_generic_callback,combine_feas_opt_cuts,separate_benders_cuts_relaxation,true,use_valid_inequalities,find_root_cuts,nullptr,nullptr,force_use_all_vehicles,export_model,root_cuts,sol);
 		
 			if(time_limit != -1) time_limit = std::max(0.0, time_limit - sol.root_time_);
 			sol.milp_time_ = sol.root_time_;
@@ -2880,11 +2886,11 @@ void ParseArgumentsAndRun(int argc, char* argv[] )
 			find_root_cuts = false;
 		}else if (solve_relaxed)
 		{
-			Benders(inst,formulation,R0,Rn,time_limit,solve_generic_callback,combine_feas_opt_cuts,true,use_valid_inequalities,find_root_cuts,nullptr,nullptr,force_use_all_vehicles,export_model,root_cuts,sol);
+			Benders(inst,formulation,R0,Rn,time_limit,solve_generic_callback,combine_feas_opt_cuts,separate_benders_cuts_relaxation,true,use_valid_inequalities,find_root_cuts,nullptr,nullptr,force_use_all_vehicles,export_model,root_cuts,sol);
 		}
 
 		if(!solve_relaxed)
-			Benders(inst,formulation,R0,Rn,time_limit,solve_generic_callback,combine_feas_opt_cuts,false,use_valid_inequalities,find_root_cuts,root_cuts,nullptr,force_use_all_vehicles,export_model,nullptr,sol);
+			Benders(inst,formulation,R0,Rn,time_limit,solve_generic_callback,combine_feas_opt_cuts,separate_benders_cuts_relaxation,false,use_valid_inequalities,find_root_cuts,root_cuts,nullptr,force_use_all_vehicles,export_model,nullptr,sol);
 
 		// std::cout << "# opt cuts: " << sol.num_benders_opt_cuts_ << std::endl;
 		// std::cout << "# feas cuts: " << sol.num_benders_feas_cuts_ << std::endl;
@@ -2901,6 +2907,15 @@ void ParseArgumentsAndRun(int argc, char* argv[] )
 			algo += "benders_combined";
 		else
 			algo += "benders";
+		
+		if(separate_benders_cuts_relaxation)
+			algo += "_cuts_relaxation";
+			
+		if(solve_generic_callback)
+			algo += "_generic_callback";
+		else
+			algo += "_lazy_callback";
+
 		std::cout << algo << std::endl;
 		sol.write_to_file(algo,"//",instance_name);
 

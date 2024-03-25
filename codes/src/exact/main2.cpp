@@ -11,6 +11,167 @@
 #include "src/graph_algorithms.h"
 #include "src/heuristic_solution.h"
 
+void GenerateAlgorithmsLatexTablePerInstance(double total_time_limit)
+{
+	std::string curr_file;
+	std::vector<std::string> algorithms;
+	std::vector<std::string> instances;
+
+	// instances.push_back("R25_0.8_v2_d0.50_b5.txt");
+	instances.push_back("R25_1_v2_d0.50_b5.txt");
+	instances.push_back("R50_0.8_v4_d0.50_b5.txt");
+	instances.push_back("R50_3_v2_d0.50_b5.txt");
+	// instances.push_back("RC50_3_v2_d0.50_b5.txt");
+
+	algorithms.push_back("baseline");
+	//algorithms.push_back("baseline_benders_lazy_callback");
+	//algorithms.push_back("baseline_benders_combined_lazy_callback");
+	//algorithms.push_back("baseline_benders_generic_callback");
+	algorithms.push_back("baseline_benders_combined_generic_callback");
+	algorithms.push_back("baseline_benders_combined_cuts_relaxation_generic_callback");
+
+	algorithms.push_back("csc");
+	//algorithms.push_back("csc_benders_lazy_callback");
+	//algorithms.push_back("csc_benders_combined_lazy_callback");
+	//algorithms.push_back("csc_benders_generic_callback");
+	algorithms.push_back("csc_benders_combined_generic_callback");
+	algorithms.push_back("csc_benders_combined_cuts_relaxation_generic_callback");
+
+
+	std::fstream output;
+	std::string output_name;
+	output_name = "..//tables//CSV//table_algorithms_per_instance.csv";
+	output.open(output_name.c_str(),std::fstream::out);
+
+	if(!output.is_open())
+	{
+		std::cout << "Could not open file " << output_name << std::endl;
+		throw 1;
+	}
+
+	//std::cout << output_name << std::endl;
+
+	std::vector<double> total_time(algorithms.size(),0.0);
+	std::vector<double> total_avg_gap(algorithms.size(),0.0);
+	std::vector<int> total_num_optimal(algorithms.size(),0);
+
+	output << std::setprecision(2) << std::fixed;
+
+	output << "instance;";
+	for(size_t algo = 0; algo < algorithms.size(); ++algo)
+		for(size_t j = 0; j < 2; ++j)
+			output << algorithms[algo] << ";";
+
+	output << std::endl;
+	output << " ;";
+
+	for(size_t algo = 0; algo < algorithms.size(); ++algo)
+		output << "gap;time;";
+
+	output << std::endl;
+
+	for(auto instance: instances)
+	{
+		//std::cout << instance << std::endl;
+		double original_lp = 0.0;
+		output << instance << ";";
+		for(size_t algo = 0; algo < algorithms.size(); ++algo)
+		{
+			curr_file = "..//solutions//";
+			curr_file.append("s_");
+			curr_file.append(algorithms[algo]);
+			curr_file.append("_");
+			curr_file.append(instance);
+
+			//std::cout << curr_file << std::endl;
+
+			std::fstream input;
+			input.open(curr_file.c_str(),std::fstream::in);
+
+			if(!input.is_open())
+			{
+				std::cout << "Could not open file " << curr_file << std::endl;
+				throw 4;
+			}
+
+			std::stringstream s_lb, s_ub, s_time;
+			std::string status;
+			double lb = 0.0, ub = 0.0, time = 0.0, gap = 0.0;
+			std::string line;
+
+			getline(input,line);
+			size_t pos = line.find_first_of(":");
+			status = line.substr(pos + 2);
+
+			std::string::iterator end_pos = std::remove(status.begin(),status.end(),' ');
+			status.erase(end_pos, status.end());
+
+			getline(input,line);
+			getline(input,line);
+			pos = line.find_first_of(":");
+			s_lb << line.substr(pos + 2);
+			if(s_lb.str() == "-inf") lb = -1;
+			else s_lb >> lb;
+
+			getline(input,line);
+			pos = line.find_first_of(":");
+			s_ub << line.substr(pos + 2);
+			if(s_ub.str() == "inf") ub = -1;
+			else s_ub >> ub;
+
+			getline(input,line);
+			getline(input,line);
+			pos = line.find_first_of(":");
+			s_time << line.substr(pos + 2);
+			s_time >> time;
+
+			if((status != "OPTIMAL") && (status != "INFEASIBLE"))
+			{
+				if((!(double_equals(lb,-1))) && (!(double_equals(ub,-1))))
+				{
+					if((!double_greater(ub,lb)))
+					//if(double_less(time,total_time_limit))
+					{
+						++(total_num_optimal[algo]);
+					}else gap = (100.0*(ub-lb))/ub;
+				}else gap = 100.0;
+			}else
+			{
+				++(total_num_optimal[algo]);
+			}
+
+			total_time[algo] += time;
+
+			//std::cout << "lp: " << lp << " improvement: " << curr_improvement << std::endl;
+
+			if(!double_equals(gap,0.0))
+			{
+				total_avg_gap[algo] += gap;
+			}
+			input.close();
+
+			output << gap << ";" << time << ";";
+		}
+
+		output << std::endl;
+	}
+
+	output << "Total;";
+	for(size_t algo = 0; algo < algorithms.size(); ++algo)
+	{
+		//std::cout << total_improvement_per_algo[j].size() << std::endl;
+		if(double_equals(total_time[algo],0.0))
+			total_time[algo] = -1;
+		total_avg_gap[algo] /= instances.size();
+
+		output << total_avg_gap[algo] << ";" << total_time[algo] << ";" ;
+	}
+
+	output << std::endl;
+
+	output.close();
+}
+
 void GenerateAlgorithmsLatexTable(double total_time_limit)
 {
 	std::string curr_file;
@@ -452,6 +613,8 @@ void GenerateLPImprovementsLatexTable()
 int main()
 {
 	try{
+		GenerateAlgorithmsLatexTablePerInstance(3600);
+		return 1;
 		// GenerateLPImprovementsLatexTable();
 		//GenerateAlgorithmsLatexTable(3600);
 		//return 0;
@@ -611,7 +774,7 @@ int main()
 		// std::cout << "num cuts: " << solution.num_cuts_found_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << "/" << solution.num_cuts_added_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << std::endl;
 		// solution.reset();
 
-		Benders(inst,BendersFormulation::baseline,R0,Rn,time_limit,false,false,solve_relaxed,use_valid_inequalities,false,nullptr,nullptr,force_use_all_vehicles,export_model,nullptr,solution);
+		Benders(inst,BendersFormulation::baseline,R0,Rn,time_limit,false,false,false,solve_relaxed,use_valid_inequalities,false,nullptr,nullptr,force_use_all_vehicles,export_model,nullptr,solution);
 		if (solve_relaxed)
 		{
 			std::cout <<  " LP: " << solution.lp_ << std::endl;
@@ -627,7 +790,7 @@ int main()
 
 		solution.reset();
 
-		Benders(inst,BendersFormulation::single_commodity,R0,Rn,time_limit,true,true,solve_relaxed,use_valid_inequalities,false,nullptr,nullptr,force_use_all_vehicles,export_model,nullptr,solution);
+		Benders(inst,BendersFormulation::single_commodity,R0,Rn,time_limit,true,true,false,solve_relaxed,use_valid_inequalities,false,nullptr,nullptr,force_use_all_vehicles,export_model,nullptr,solution);
 		if (solve_relaxed)
 		{
 			std::cout <<  " LP: " << solution.lp_ << std::endl;

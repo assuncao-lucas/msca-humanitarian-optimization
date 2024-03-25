@@ -71,7 +71,7 @@ bool HeuristicSolution::Do2OptImprovement(const Graph * graph, const int& route)
     std::list<int>::iterator pre_vi_it, pos_vk_it, it_init, it_end;
     int vi= 0, vk = 0, pre_vi = 0, pos_vk = 0, v1 = 0, v2 = 0;
     int num_swaps = 0, temp = 0, num_vertices = graph->num_vertices();
-		GArc * pre_arc = NULL, * pos_arc = NULL, * new_pre_arc = NULL, * new_pos_arc = NULL, * curr_arc = NULL;
+		GArc * pre_arc = nullptr, * pos_arc = nullptr, * new_pre_arc = nullptr, * new_pos_arc = nullptr, * curr_arc = nullptr;
 
     double time_variation = 0.0;
 
@@ -110,7 +110,7 @@ bool HeuristicSolution::Do2OptImprovement(const Graph * graph, const int& route)
 						new_pre_arc = (*graph)[pre_vi][vk];
 						new_pos_arc = (*graph)[vi][pos_vk];
 
-						if((new_pre_arc == NULL) || (new_pos_arc == NULL)) continue;
+						if((new_pre_arc == nullptr) || (new_pos_arc == nullptr)) continue;
 
 						pre_arc = (*graph)[pre_vi][vi];
 						pos_arc = (*graph)[vk][pos_vk];
@@ -134,7 +134,7 @@ bool HeuristicSolution::Do2OptImprovement(const Graph * graph, const int& route)
 							curr_arc = (*graph)[v1][v2];
 							time_variation -= curr_arc->distance();
 							curr_arc = (*graph)[v2][v1];
-							if(curr_arc == NULL)
+							if(curr_arc == nullptr)
 							{
 								invalid_swap = true;
 								break;
@@ -187,7 +187,7 @@ bool HeuristicSolution::Do3OptImprovement(const Graph * graph, const int& route)
 		std::list<int>::iterator pre_vi_it, pos_vk_it, pos_vj_it, it_init, it_end;
     int vi= 0, vj = 0, vk = 0, pre_vi = 0, pos_vj = 0, pos_vk = 0, v1 = 0, v2 = 0;
     int num_vertices = graph->num_vertices();
-		GArc * new_arc1 = NULL, * new_arc2 = NULL, * new_arc3 = NULL, * curr_arc = NULL;
+		GArc * new_arc1 = nullptr, * new_arc2 = nullptr, * new_arc3 = nullptr, * curr_arc = nullptr;
 		bool invalid_swap = false;
 
 		double time_variation = 0.0, minus_variation = 0.0;
@@ -244,7 +244,7 @@ bool HeuristicSolution::Do3OptImprovement(const Graph * graph, const int& route)
 								new_arc2 = (*graph)[vk][vi];
 								new_arc3 = (*graph)[vj][pos_vk];
 
-								if((new_arc1 == NULL) || (new_arc2 == NULL) || (new_arc3 == NULL)) invalid_swap = true;
+								if((new_arc1 == nullptr) || (new_arc2 == nullptr) || (new_arc3 == nullptr)) invalid_swap = true;
                 //time_variation = ((*min_dists)[actual_pre_vi][actual_pos_vj] + (*min_dists)[actual_vk][actual_vi] + (*min_dists)[actual_vj][actual_pos_vk] - minus_variation)/((this->curr_instance_)->speed_vehicle());
 
 								if(!invalid_swap)
@@ -304,7 +304,7 @@ bool HeuristicSolution::Do3OptImprovement(const Graph * graph, const int& route)
 								new_arc2 = (*graph)[vi][vk];
 								new_arc3 = (*graph)[pos_vj][pos_vk];
 
-								if((new_arc1 == NULL) || (new_arc2 == NULL) || (new_arc3 == NULL)) invalid_swap = true;
+								if((new_arc1 == nullptr) || (new_arc2 == nullptr) || (new_arc3 == nullptr)) invalid_swap = true;
                 //time_variation = ((*min_dists)[actual_pre_vi][actual_vj] + (*min_dists)[actual_vi][actual_vk] + (*min_dists)[actual_pos_vj][actual_pos_vk] - minus_variation)/((this->curr_instance_)->speed_vehicle());
 
 								if(!invalid_swap)
@@ -326,7 +326,7 @@ bool HeuristicSolution::Do3OptImprovement(const Graph * graph, const int& route)
 										curr_arc = (*graph)[v1][v2];
 										time_variation -= curr_arc->distance();
 										curr_arc = (*graph)[v2][v1];
-										if(curr_arc == NULL)
+										if(curr_arc == nullptr)
 										{
 											invalid_swap = true;
 											break;
@@ -350,7 +350,7 @@ bool HeuristicSolution::Do3OptImprovement(const Graph * graph, const int& route)
 											curr_arc = (*graph)[v1][v2];
 											time_variation -= curr_arc->distance();
 											curr_arc = (*graph)[v2][v1];
-											if(curr_arc == NULL)
+											if(curr_arc == nullptr)
 											{
 												invalid_swap = true;
 												break;
@@ -411,7 +411,7 @@ bool HeuristicSolution::Do3OptImprovement(const Graph * graph, const int& route)
 								new_arc2 = (*graph)[pos_vj][vi] ;
 								new_arc3 = (*graph)[vj][pos_vk];
 
-								if((new_arc1 == NULL) || (new_arc2 == NULL) || (new_arc3 == NULL)) invalid_swap = true;
+								if((new_arc1 == nullptr) || (new_arc2 == nullptr) || (new_arc3 == nullptr)) invalid_swap = true;
                 //time_variation = ((*min_dists)[actual_pre_vi][actual_vk] + (*min_dists)[actual_pos_vj][actual_vi] + (*min_dists)[actual_vj][actual_pos_vk] - minus_variation)/((this->curr_instance_)->speed_vehicle());
 
 								if(!invalid_swap)
@@ -433,7 +433,7 @@ bool HeuristicSolution::Do3OptImprovement(const Graph * graph, const int& route)
 										curr_arc = (*graph)[v1][v2];
 										time_variation -= curr_arc->distance();
 										curr_arc = (*graph)[v2][v1];
-										if(curr_arc == NULL)
+										if(curr_arc == nullptr)
 										{
 											invalid_swap = true;
 											break;
@@ -493,7 +493,7 @@ bool HeuristicSolution::Do3OptImprovement(const Graph * graph, const int& route)
 								new_arc2 = (*graph)[vk][vj];
 								new_arc3 = (*graph)[vi][pos_vk];
 
-								if((new_arc1 == NULL) || (new_arc2 == NULL) || (new_arc3 == NULL)) invalid_swap = true;
+								if((new_arc1 == nullptr) || (new_arc2 == nullptr) || (new_arc3 == nullptr)) invalid_swap = true;
                 //time_variation = ((*min_dists)[actual_pre_vi][actual_pos_vj] + (*min_dists)[actual_vk][actual_vj] + (*min_dists)[actual_vi][actual_pos_vk] - minus_variation)/((this->curr_instance_)->speed_vehicle());
 
 								if(!invalid_swap)
@@ -515,7 +515,7 @@ bool HeuristicSolution::Do3OptImprovement(const Graph * graph, const int& route)
 										curr_arc = (*graph)[v1][v2];
 										time_variation -= curr_arc->distance();
 										curr_arc = (*graph)[v2][v1];
-										if(curr_arc == NULL)
+										if(curr_arc == nullptr)
 										{
 											invalid_swap = true;
 											break;
@@ -669,7 +669,7 @@ bool HeuristicSolution::PreviewInterRouteSwap(Instance& inst, int r1, int pos_i1
 	int pre_vertex1 = 0, pos_vertex1 = 0, pre_vertex2 = 0, pos_vertex2 = 0;
 	Route * route1 = &((this->routes_vec_)[r1]), *route2 = &((this->routes_vec_)[r2]);
 	int max_pos1 = (int)((route1->vertices_).size()) - 1, max_pos2 = (int)((route2->vertices_).size()) - 1;
-	GArc * new_pre_arc = NULL, * new_pos_arc = NULL;
+	GArc * new_pre_arc = nullptr, * new_pos_arc = nullptr;
 	int begin_segment_vertex1, end_segment_vertex1, begin_segment_vertex2, end_segment_vertex2;
 
 	int num_vertices = graph->num_vertices();
@@ -764,7 +764,7 @@ bool HeuristicSolution::PreviewInterRouteSwap(Instance& inst, int r1, int pos_i1
 	new_pre_arc = ((*graph)[pre_vertex1][begin_segment_vertex2]);
 	new_pos_arc = ((*graph)[end_segment_vertex2][pos_vertex1]);
 
-	if((new_pre_arc == NULL) || (new_pos_arc == NULL)) return false;
+	if((new_pre_arc == nullptr) || (new_pos_arc == nullptr)) return false;
 	time_variation1 +=  (new_pre_arc->distance() + intra_route_time_variation2 + new_pos_arc->distance());
 
 	if(double_greater(route1->time_ + time_variation1, inst.limit())) return false;
@@ -775,7 +775,7 @@ bool HeuristicSolution::PreviewInterRouteSwap(Instance& inst, int r1, int pos_i1
 	new_pre_arc = ((*graph)[pre_vertex2][begin_segment_vertex1]);
 	new_pos_arc = ((*graph)[end_segment_vertex1][pos_vertex2]);
 
-	if((new_pre_arc == NULL) || (new_pos_arc == NULL)) return false;
+	if((new_pre_arc == nullptr) || (new_pos_arc == nullptr)) return false;
 	time_variation2 +=  (new_pre_arc->distance() + intra_route_time_variation1 + new_pos_arc->distance());
 
 	if(double_greater(route2->time_ + time_variation2, inst.limit())) return false;
@@ -792,7 +792,7 @@ bool HeuristicSolution::PreviewInterRouteSwapUnrouted(Instance& inst, int r1, in
 	int pre_vertex1 = 0, pos_vertex1 = 0;
 	Route * route1 = &((this->routes_vec_)[r1]);
 	int max_pos1 = (int)((route1->vertices_).size()) - 1;
-	GArc * new_pre_arc = NULL, * new_pos_arc = NULL;
+	GArc * new_pre_arc = nullptr, * new_pos_arc = nullptr;
 	int begin_segment_vertex1, end_segment_vertex1;
 
 	int num_vertices = graph->num_vertices();
@@ -850,7 +850,7 @@ bool HeuristicSolution::PreviewInterRouteSwapUnrouted(Instance& inst, int r1, in
 	new_pre_arc = ((*graph)[pre_vertex1][*it_i2]);
 	new_pos_arc = ((*graph)[*it_i2][pos_vertex1]);
 
-	if((new_pre_arc == NULL) || (new_pos_arc == NULL)) return false;
+	if((new_pre_arc == nullptr) || (new_pos_arc == nullptr)) return false;
 	time_variation1 +=  (new_pre_arc->distance() + new_pos_arc->distance());
 
 	if(double_greater(route1->time_ + time_variation1, inst.limit())) return false;
@@ -912,7 +912,7 @@ bool HeuristicSolution::PreviewAddVertexToRouteWithinMinimumDistanceIncrease(Ins
 
 		GArc * pre_arc = (*graph)[pre_vertex][vertex], *pos_arc = (*graph)[vertex][pos_vertex], *curr_arc = (*graph)[pre_vertex][pos_vertex];
 
-		if((pre_arc != NULL) && (pos_arc != NULL) && (curr_arc != NULL))
+		if((pre_arc != nullptr) && (pos_arc != nullptr) && (curr_arc != nullptr))
 		{
 			curr_time_variation = (pre_arc->distance() + pos_arc->distance() - curr_arc->distance());
 			if(!(double_greater(curr_route->time_ + curr_time_variation, inst.limit())) || allow_infeasible_routes)
@@ -988,7 +988,7 @@ bool HeuristicSolution::PreviewAddVertex(Instance& inst, int vertex, int route, 
 
 	GArc * pre_arc = (*graph)[pre_vertex][vertex], *pos_arc = (*graph)[vertex][pos_vertex], *curr_arc = (*graph)[pre_vertex][pos_vertex];
 
-	if((!(status->selected_)) && (pre_arc != NULL) && (pos_arc != NULL) && (curr_arc != NULL))
+	if((!(status->selected_)) && (pre_arc != nullptr) && (pos_arc != nullptr) && (curr_arc != nullptr))
 	{
 		// simulate addition to route
 		profit_variation = (graph->vertices_info())[vertex].profit_;
@@ -1057,8 +1057,8 @@ bool HeuristicSolution::PreviewRemoveVertex(Instance& inst, int vertex, int& pro
 
 	GArc * pre_arc = (*graph)[pre_vertex][vertex], *pos_arc = (*graph)[vertex][pos_vertex], *new_arc = (*graph)[pre_vertex][pos_vertex];
 
-	//if((new_arc != NULL)||(max_pos == 1))
-	if(new_arc != NULL)
+	//if((new_arc != nullptr)||(max_pos == 1))
+	if(new_arc != nullptr)
 	{
 		// simulate removal from route
 		profit_variation = - (graph->vertices_info())[vertex].profit_;
@@ -1125,9 +1125,9 @@ bool HeuristicSolution::CheckCorrectness(Instance& instance)
 	int num_vertices = graph->num_vertices(), num_mandatory = instance.num_mandatory(), num_vehicles = instance.num_vehicles(), num_arcs = graph->num_arcs();
 	int total_profits = 0, curr_profits = 0;
 	double curr_time = 0.0;
-	Route * curr_route = NULL;
-	VertexStatus * curr_status = NULL;
-	GArc * curr_arc = NULL;
+	Route * curr_route = nullptr;
+	VertexStatus * curr_status = nullptr;
+	GArc * curr_arc = nullptr;
 	int v1 = 0, v2 = 0;
     int count_mandatory = 0;
 	boost::dynamic_bitset<> visited_vertices(num_vertices,0);
@@ -1162,7 +1162,7 @@ bool HeuristicSolution::CheckCorrectness(Instance& instance)
 					}
 
 					curr_arc = (*graph)[v1][v2];
-					if(curr_arc == NULL) throw "Invalid solution 4";
+					if(curr_arc == nullptr) throw "Invalid solution 4";
 					curr_time += (curr_arc->distance());
 					visited_arcs[graph->pos(v1,v2)] = 1;
 					v1 = v2;
@@ -1170,13 +1170,13 @@ bool HeuristicSolution::CheckCorrectness(Instance& instance)
 
 			v2 = num_vertices - 1;
 			curr_arc = (*graph)[v1][v2];
-			if(curr_arc == NULL) throw "Invalid solution 5";
+			if(curr_arc == nullptr) throw "Invalid solution 5";
 			curr_time += (curr_arc->distance());
 			visited_arcs[graph->pos(v1,v2)] = 1;
 		}else
 		{
 			curr_arc = (*graph)[0][num_vertices -1];
-			if(curr_arc == NULL) throw "Invalid solution 6";
+			if(curr_arc == nullptr) throw "Invalid solution 6";
 			curr_time = curr_arc->distance();
 			visited_arcs[graph->pos(0,num_vertices-1)] = 1;
 		}
@@ -1213,7 +1213,7 @@ void HeuristicSolution::BuildBitset(Instance& instance)
         this->bitset_vertices_ = boost::dynamic_bitset<>(this->dimension_,0);
 		const Graph * graph = instance.graph();
 		int num_vertices = graph->num_vertices(), num_vehicles = instance.num_vehicles();
-		Route * curr_route = NULL;
+		Route * curr_route = nullptr;
 		int v1 = 0, v2 = 0;
 
 		if(this->is_infeasible_) return;
@@ -1263,7 +1263,7 @@ std::ostream& operator<< (std::ostream &out, HeuristicSolution & sol)
 
 void HeuristicSolution::WriteToFile(std::string algo, std::string folder, std::string file_name)
 {
-		Route * curr_route = NULL;
+		Route * curr_route = nullptr;
     std::fstream file;
     std::string path = ".//solutions";
     path.append(folder);
@@ -1312,7 +1312,7 @@ void HeuristicSolution::ReadFromFile(Instance& inst, std::string algo, std::stri
 		int num_vertices = graph->num_vertices(), num_arcs = graph->num_arcs();
 
 		this->Reset(num_vertices, num_arcs, inst.num_vehicles());
-		Route * curr_route = NULL;
+		Route * curr_route = nullptr;
 		int num_routes = 0;
     std::fstream input;
     std::string path = ".//solutions";
@@ -1352,7 +1352,7 @@ void HeuristicSolution::ReadFromFile(Instance& inst, std::string algo, std::stri
 				{
 					this->is_feasible_ = true;
 					int pre_vertex = 0, curr_vertex = 0;
-					VertexStatus * status = NULL;
+					VertexStatus * status = nullptr;
 					for(int i = 0; i < num_routes; i++)
 					{
 						curr_route = &((this->routes_vec_)[i]);
@@ -1410,8 +1410,8 @@ ALNSHeuristicSolution::ALNSHeuristicSolution(ALNSHeuristicSolution* sol)
 {
 	(*this) = (*sol);
 
-	VertexStatus * status = NULL;
-	Route * curr_route = NULL;
+	VertexStatus * status = nullptr;
+	Route * curr_route = nullptr;
 
 	for(int i = 0; i < this->num_routes_; ++i)
 	{

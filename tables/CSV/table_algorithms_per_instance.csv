@@ -1,0 +1,6 @@
+instance;baseline;baseline;baseline_benders_combined_generic_callback;baseline_benders_combined_generic_callback;baseline_benders_combined_cuts_relaxation_generic_callback;baseline_benders_combined_cuts_relaxation_generic_callback;csc;csc;csc_benders_combined_generic_callback;csc_benders_combined_generic_callback;csc_benders_combined_cuts_relaxation_generic_callback;csc_benders_combined_cuts_relaxation_generic_callback;
+ ;gap;time;gap;time;gap;time;gap;time;gap;time;gap;time;
+R25_1_v2_d0.50_b5.txt;0.00;106.62;100.00;3657.86;95.82;3600.50;0.00;59.04;87.84;3645.33;85.73;3604.37;
+R50_0.8_v4_d0.50_b5.txt;0.00;1017.58;100.00;3601.41;100.00;3602.16;0.00;114.41;100.00;3640.02;100.00;3602.59;
+R50_3_v2_d0.50_b5.txt;85.45;3600.32;93.81;3603.57;97.93;3600.55;83.99;3600.24;85.75;3636.68;90.34;3630.20;
+Total;28.48;4724.52;97.94;10862.84;97.91;10803.21;28.00;3773.69;91.20;10922.03;92.02;10837.16;

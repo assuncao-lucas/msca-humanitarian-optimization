@@ -13,8 +13,8 @@ CFLAGS = $(COPT) $(GENERALINCDIR) -std=c++17
 CFLAGS2  = $(COPT) $(CPLEXINCDIR)
 
 CC_DEBUG = -DDEBUG -g
+CC_VALGRIND=-g -O0
 CC=g++ -std=c++17
-CC_VALGRIND=g++ -std=c++17 -g -O0
 
 PROG_DIR=codes/src
 PROG_BIN=codes/bin

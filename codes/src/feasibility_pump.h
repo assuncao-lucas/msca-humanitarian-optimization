@@ -1,13 +1,13 @@
-#ifndef FP_H
-#define FP_H
+#pragma once
 
 #include <ilcplex/ilocplex.h>
 #include <boost/dynamic_bitset.hpp>
 #include <vector>
 #include <utility>
 #include <list>
-#include "instance.h"
-#include "heuristic_solution.h"
+#include "src/instance.h"
+#include "src/heuristic_solution.h"
+#include "src/benders_generic_callback.h"
 
 class FeasibilityPump
 {
@@ -30,10 +30,9 @@ private:
 	double previous_integrality_gap_;
 	double curr_integrality_gap_;
 
-	IloNumVarArray f;
-	IloNumVarArray x;
-	IloNumVarArray y;
+	IloNumVarArray f_;
     IloNumVar slack_;
+	MasterVariables master_vars_;
 
 	boost::dynamic_bitset<> curr_int_y_;
 	boost::dynamic_bitset<> previous_int_y_;
@@ -62,5 +61,3 @@ private:
 	void SetNewObjStage1();
 	void SetNewObjStage2();
 };
-
-#endif
