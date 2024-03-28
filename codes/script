@@ -33,7 +33,7 @@ time_limit=3600
 # ./bin/stop --solve-benders --combine-feas-opt-cuts --capacity-based --instance "../instances/R-STOP-DP-reduced-0.8/R25_0.8.txt" --num-vehicles 2 --uncertainty-budget 5 --service-time-deviation 0.5 --time-limit $time_limit
 # ./bin/stop --solve-benders --benders-generic-callback --capacity-based --instance "../instances/R-STOP-DP-reduced-0.8/R25_0.8.txt" --num-vehicles 2 --uncertainty-budget 5 --service-time-deviation 0.5 --time-limit $time_limit
 # ./bin/stop --solve-benders --benders-generic-callback --combine-feas-opt-cuts --capacity-based --instance "../instances/R-STOP-DP-reduced-0.8/R25_0.8.txt" --num-vehicles 2 --uncertainty-budget 5 --service-time-deviation 0.5 --time-limit $time_limit
-./bin/stop --solve-benders --benders-generic-callback --combine-feas-opt-cuts --separate-benders-cuts-relaxation --capacity-based --instance "../instances/R-STOP-DP-reduced-0.8/R25_0.8.txt" --num-vehicles 2 --uncertainty-budget 5 --service-time-deviation 0.5 --time-limit $time_limit
+# ./bin/stop --solve-benders --benders-generic-callback --combine-feas-opt-cuts --separate-benders-cuts-relaxation --capacity-based --instance "../instances/R-STOP-DP-reduced-0.8/R25_0.8.txt" --num-vehicles 2 --uncertainty-budget 5 --service-time-deviation 0.5 --time-limit $time_limit
 
 # instance 02
 # ./bin/stop --solve-benders --baseline --instance "../instances/R-STOP-DP/R25_1.txt" --num-vehicles 2 --uncertainty-budget 5 --service-time-deviation 0.5 --time-limit $time_limit
@@ -46,7 +46,7 @@ time_limit=3600
 # ./bin/stop --solve-benders --combine-feas-opt-cuts --capacity-based --instance "../instances/R-STOP-DP/R25_1.txt" --num-vehicles 2 --uncertainty-budget 5 --service-time-deviation 0.5 --time-limit $time_limit
 # ./bin/stop --solve-benders --benders-generic-callback --capacity-based --instance "../instances/R-STOP-DP/R25_1.txt" --num-vehicles 2 --uncertainty-budget 5 --service-time-deviation 0.5 --time-limit $time_limit
 # ./bin/stop --solve-benders --benders-generic-callback --combine-feas-opt-cuts --capacity-based --instance "../instances/R-STOP-DP/R25_1.txt" --num-vehicles 2 --uncertainty-budget 5 --service-time-deviation 0.5 --time-limit $time_limit
-./bin/stop --solve-benders --benders-generic-callback --combine-feas-opt-cuts --separate-benders-cuts-relaxation --capacity-based --instance "../instances/R-STOP-DP/R25_1.txt" --num-vehicles 2 --uncertainty-budget 5 --service-time-deviation 0.5 --time-limit $time_limit
+# ./bin/stop --solve-benders --benders-generic-callback --combine-feas-opt-cuts --separate-benders-cuts-relaxation --capacity-based --instance "../instances/R-STOP-DP/R25_1.txt" --num-vehicles 2 --uncertainty-budget 5 --service-time-deviation 0.5 --time-limit $time_limit
 
 # instance 03
 # ./bin/stop --solve-benders --baseline --instance "../instances/R-STOP-DP-reduced-0.8/R50_0.8.txt" --num-vehicles 4 --uncertainty-budget 5 --service-time-deviation 0.5 --time-limit $time_limit
@@ -59,7 +59,7 @@ time_limit=3600
 # ./bin/stop --solve-benders --combine-feas-opt-cuts --capacity-based --instance "../instances/R-STOP-DP-reduced-0.8/R50_0.8.txt" --num-vehicles 4 --uncertainty-budget 5 --service-time-deviation 0.5 --time-limit $time_limit
 # ./bin/stop --solve-benders --benders-generic-callback --capacity-based --instance "../instances/R-STOP-DP-reduced-0.8/R50_0.8.txt" --num-vehicles 4 --uncertainty-budget 5 --service-time-deviation 0.5 --time-limit $time_limit
 # ./bin/stop --solve-benders --benders-generic-callback --combine-feas-opt-cuts --capacity-based --instance "../instances/R-STOP-DP-reduced-0.8/R50_0.8.txt" --num-vehicles 4 --uncertainty-budget 5 --service-time-deviation 0.5 --time-limit $time_limit
-./bin/stop --solve-benders --benders-generic-callback --combine-feas-opt-cuts --separate-benders-cuts-relaxation --capacity-based --instance "../instances/R-STOP-DP-reduced-0.8/R50_0.8.txt" --num-vehicles 4 --uncertainty-budget 5 --service-time-deviation 0.5 --time-limit $time_limit
+# ./bin/stop --solve-benders --benders-generic-callback --combine-feas-opt-cuts --separate-benders-cuts-relaxation --capacity-based --instance "../instances/R-STOP-DP-reduced-0.8/R50_0.8.txt" --num-vehicles 4 --uncertainty-budget 5 --service-time-deviation 0.5 --time-limit $time_limit
 
 # # instance 04
 # ./bin/stop --solve-benders --baseline --instance "../instances/R-STOP-DP/R50_3.txt" --num-vehicles 2 --uncertainty-budget 5 --service-time-deviation 0.5 --time-limit $time_limit
@@ -72,7 +72,7 @@ time_limit=3600
 # ./bin/stop --solve-benders --combine-feas-opt-cuts --capacity-based --instance "../instances/R-STOP-DP/R50_3.txt" --num-vehicles 2 --uncertainty-budget 5 --service-time-deviation 0.5 --time-limit $time_limit
 # ./bin/stop --solve-benders --benders-generic-callback --capacity-based --instance "../instances/R-STOP-DP/R50_3.txt" --num-vehicles 2 --uncertainty-budget 5 --service-time-deviation 0.5 --time-limit $time_limit
 # ./bin/stop --solve-benders --benders-generic-callback --combine-feas-opt-cuts --capacity-based --instance "../instances/R-STOP-DP/R50_3.txt" --num-vehicles 2 --uncertainty-budget 5 --service-time-deviation 0.5 --time-limit $time_limit
-./bin/stop --solve-benders --benders-generic-callback --combine-feas-opt-cuts --separate-benders-cuts-relaxation --separate-benders-cuts-relaxation --capacity-based --instance "../instances/R-STOP-DP/R50_3.txt" --num-vehicles 2 --uncertainty-budget 5 --service-time-deviation 0.5 --time-limit $time_limit
+# ./bin/stop --solve-benders --benders-generic-callback --combine-feas-opt-cuts --separate-benders-cuts-relaxation --separate-benders-cuts-relaxation --capacity-based --instance "../instances/R-STOP-DP/R50_3.txt" --num-vehicles 2 --uncertainty-budget 5 --service-time-deviation 0.5 --time-limit $time_limit
 
 # # instance 05
 # ./bin/stop --solve-benders --baseline --instance "../instances/R-STOP-DP/RC50_3.txt" --num-vehicles 2 --uncertainty-budget 5 --service-time-deviation 0.5 --time-limit $time_limit

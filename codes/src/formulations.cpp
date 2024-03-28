@@ -719,8 +719,8 @@ void optimize(IloCplex &cplex, IloEnv &env, IloModel &model, std::optional<Bende
   BendersGenericCallbackI *generic_callback = nullptr;
   CallbackArguments arguments{.R0 = R0, .Rn = Rn, .instance = &instance};
 
-  cplex.setParam(IloCplex::Param::WorkMem, 8000);
-  std::cout << "limit of memory 8000MB" << std::endl;
+  cplex.setParam(IloCplex::Param::WorkMem, 7000);
+  std::cout << "limit of memory 7000MB" << std::endl;
   cplex.setParam(IloCplex::IloCplex::Param::MIP::Strategy::File, 3);
   cplex.setOut(env.getNullStream());
 
