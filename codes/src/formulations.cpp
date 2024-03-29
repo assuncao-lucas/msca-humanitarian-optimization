@@ -1502,7 +1502,7 @@ static void AllocateMasterVariablesBaseline(IloEnv &env, MasterVariables &master
   }
 }
 
-static void AllocateMasterVariablesSingleCommodity(IloEnv &env, MasterVariables &master_vars, Instance &instance, bool force_use_all_vehicles, bool solve_relax)
+void AllocateMasterVariablesSingleCommodity(IloEnv &env, MasterVariables &master_vars, Instance &instance, bool force_use_all_vehicles, bool solve_relax)
 {
   const Graph *graph = instance.graph();
   const int num_vertices = graph->num_vertices();
@@ -1640,7 +1640,7 @@ void CompactSingleCommodity(Instance &inst, double *R0, double *Rn, double time_
   env.end();
 }
 
-static void PopulateByRowCompactSingleCommodity(IloCplex &cplex, IloEnv &env, IloModel &model, MasterVariables &master_vars, IloNumVarArray &f, Instance &instance, double *R0, double *Rn, bool force_use_all_vehicles, bool export_model)
+void PopulateByRowCompactSingleCommodity(IloCplex &cplex, IloEnv &env, IloModel &model, MasterVariables &master_vars, IloNumVarArray &f, Instance &instance, double *R0, double *Rn, bool force_use_all_vehicles, bool export_model)
 {
   const Graph *graph = instance.graph();
   const int num_vehicles = instance.num_vehicles();

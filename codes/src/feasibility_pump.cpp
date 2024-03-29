@@ -251,25 +251,47 @@ void FeasibilityPump::RetrieveAndRoundArcValuesBasic()
 	(curr_integrality_gaps_x_).clear();
 
 	// we don't have to check every arc: due to the flow conservation constraints, only perform width first search
-	do
+	// do
+	// {
+	// 	v1 = q.front();
+	// 	q.pop_front();
+
+	// 	for (int v2 : graph->AdjVerticesOut(v1))
+	// 	{
+	// 		curr_pos = graph->pos(v1, v2);
+
+	// 		if (!double_equals(curr_relax_x_[curr_pos], 0.0))
+	// 		{
+	// 			double curr_integrality_gap_x = 0.0;
+	// 			if (!(visited_nodes[v2]))
+	// 			{
+	// 				q.push_front(v2);
+	// 				visited_nodes[v2] = true;
+	// 			}
+
+	// 			// if(double_greater((curr_relax_x_)[curr_pos],0.0)) (curr_int_x_)[curr_pos] = 1;
+	// 			if (round((curr_relax_x_)[curr_pos]))
+	// 				(curr_int_x_)[curr_pos] = 1;
+	// 			if (!double_equals((curr_relax_x_)[curr_pos], (curr_int_x_)[curr_pos]))
+	// 			{
+	// 				found_int_x_ = false;
+	// 				curr_integrality_gap_x = fabs((curr_relax_x_)[curr_pos] - 1.0 * ((curr_int_x_)[curr_pos]));
+	// 				(curr_integrality_gap_) += curr_integrality_gap_x;
+	// 			}
+
+	// 			curr_integrality_gaps_x_.push_back(std::pair<int, double>(curr_pos, curr_integrality_gap_x));
+	// 		}
+	// 	}
+	// } while (!q.empty());
+
+	for (int v1 = 0; v1 < num_vertices; ++v1)
 	{
-		v1 = q.front();
-		q.pop_front();
-
-		for (int v2 : graph->AdjVerticesOut(v1))
+		for (auto v2 : graph->AdjVerticesOut(v1))
 		{
-			curr_pos = graph->pos(v1, v2);
-
+			curr_pos = curr_pos = graph->pos(v1, v2);
 			if (!double_equals(curr_relax_x_[curr_pos], 0.0))
 			{
 				double curr_integrality_gap_x = 0.0;
-				if (!(visited_nodes[v2]))
-				{
-					q.push_front(v2);
-					visited_nodes[v2] = true;
-				}
-
-				// if(double_greater((curr_relax_x_)[curr_pos],0.0)) (curr_int_x_)[curr_pos] = 1;
 				if (round((curr_relax_x_)[curr_pos]))
 					(curr_int_x_)[curr_pos] = 1;
 				if (!double_equals((curr_relax_x_)[curr_pos], (curr_int_x_)[curr_pos]))
@@ -282,7 +304,17 @@ void FeasibilityPump::RetrieveAndRoundArcValuesBasic()
 				curr_integrality_gaps_x_.push_back(std::pair<int, double>(curr_pos, curr_integrality_gap_x));
 			}
 		}
-	} while (!q.empty());
+	}
+
+	if (found_int_x_)
+	{
+		for (int i = 0; i < num_vertices; ++i)
+		{
+			for (int j = 0; j < num_vertices; ++j)
+				if ((i != j) && !(double_equals(curr_relax_x_[curr_instance_->graph()->pos(j, i)], 0.0)))
+					std::cout << j << ", " << i << " :" << curr_relax_x_[curr_instance_->graph()->pos(j, i)] << std::endl;
+		}
+	}
 }
 
 void FeasibilityPump::SetNewObjStage1()
@@ -381,8 +413,18 @@ void FeasibilityPump::BuildHeuristicSolution()
 			//   }
 
 			last_vertex_added = 0;
+
+			// compute route's profit sum and max duration.
+			auto [route_sum_profits, route_max_duration] = curr_instance_->ComputeRouteCostsRec(*curr_route, true);
+			curr_route->time_ = route_max_duration;
+			solution_.profits_sum_ += route_sum_profits;
+			curr_route->sum_profits_ = route_sum_profits;
+
+			std::cout << *curr_route << std::endl;
+
 			++curr_route_index;
 			has_added_vertex_to_route = false;
+			continue; // in this case, should avoid the last step of the loop that adds to stack the neighbors of 0.
 		}
 		else if (v1 != 0)
 		{
@@ -398,9 +440,6 @@ void FeasibilityPump::BuildHeuristicSolution()
 			status->selected_ = true;
 			status->route_ = curr_route_index;
 			status->pos_ = (curr_route->vertices_).insert((curr_route->vertices_).end(), v1);
-
-			// ((solution_).profits_sum_) += (graph->profits())[v1];
-			// (curr_route->sum_profits_) += (graph->profits())[v1];
 
 			curr_arc = (*graph)[last_vertex_added][v1];
 			if (curr_arc == nullptr)
@@ -422,11 +461,12 @@ void FeasibilityPump::BuildHeuristicSolution()
 		}
 	} while (!(q.empty()));
 
-	if (((solution_).unvisited_vertices_).empty())
-		(solution_).is_optimal_ = true;
+	// this is not true because of the decreasing profits...the order in which vertices appear change the profit collected.
+	// if (((solution_).unvisited_vertices_).empty())
+	// 	(solution_).is_optimal_ = true;
 
 	(solution_).BuildBitset(*(curr_instance_));
-	if ((cont != (curr_int_x_).count()) || (!((solution_).CheckCorrectness(*(curr_instance_)))))
+	if ((cont != (curr_int_x_).count())) // || (!((solution_).CheckCorrectness(*(curr_instance_)))))
 		throw "Error Building FP solution";
 }
 
@@ -728,13 +768,14 @@ void FeasibilityPump::Run()
 					// getchar();getchar();
 				}
 			}
+			std::cout << stage_2_iter << std::endl;
 		} while ((!(found_int_x_)) && (stage_2_iter < max_iter_stage2));
 	}
 
 	(solution_).time_stage2_ = timer->CurrentElapsedTime(ti);
 
-	(solution_).num_iterations_stage1_ = stage_1_iter + stage_0_iter;
-	(solution_).num_iterations_stage2_ = stage_2_iter;
+	(solution_).num_iterations_stage1_ = stage_1_iter + (K_SOLVE_STAGE_1 ? stage_0_iter : 0);
+	(solution_).num_iterations_stage2_ = stage_2_iter + (!K_SOLVE_STAGE_1 ? stage_0_iter : 0);
 	(solution_).num_perturbations_stage1_ = num_perturbations_stage1;
 	(solution_).num_perturbations_stage2_ = num_perturbations_stage2;
 	(solution_).num_restarts_stage1_ = num_restarts_stage1;

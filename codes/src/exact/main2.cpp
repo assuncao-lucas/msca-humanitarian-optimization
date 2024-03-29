@@ -10,6 +10,7 @@
 #include "src/timer.h"
 #include "src/graph_algorithms.h"
 #include "src/heuristic_solution.h"
+#include "src/feasibility_pump.h"
 
 void GenerateAlgorithmsLatexTablePerInstance(double total_time_limit)
 {
@@ -654,191 +655,114 @@ void GenerateLPImprovementsLatexTable()
 
 int main()
 {
-	try
+	// try
+	// {
+	// GenerateAlgorithmsLatexTablePerInstance(3600);
+	// return 1;
+	// GenerateLPImprovementsLatexTable();
+	// GenerateAlgorithmsLatexTable(3600);
+	// return 0;
+	int time_limit = -1;
+	int num_routes = 2;
+	int uncertainty_budget = 2;
+	int seed = 1000;
+	std::string instance_name = "test.txt";
+	Instance inst("/home/lucas/Documentos/Research/msca-humanitarian-optimization/instances/R-STOP-DP/", instance_name, num_routes, 0.25, uncertainty_budget, false);
+
+	FeasibilityPump fp;
+	fp.Init(inst);
+	std::cout << (fp.solution_).GenerateFileName() + "_seed_" + std::to_string(seed) << std::endl;
+	fp.Run();
+	(fp.solution_).WriteToFile((fp.solution_).GenerateFileName() + "_seed_" + std::to_string(seed), "//", instance_name);
+
+	std::cout << fp.solution_.profits_sum_ << std::endl;
+
+	return 0;
+	// Route route;
+
+	// route.vertices_.push_back(1);
+	// route.vertices_.push_back(2);
+	// route.vertices_.push_back(10);
+	// route.vertices_.push_back(11);
+
+	// // std::cout << inst << std::endl;
+
+	// double route_profits, route_time;
+	// tie(route_profits, route_time) = inst.ComputeRouteCosts(route);
+	// std::cout << route_profits << " " << route_time << std::endl;
+
+	// tie(route_profits, route_time) = inst.ComputeRouteCostsRec(route, false);
+	// std::cout << route_profits << " " << route_time << std::endl;
+
+	// tie(route_profits, route_time) = inst.ComputeRouteCostsRec(route, true);
+	// std::cout << route_profits << " " << route_time << std::endl;
+	// return 0;
+
+	std::vector<bool> *CALLBACKS_SELECTION = GetCallbackSelection();
+	(*CALLBACKS_SELECTION)[K_TYPE_CLIQUE_CONFLICT_CUT] = true;
+	(*CALLBACKS_SELECTION)[K_TYPE_INITIAL_ARC_VERTEX_INFERENCE_CUT] = false;
+
+	// std::cout << inst << std::endl;
+	const Graph *graph = inst.graph();
+
+	// std::cout << *graph << std::endl;
+
+	double *R0 = Dijkstra(graph, false, false);
+	double *Rn = Dijkstra(graph, true, false);
+
+	// for (int i =0; i < graph->num_vertices(); ++i)
+	// {
+	// 	std::cout << "R0," << i << " = " << R0[i] << std::endl;
+	// }
+
+	// inst.WriteToFile("../","teste.txt");
+	bool force_use_all_vehicles = true;
+	bool export_model = false;
+	bool solve_relaxed = true;
+	bool use_valid_inequalities = false;
+	bool combine_feas_op_cuts = false;
+	bool apply_benders_generic_callback = false;
+	auto root_cuts = new std::list<UserCutGeneral *>();
+	Solution<double> solution(graph->num_vertices());
+	BendersFormulation formulation = BendersFormulation::single_commodity;
+
+	if (combine_feas_op_cuts)
+		std::cout << "combine cuts" << std::endl;
+	else
+		std::cout << "classic cuts" << std::endl;
+	if (formulation == BendersFormulation::single_commodity)
+		std::cout << "single commodity " << std::endl;
+	else
+		std::cout << "baseline " << std::endl;
+	if (apply_benders_generic_callback)
+		std::cout << "GENERIC CALLBACK" << std::endl;
+	else
+		std::cout << "Lazy constraint" << std::endl;
+
+	// // CompactBaseline(inst,R0,Rn,-1,true,false,false,nullptr,nullptr,force_use_all_vehicles,export_model, nullptr,solution);
+	// // std::cout <<  " LP: " << solution.lp_ << std::endl;
+	// // std::cout << "num cuts: " << solution.num_cuts_found_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << "/" << solution.num_cuts_added_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << std::endl;
+
+	// // solution.reset();
+	// // CompactBaseline(inst,R0,Rn,-1,true,use_valid_inequalities,true,nullptr,nullptr,force_use_all_vehicles,export_model, root_cuts,solution);
+	// // std::cout <<  " LP: " << solution.lp_ << std::endl;
+	// // std::cout << "num cuts: " << solution.num_cuts_found_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << "/" << solution.num_cuts_added_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << std::endl;
+
+	// // solution.reset();
+	// // CompactBaseline(inst,R0,Rn,-1,false,use_valid_inequalities,false,root_cuts,nullptr,force_use_all_vehicles,export_model, nullptr,solution);
+
+	// // if(!solution.is_feasible_)
+	// // 	std::cout << "Infeasible" << std::endl;
+	// // solution.is_optimal_? std::cout <<  " optimal: " << solution.lb_ << std::endl
+	// // : std::cout <<  " non optimal: [" << solution.lb_ << ", " << solution.ub_ << "]" << std::endl;
+	// // std::cout << "num cuts: " << solution.num_cuts_found_[K_TYPE_CLIQUE_CONFLICT_CUT] << "/" << solution.num_cuts_added_[K_TYPE_CLIQUE_CONFLICT_CUT] << std::endl;
+	// // solution.reset();
+	// // DeleteCuts(root_cuts);
+
+	// if(formulation == BendersFormulation::baseline)
 	{
-		// GenerateAlgorithmsLatexTablePerInstance(3600);
-		// return 1;
-		// GenerateLPImprovementsLatexTable();
-		// GenerateAlgorithmsLatexTable(3600);
-		// return 0;
-		int time_limit = -1;
-		int num_routes = 2;
-		Instance inst("/home/lucas/Documentos/Research/msca-humanitarian-optimization/instances/R-STOP-DP/", "test.txt", num_routes, 0.25, 5, false);
-		Route route;
+		CompactBaseline(inst, R0, Rn, time_limit, solve_relaxed, use_valid_inequalities, false, nullptr, nullptr, force_use_all_vehicles, export_model, nullptr, solution);
 
-		route.vertices_.push_back(1);
-		route.vertices_.push_back(2);
-		route.vertices_.push_back(10);
-		route.vertices_.push_back(11);
-
-		// std::cout << inst << std::endl;
-
-		double route_profits, route_time;
-		tie(route_profits, route_time) = inst.ComputeRouteCosts(route);
-		std::cout << route_profits << " " << route_time << std::endl;
-
-		tie(route_profits, route_time) = inst.ComputeRouteCostsRec(route, false);
-		std::cout << route_profits << " " << route_time << std::endl;
-
-		tie(route_profits, route_time) = inst.ComputeRouteCostsRec(route, true);
-		std::cout << route_profits << " " << route_time << std::endl;
-		return 0;
-
-		std::vector<bool> *CALLBACKS_SELECTION = GetCallbackSelection();
-		(*CALLBACKS_SELECTION)[K_TYPE_CLIQUE_CONFLICT_CUT] = true;
-		(*CALLBACKS_SELECTION)[K_TYPE_INITIAL_ARC_VERTEX_INFERENCE_CUT] = false;
-
-		// std::cout << inst << std::endl;
-		const Graph *graph = inst.graph();
-
-		// std::cout << *graph << std::endl;
-
-		double *R0 = Dijkstra(graph, false, false);
-		double *Rn = Dijkstra(graph, true, false);
-
-		// for (int i =0; i < graph->num_vertices(); ++i)
-		// {
-		// 	std::cout << "R0," << i << " = " << R0[i] << std::endl;
-		// }
-
-		// inst.WriteToFile("../","teste.txt");
-		bool force_use_all_vehicles = true;
-		bool export_model = false;
-		bool solve_relaxed = true;
-		bool use_valid_inequalities = false;
-		bool combine_feas_op_cuts = false;
-		bool apply_benders_generic_callback = false;
-		auto root_cuts = new std::list<UserCutGeneral *>();
-		Solution<double> solution(graph->num_vertices());
-		BendersFormulation formulation = BendersFormulation::single_commodity;
-
-		if (combine_feas_op_cuts)
-			std::cout << "combine cuts" << std::endl;
-		else
-			std::cout << "classic cuts" << std::endl;
-		if (formulation == BendersFormulation::single_commodity)
-			std::cout << "single commodity " << std::endl;
-		else
-			std::cout << "baseline " << std::endl;
-		if (apply_benders_generic_callback)
-			std::cout << "GENERIC CALLBACK" << std::endl;
-		else
-			std::cout << "Lazy constraint" << std::endl;
-
-		// // CompactBaseline(inst,R0,Rn,-1,true,false,false,nullptr,nullptr,force_use_all_vehicles,export_model, nullptr,solution);
-		// // std::cout <<  " LP: " << solution.lp_ << std::endl;
-		// // std::cout << "num cuts: " << solution.num_cuts_found_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << "/" << solution.num_cuts_added_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << std::endl;
-
-		// // solution.reset();
-		// // CompactBaseline(inst,R0,Rn,-1,true,use_valid_inequalities,true,nullptr,nullptr,force_use_all_vehicles,export_model, root_cuts,solution);
-		// // std::cout <<  " LP: " << solution.lp_ << std::endl;
-		// // std::cout << "num cuts: " << solution.num_cuts_found_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << "/" << solution.num_cuts_added_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << std::endl;
-
-		// // solution.reset();
-		// // CompactBaseline(inst,R0,Rn,-1,false,use_valid_inequalities,false,root_cuts,nullptr,force_use_all_vehicles,export_model, nullptr,solution);
-
-		// // if(!solution.is_feasible_)
-		// // 	std::cout << "Infeasible" << std::endl;
-		// // solution.is_optimal_? std::cout <<  " optimal: " << solution.lb_ << std::endl
-		// // : std::cout <<  " non optimal: [" << solution.lb_ << ", " << solution.ub_ << "]" << std::endl;
-		// // std::cout << "num cuts: " << solution.num_cuts_found_[K_TYPE_CLIQUE_CONFLICT_CUT] << "/" << solution.num_cuts_added_[K_TYPE_CLIQUE_CONFLICT_CUT] << std::endl;
-		// // solution.reset();
-		// // DeleteCuts(root_cuts);
-
-		// if(formulation == BendersFormulation::baseline)
-		{
-			CompactBaseline(inst, R0, Rn, time_limit, solve_relaxed, use_valid_inequalities, false, nullptr, nullptr, force_use_all_vehicles, export_model, nullptr, solution);
-
-			if (solve_relaxed)
-			{
-				std::cout << " LP: " << solution.lp_ << std::endl;
-			}
-			else
-			{
-				solution.is_optimal_ ? std::cout << " optimal: " << solution.lb_ << std::endl
-									 : std::cout << " non optimal: [" << solution.lb_ << ", " << solution.ub_ << "]" << std::endl;
-			}
-			std::cout << "num cuts: " << solution.num_cuts_found_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << "/" << solution.num_cuts_added_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << std::endl;
-
-			solution.reset();
-		}
-		// // // CompactBaseline(inst,R0,Rn,-1,solve_relaxed,use_valid_inequalities,false,nullptr,nullptr,force_use_all_vehicles,export_model, root_cuts,solution);
-
-		// // if (solve_relaxed)
-		// // {
-		// // 	std::cout <<  " LP: " << solution.lp_ << std::endl;
-		// // }
-		// // else
-		// // {
-		// // 	solution.is_optimal_? std::cout <<  " optimal: " << solution.lb_ << std::endl
-		// // 	: std::cout <<  " non optimal: [" << solution.lb_ << ", " << solution.ub_ << "]" << std::endl;
-		// // }
-		// // std::cout << "num cuts: " << solution.num_cuts_found_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << "/" << solution.num_cuts_added_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << std::endl;
-
-		// // solution.reset();
-		// // auto conflicts = inst.conflicts_list();
-		// // std::cout << "conflicts: " << std::endl;
-		// // for (auto &conflict: conflicts)
-		// // {
-		// // 	for( auto& vertex: conflict)
-		// // 		std::cout << vertex << " ";
-
-		// // 	std::cout << std::endl;
-		// // }
-
-		// if(formulation == BendersFormulation::single_commodity)
-		{
-			CompactSingleCommodity(inst, R0, Rn, time_limit, solve_relaxed, use_valid_inequalities, false, nullptr, nullptr, force_use_all_vehicles, export_model, nullptr, solution);
-
-			if (solve_relaxed)
-			{
-				std::cout << " LP: " << solution.lp_ << std::endl;
-			}
-			else
-			{
-				solution.is_optimal_ ? std::cout << " optimal: " << solution.lb_ << std::endl
-									 : std::cout << " non optimal: [" << solution.lb_ << ", " << solution.ub_ << "]" << std::endl;
-			}
-			std::cout << "num cuts: " << solution.num_cuts_found_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << "/" << solution.num_cuts_added_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << std::endl;
-
-			solution.reset();
-		}
-
-		// //getchar();getchar();
-		// DeleteCuts(root_cuts);
-
-		// Benders(inst,BendersFormulation::baseline,R0,Rn,time_limit,false,false,solve_relaxed,use_valid_inequalities,false,nullptr,nullptr,force_use_all_vehicles,export_model,nullptr,solution);
-		// if (solve_relaxed)
-		// {
-		// 	std::cout <<  " LP: " << solution.lp_ << std::endl;
-		// }
-		// else
-		// {
-		// 	solution.is_optimal_? std::cout <<  " optimal: " << solution.lb_ << std::endl
-		// 	: std::cout <<  " non optimal: [" << solution.lb_ << ", " << solution.ub_ << "]" << std::endl;
-		// }
-		// std::cout << "# opt cuts: " << solution.num_benders_opt_cuts_ << std::endl;
-		// std::cout << "# feas cuts: " << solution.num_benders_feas_cuts_ << std::endl;
-		// std::cout << "num cuts: " << solution.num_cuts_found_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << "/" << solution.num_cuts_added_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << std::endl;
-
-		// solution.reset();
-
-		// Benders(inst,BendersFormulation::baseline,R0,Rn,time_limit,false,true,solve_relaxed,use_valid_inequalities,false,nullptr,nullptr,force_use_all_vehicles,export_model,nullptr,solution);
-		// if (solve_relaxed)
-		// {
-		// 	std::cout <<  " LP: " << solution.lp_ << std::endl;
-		// }
-		// else
-		// {
-		// 	solution.is_optimal_? std::cout <<  " optimal: " << solution.lb_ << std::endl
-		// 	: std::cout <<  " non optimal: [" << solution.lb_ << ", " << solution.ub_ << "]" << std::endl;
-		// }
-		// std::cout << "# opt cuts: " << solution.num_benders_opt_cuts_ << std::endl;
-		// std::cout << "# feas cuts: " << solution.num_benders_feas_cuts_ << std::endl;
-		// std::cout << "num cuts: " << solution.num_cuts_found_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << "/" << solution.num_cuts_added_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << std::endl;
-		// solution.reset();
-
-		Benders(inst, BendersFormulation::baseline, R0, Rn, time_limit, false, false, false, solve_relaxed, use_valid_inequalities, false, nullptr, nullptr, force_use_all_vehicles, export_model, nullptr, solution);
 		if (solve_relaxed)
 		{
 			std::cout << " LP: " << solution.lp_ << std::endl;
@@ -848,13 +772,38 @@ int main()
 			solution.is_optimal_ ? std::cout << " optimal: " << solution.lb_ << std::endl
 								 : std::cout << " non optimal: [" << solution.lb_ << ", " << solution.ub_ << "]" << std::endl;
 		}
-		std::cout << "# opt cuts: " << solution.num_benders_opt_cuts_ << std::endl;
-		std::cout << "# feas cuts: " << solution.num_benders_feas_cuts_ << std::endl;
 		std::cout << "num cuts: " << solution.num_cuts_found_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << "/" << solution.num_cuts_added_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << std::endl;
 
 		solution.reset();
+	}
+	// // // CompactBaseline(inst,R0,Rn,-1,solve_relaxed,use_valid_inequalities,false,nullptr,nullptr,force_use_all_vehicles,export_model, root_cuts,solution);
 
-		Benders(inst, BendersFormulation::single_commodity, R0, Rn, time_limit, true, true, false, solve_relaxed, use_valid_inequalities, false, nullptr, nullptr, force_use_all_vehicles, export_model, nullptr, solution);
+	// // if (solve_relaxed)
+	// // {
+	// // 	std::cout <<  " LP: " << solution.lp_ << std::endl;
+	// // }
+	// // else
+	// // {
+	// // 	solution.is_optimal_? std::cout <<  " optimal: " << solution.lb_ << std::endl
+	// // 	: std::cout <<  " non optimal: [" << solution.lb_ << ", " << solution.ub_ << "]" << std::endl;
+	// // }
+	// // std::cout << "num cuts: " << solution.num_cuts_found_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << "/" << solution.num_cuts_added_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << std::endl;
+
+	// // solution.reset();
+	// // auto conflicts = inst.conflicts_list();
+	// // std::cout << "conflicts: " << std::endl;
+	// // for (auto &conflict: conflicts)
+	// // {
+	// // 	for( auto& vertex: conflict)
+	// // 		std::cout << vertex << " ";
+
+	// // 	std::cout << std::endl;
+	// // }
+
+	// if(formulation == BendersFormulation::single_commodity)
+	{
+		CompactSingleCommodity(inst, R0, Rn, time_limit, solve_relaxed, use_valid_inequalities, false, nullptr, nullptr, force_use_all_vehicles, export_model, nullptr, solution);
+
 		if (solve_relaxed)
 		{
 			std::cout << " LP: " << solution.lp_ << std::endl;
@@ -864,68 +813,133 @@ int main()
 			solution.is_optimal_ ? std::cout << " optimal: " << solution.lb_ << std::endl
 								 : std::cout << " non optimal: [" << solution.lb_ << ", " << solution.ub_ << "]" << std::endl;
 		}
-		std::cout << "# opt cuts: " << solution.num_benders_opt_cuts_ << std::endl;
-		std::cout << "# feas cuts: " << solution.num_benders_feas_cuts_ << std::endl;
 		std::cout << "num cuts: " << solution.num_cuts_found_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << "/" << solution.num_cuts_added_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << std::endl;
 
 		solution.reset();
-
-		// IloEnv env;
-		// IloNumArray y_values(env,inst.graph()->num_vertices());
-		// // for(int i = 0; i < inst.graph()->num_vertices(); ++i)
-		// // {
-		// //   y_values[i] = 0;
-		// // }
-		// y_values[0] = 1;
-		// y_values[1] = 0.5;
-		// y_values[2] = 0.5;
-
-		// IloNumArray x_values(env,inst.graph()->num_arcs());
-
-		// for(int i  = 0; i < inst.graph()->num_vertices(); ++i)
-		// {
-		//   for (const auto & j: inst.graph()->AdjVerticesOut(i))
-		//   {
-		//     x_values[inst.graph()->pos(i,j)] = 0;
-		//   }
-		// }
-
-		// x_values[inst.graph()->pos(0,1)] = 0.6;
-		// x_values[inst.graph()->pos(0,2)] = 0.4;
-		// x_values[inst.graph()->pos(2,0)] = 0.4;
-		// x_values[inst.graph()->pos(1,0)] = 0.6;
-
-		// // PrimalSubproblemCompactBaseline(inst,x_values,y_values,R0,Rn,-1,export_model,solution);
-		// // std::cout << solution.lp_ << std::endl;
-		// // solution.reset();
-		// // DualSubproblemCompactBaseline(inst,x_values,y_values,R0,Rn,-1,export_model,solution);
-		// // std::cout << solution.lp_ << std::endl;
-		// // solution.reset();
-
-		// PrimalSubproblemCompactSingleCommodity(inst,x_values,y_values,R0,Rn,-1,export_model,solution);
-		// std::cout << solution.lp_ << std::endl;
-		// solution.reset();
-		// DualSubproblemCompactSingleCommodity(inst,x_values,y_values,R0,Rn,-1,export_model,solution);
-		// std::cout << solution.lp_ << std::endl;
-
-		// env.end();
-
-		delete[] R0;
-		R0 = nullptr;
-		delete[] Rn;
-		Rn = nullptr;
-
-		DeleteTimer();
-		DeleteCallbackSelection();
 	}
-	catch (IloException &e)
+
+	// //getchar();getchar();
+	// DeleteCuts(root_cuts);
+
+	// Benders(inst,BendersFormulation::baseline,R0,Rn,time_limit,false,false,solve_relaxed,use_valid_inequalities,false,nullptr,nullptr,force_use_all_vehicles,export_model,nullptr,solution);
+	// if (solve_relaxed)
+	// {
+	// 	std::cout <<  " LP: " << solution.lp_ << std::endl;
+	// }
+	// else
+	// {
+	// 	solution.is_optimal_? std::cout <<  " optimal: " << solution.lb_ << std::endl
+	// 	: std::cout <<  " non optimal: [" << solution.lb_ << ", " << solution.ub_ << "]" << std::endl;
+	// }
+	// std::cout << "# opt cuts: " << solution.num_benders_opt_cuts_ << std::endl;
+	// std::cout << "# feas cuts: " << solution.num_benders_feas_cuts_ << std::endl;
+	// std::cout << "num cuts: " << solution.num_cuts_found_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << "/" << solution.num_cuts_added_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << std::endl;
+
+	// solution.reset();
+
+	// Benders(inst,BendersFormulation::baseline,R0,Rn,time_limit,false,true,solve_relaxed,use_valid_inequalities,false,nullptr,nullptr,force_use_all_vehicles,export_model,nullptr,solution);
+	// if (solve_relaxed)
+	// {
+	// 	std::cout <<  " LP: " << solution.lp_ << std::endl;
+	// }
+	// else
+	// {
+	// 	solution.is_optimal_? std::cout <<  " optimal: " << solution.lb_ << std::endl
+	// 	: std::cout <<  " non optimal: [" << solution.lb_ << ", " << solution.ub_ << "]" << std::endl;
+	// }
+	// std::cout << "# opt cuts: " << solution.num_benders_opt_cuts_ << std::endl;
+	// std::cout << "# feas cuts: " << solution.num_benders_feas_cuts_ << std::endl;
+	// std::cout << "num cuts: " << solution.num_cuts_found_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << "/" << solution.num_cuts_added_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << std::endl;
+	// solution.reset();
+
+	Benders(inst, BendersFormulation::baseline, R0, Rn, time_limit, false, false, false, solve_relaxed, use_valid_inequalities, false, nullptr, nullptr, force_use_all_vehicles, export_model, nullptr, solution);
+	if (solve_relaxed)
 	{
-		cerr << "Concert Exception: " << e << endl;
+		std::cout << " LP: " << solution.lp_ << std::endl;
 	}
-	catch (...)
+	else
 	{
-		std::cout << "Other Exception" << endl;
+		solution.is_optimal_ ? std::cout << " optimal: " << solution.lb_ << std::endl
+							 : std::cout << " non optimal: [" << solution.lb_ << ", " << solution.ub_ << "]" << std::endl;
 	}
+	std::cout << "# opt cuts: " << solution.num_benders_opt_cuts_ << std::endl;
+	std::cout << "# feas cuts: " << solution.num_benders_feas_cuts_ << std::endl;
+	std::cout << "num cuts: " << solution.num_cuts_found_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << "/" << solution.num_cuts_added_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << std::endl;
+
+	solution.reset();
+
+	Benders(inst, BendersFormulation::single_commodity, R0, Rn, time_limit, true, true, false, solve_relaxed, use_valid_inequalities, false, nullptr, nullptr, force_use_all_vehicles, export_model, nullptr, solution);
+	if (solve_relaxed)
+	{
+		std::cout << " LP: " << solution.lp_ << std::endl;
+	}
+	else
+	{
+		solution.is_optimal_ ? std::cout << " optimal: " << solution.lb_ << std::endl
+							 : std::cout << " non optimal: [" << solution.lb_ << ", " << solution.ub_ << "]" << std::endl;
+	}
+	std::cout << "# opt cuts: " << solution.num_benders_opt_cuts_ << std::endl;
+	std::cout << "# feas cuts: " << solution.num_benders_feas_cuts_ << std::endl;
+	std::cout << "num cuts: " << solution.num_cuts_found_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << "/" << solution.num_cuts_added_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << std::endl;
+
+	solution.reset();
+
+	// IloEnv env;
+	// IloNumArray y_values(env,inst.graph()->num_vertices());
+	// // for(int i = 0; i < inst.graph()->num_vertices(); ++i)
+	// // {
+	// //   y_values[i] = 0;
+	// // }
+	// y_values[0] = 1;
+	// y_values[1] = 0.5;
+	// y_values[2] = 0.5;
+
+	// IloNumArray x_values(env,inst.graph()->num_arcs());
+
+	// for(int i  = 0; i < inst.graph()->num_vertices(); ++i)
+	// {
+	//   for (const auto & j: inst.graph()->AdjVerticesOut(i))
+	//   {
+	//     x_values[inst.graph()->pos(i,j)] = 0;
+	//   }
+	// }
+
+	// x_values[inst.graph()->pos(0,1)] = 0.6;
+	// x_values[inst.graph()->pos(0,2)] = 0.4;
+	// x_values[inst.graph()->pos(2,0)] = 0.4;
+	// x_values[inst.graph()->pos(1,0)] = 0.6;
+
+	// // PrimalSubproblemCompactBaseline(inst,x_values,y_values,R0,Rn,-1,export_model,solution);
+	// // std::cout << solution.lp_ << std::endl;
+	// // solution.reset();
+	// // DualSubproblemCompactBaseline(inst,x_values,y_values,R0,Rn,-1,export_model,solution);
+	// // std::cout << solution.lp_ << std::endl;
+	// // solution.reset();
+
+	// PrimalSubproblemCompactSingleCommodity(inst,x_values,y_values,R0,Rn,-1,export_model,solution);
+	// std::cout << solution.lp_ << std::endl;
+	// solution.reset();
+	// DualSubproblemCompactSingleCommodity(inst,x_values,y_values,R0,Rn,-1,export_model,solution);
+	// std::cout << solution.lp_ << std::endl;
+
+	// env.end();
+
+	delete[] R0;
+	R0 = nullptr;
+	delete[] Rn;
+	Rn = nullptr;
+
+	DeleteTimer();
+	DeleteCallbackSelection();
+	// }
+	// catch (IloException &e)
+	// {
+	// 	cerr << "Concert Exception: " << e << endl;
+	// }
+	// catch (...)
+	// {
+	// 	std::cout << "Other Exception" << endl;
+	// }
 
 	return 0;
 }

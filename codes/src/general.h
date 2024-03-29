@@ -54,13 +54,13 @@ const int max_stalls_stage1 = 10;
 const int max_stalls_stage2 = 10;
 const double alpha_decrease_rate = 0.9;
 const double initial_alpha_stage1 = 0.0;
-const double initial_alpha_stage2 = 1.0;
+const double initial_alpha_stage2 = 1.0; // if zero, then feasibility pump, if 1.0, then objective feasibility pump.
 const bool K_SOLVE_STAGE_1 = false;
 const double perturbation_flip_percentage = 0.1;
 const int K_FLIP_BASIS = 10;
 const bool FIXED_FLIP_BASIS = true;
 const double K_APLHA_DECREMENT_PRECISION = 0.005;
-const bool K_FEASIBILITY_PUMP_ADD_CUTS = true;
+const bool K_FEASIBILITY_PUMP_ADD_CUTS = false;
 
 // Local Branching parameters
 const int K_LOCAL_BRANCHING_K = 30;
@@ -78,39 +78,41 @@ const bool K_PATH_RELINKING = true;
 const int K_NON_IMPROVE_ITERATIONS_LIMIT = 100;
 const double K_SIMILARITY_THRESHOLD = 0.9;
 const bool K_STOP_AT_FIRST_PR_DETECTION = false;
-//const int K_NUM_POOL_SOLUTIONS_SELECTED_FOR_PATH_RELINKING = 5;
+// const int K_NUM_POOL_SOLUTIONS_SELECTED_FOR_PATH_RELINKING = 5;
 
-std::vector<bool> * GetCallbackSelection(void);
+std::vector<bool> *GetCallbackSelection(void);
 
-double StDev(std::vector<double>& gaps,double b_avg_gap);
-void AddInstancesFromDirectory(std::string directory, std::vector<std::string> & instances, bool add_dir = true);
+double StDev(std::vector<double> &gaps, double b_avg_gap);
+void AddInstancesFromDirectory(std::string directory, std::vector<std::string> &instances, bool add_dir = true);
 void DeleteCallbackSelection(void);
-void split_file_path(std::string directory, std::string& folder, std::string& file_name);
-double euclidian_distance(std::pair<double,double> & coordinates_1, std::pair<double,double> & coordinates_2);
+void split_file_path(std::string directory, std::string &folder, std::string &file_name);
+double euclidian_distance(std::pair<double, double> &coordinates_1, std::pair<double, double> &coordinates_2);
 bool double_equals(double a, double b, double epsilon = K_PRECISION_COMPARE_DOUBLE);
 bool double_greater(double a, double b, double epsilon = K_PRECISION_COMPARE_DOUBLE);
 bool double_less(double a, double b, double epsilon = K_PRECISION_COMPARE_DOUBLE);
 double round_decimals(double value, int num_decimals);
 
-template <class T> Matrix<T>** Allocate3Matrix(int k, int lines , int columns)
+template <class T>
+Matrix<T> **Allocate3Matrix(int k, int lines, int columns)
 {
-	Matrix<T>** matrix = new Matrix<T>*[k];
-	for(int i=0; i < k; i++)
-	{
-		matrix[i] = new Matrix<T>(lines, columns,0);
-	}
+    Matrix<T> **matrix = new Matrix<T> *[k];
+    for (int i = 0; i < k; i++)
+    {
+        matrix[i] = new Matrix<T>(lines, columns, 0);
+    }
 
-	return matrix;
+    return matrix;
 }
 
-template <class T> void Print3Matrix(Matrix<T>** matrix, int k)
+template <class T>
+void Print3Matrix(Matrix<T> **matrix, int k)
 {
-    if(matrix != NULL)
+    if (matrix != NULL)
     {
-        for(int i=0; i < k; i++)
+        for (int i = 0; i < k; i++)
         {
             std::cout << "k = " << i << std::endl;
-            if(matrix[i] != NULL)
+            if (matrix[i] != NULL)
             {
                 matrix[i]->Print();
             }
@@ -118,19 +120,20 @@ template <class T> void Print3Matrix(Matrix<T>** matrix, int k)
     }
 }
 
-template <class T> void Delete3Matrix(Matrix<T>** matrix, int k)
+template <class T>
+void Delete3Matrix(Matrix<T> **matrix, int k)
 {
-    if(matrix != NULL)
+    if (matrix != NULL)
     {
-        for(int i=0; i < k; i++)
+        for (int i = 0; i < k; i++)
         {
-            if(matrix[i] != NULL)
+            if (matrix[i] != NULL)
             {
                 delete matrix[i];
                 matrix[i] = NULL;
             }
         }
-        delete [] matrix;
+        delete[] matrix;
     }
     matrix = NULL;
 }

@@ -9,8 +9,8 @@ public:
 	Route();
 	Route(const Route &route);
 	~Route();
-	int sum_profits_;
-	double time_;
+	double sum_profits_ = 0;
+	double time_ = 0.0;
 	std::list<int> vertices_;
 	friend std::ostream &operator<<(std::ostream &out, Route &route);
 };
