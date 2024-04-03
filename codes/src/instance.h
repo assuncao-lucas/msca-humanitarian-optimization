@@ -71,6 +71,7 @@ public:
 	void SelectMaximumCliquesPerVertex();
 	void ComputeConflictGraph();
 	void ResetConflictsCliques();
+	int getOriginalVertexPosition(int new_pos) { return map_reordered_vertices_to_original_positions_[new_pos]; } // position before reordering vertices.
 	int num_vehicles() const { return num_vehicles_; }
 	int num_mandatory() const { return num_mandatory_; }
 	bool found_maximal_cliques() { return found_maximal_cliques_; }

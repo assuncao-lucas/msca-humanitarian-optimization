@@ -58,7 +58,7 @@ public:
 
 	friend std::ostream &operator<<(std::ostream &out, HeuristicSolution &sol);
 	bool CheckCorrectness(Instance &instance);
-	virtual void WriteToFile(std::string algo, std::string folder, std::string file_name);
+	virtual void WriteToFile(Instance &instance, std::string algo, std::string folder, std::string file_name);
 	virtual void ReadFromFile(Instance &inst, std::string algo, std::string folder, std::string file_name);
 
 	boost::dynamic_bitset<> bitset_arcs_;
@@ -89,7 +89,7 @@ public:
 
 	virtual void Reset(int dimension, int dimension2, int num_routes);
 	static std::string GenerateFileName();
-	void WriteToFile(std::string algo, std::string folder, std::string file_name);
+	void WriteToFile(Instance &instance, std::string algo, std::string folder, std::string file_name);
 };
 
 class LBHeuristicSolution : public HeuristicSolution
@@ -103,7 +103,7 @@ public:
 
 	virtual void Reset(int dimension, int dimension2, int num_routes);
 	static std::string GenerateFileName();
-	void WriteToFile(std::string algo, std::string folder, std::string file_name);
+	void WriteToFile(Instance &instance, std::string algo, std::string folder, std::string file_name);
 };
 
 class ALNSHeuristicSolution : public HeuristicSolution
@@ -119,7 +119,7 @@ public:
 	double elapsed_time_;
 
 	virtual void Reset(int dimension, int dimension2, int num_routes);
-	void WriteToFile(std::string algo, std::string folder, std::string file_name);
+	void WriteToFile(Instance &instance, std::string algo, std::string folder, std::string file_name);
 	void ReadFromFile(Instance &inst, std::string algo, std::string folder, std::string file_name);
 	static std::string GenerateFileName();
 };

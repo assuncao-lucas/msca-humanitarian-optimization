@@ -673,7 +673,7 @@ int main()
 	fp.Init(inst);
 	std::cout << (fp.solution_).GenerateFileName() + "_seed_" + std::to_string(seed) << std::endl;
 	fp.Run();
-	(fp.solution_).WriteToFile((fp.solution_).GenerateFileName() + "_seed_" + std::to_string(seed), "//", instance_name);
+	(fp.solution_).WriteToFile(inst, (fp.solution_).GenerateFileName() + "_seed_" + std::to_string(seed), "//", instance_name);
 
 	std::cout << fp.solution_.profits_sum_ << std::endl;
 

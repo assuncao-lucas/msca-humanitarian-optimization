@@ -232,6 +232,7 @@ void FeasibilityPump::RetrieveAndRoundArcValuesBFS()
 void FeasibilityPump::RetrieveAndRoundArcValuesBasic()
 {
 	cplex_.getValues(curr_relax_x_, master_vars_.x);
+	cplex_.getValues(curr_relax_y_, master_vars_.y);
 	const Graph *graph = (curr_instance_)->graph();
 	int num_vertices = graph->num_vertices(), num_arcs = graph->num_arcs();
 	int v1 = 0;
@@ -239,7 +240,7 @@ void FeasibilityPump::RetrieveAndRoundArcValuesBasic()
 	std::list<int> q;
 	q.push_front(0);
 	std::vector<bool> visited_nodes(num_vertices, false);
-	visited_nodes[0] = true;
+
 	int curr_pos = 0;
 
 	found_int_x_ = true;
@@ -250,26 +251,92 @@ void FeasibilityPump::RetrieveAndRoundArcValuesBasic()
 	(curr_int_x_).reset();
 	(curr_integrality_gaps_x_).clear();
 
-	// we don't have to check every arc: due to the flow conservation constraints, only perform width first search
-	// do
+	// for (int i = 0; i < num_vertices; ++i)
+	// 	if (!double_equals(curr_relax_y_[i], 0.0))
+	// 		curr_relax_y_[i] = 0.0;
+
+	// for (int i = 0; i < num_vertices; ++i)
+	// 	for (int j : graph->AdjVerticesOut(i))
+	// 		curr_relax_x_[graph->pos(i, j)] = 0.0;
+
+	// curr_relax_y_[0] = curr_relax_y_[1] = 1.0;
+	// curr_relax_y_[2] = curr_relax_y_[3] = 0.5;
+
+	// curr_relax_x_[graph->pos(0, 1)] = 1.0;
+	// curr_relax_x_[graph->pos(1, 0)] = 1.0;
+
+	// curr_relax_x_[graph->pos(2, 3)] = 0.5;
+	// curr_relax_x_[graph->pos(3, 2)] = 0.5;
+
+	// int num_arcs_non_zero = 0;
+	// int num_arcs_visited = 0;
+	// for (int i = 0; i < num_vertices; ++i)
+	// 	if (!double_equals(curr_relax_y_[i], 0.0))
+	// std::cout << "y[" << i << "] = " << curr_relax_y_[i] << std::endl;
+
+	// for (int i = 0; i < num_vertices; ++i)
+	// 	for (int j : graph->AdjVerticesOut(i))
+	// 		if (!double_equals(curr_relax_x_[graph->pos(i, j)], 0.0))
+	// 		{
+	// 			// num_arcs_non_zero++;
+	// 			std::cout << "x[" << i << "][" << j << "] = " << curr_relax_x_[graph->pos(i, j)] << std::endl;
+	// 		}
+
+	// make sure we add all vertices to the queue, in case of vertices disconnected from the origin.
+	for (int vertex = 0; vertex < num_vertices; ++vertex)
+		q.push_back(vertex);
+
+	// we don't have to check every arc: due to the flow conservation constraints, only perform depth first search
+	do
+	{
+		v1 = q.front();
+		q.pop_front();
+
+		// if vertex not yet visited and has relaxation value other than zero (Note: since y = sum x, y == 0 implies no arc entering/leaving vertex).
+		if ((!visited_nodes[v1]) && (!double_equals(curr_relax_y_[v1], 0.0)))
+		{
+			for (int v2 : graph->AdjVerticesOut(v1))
+			{
+				curr_pos = graph->pos(v1, v2);
+
+				if (!double_equals(curr_relax_x_[curr_pos], 0.0))
+				{
+					double curr_integrality_gap_x = 0.0;
+					if (!(visited_nodes[v2]))
+					{
+						q.push_front(v2);
+					}
+
+					// std::cout << "visited (" << v1 << "," << v2 << ")" << std::endl;
+					// num_arcs_visited++;
+					// if(double_greater((curr_relax_x_)[curr_pos],0.0)) (curr_int_x_)[curr_pos] = 1;
+					if (round((curr_relax_x_)[curr_pos]))
+						(curr_int_x_)[curr_pos] = 1;
+					if (!double_equals((curr_relax_x_)[curr_pos], (curr_int_x_)[curr_pos]))
+					{
+						found_int_x_ = false;
+						// std::cout << "(" << v1 << "," << v2 << ") " << (curr_relax_x_)[curr_pos] << " " << (curr_int_x_)[curr_pos] << std::endl;
+						curr_integrality_gap_x = fabs((curr_relax_x_)[curr_pos] - 1.0 * ((curr_int_x_)[curr_pos]));
+						(curr_integrality_gap_) += curr_integrality_gap_x;
+					}
+
+					curr_integrality_gaps_x_.push_back(std::pair<int, double>(curr_pos, curr_integrality_gap_x));
+				}
+			}
+			// std::cout << "* visited " << v1 << std::endl;
+			visited_nodes[v1] = true;
+		}
+	} while (!q.empty());
+	// std::cout << num_arcs_non_zero << " " << num_arcs_visited << std::endl;
+
+	// for (int v1 = 0; v1 < num_vertices; ++v1)
 	// {
-	// 	v1 = q.front();
-	// 	q.pop_front();
-
-	// 	for (int v2 : graph->AdjVerticesOut(v1))
+	// 	for (auto v2 : graph->AdjVerticesOut(v1))
 	// 	{
-	// 		curr_pos = graph->pos(v1, v2);
-
+	// 		curr_pos = curr_pos = graph->pos(v1, v2);
 	// 		if (!double_equals(curr_relax_x_[curr_pos], 0.0))
 	// 		{
 	// 			double curr_integrality_gap_x = 0.0;
-	// 			if (!(visited_nodes[v2]))
-	// 			{
-	// 				q.push_front(v2);
-	// 				visited_nodes[v2] = true;
-	// 			}
-
-	// 			// if(double_greater((curr_relax_x_)[curr_pos],0.0)) (curr_int_x_)[curr_pos] = 1;
 	// 			if (round((curr_relax_x_)[curr_pos]))
 	// 				(curr_int_x_)[curr_pos] = 1;
 	// 			if (!double_equals((curr_relax_x_)[curr_pos], (curr_int_x_)[curr_pos]))
@@ -280,41 +347,30 @@ void FeasibilityPump::RetrieveAndRoundArcValuesBasic()
 	// 			}
 
 	// 			curr_integrality_gaps_x_.push_back(std::pair<int, double>(curr_pos, curr_integrality_gap_x));
-	// 		}
+	// 		}s
 	// 	}
-	// } while (!q.empty());
+	// }
 
-	for (int v1 = 0; v1 < num_vertices; ++v1)
-	{
-		for (auto v2 : graph->AdjVerticesOut(v1))
-		{
-			curr_pos = curr_pos = graph->pos(v1, v2);
-			if (!double_equals(curr_relax_x_[curr_pos], 0.0))
-			{
-				double curr_integrality_gap_x = 0.0;
-				if (round((curr_relax_x_)[curr_pos]))
-					(curr_int_x_)[curr_pos] = 1;
-				if (!double_equals((curr_relax_x_)[curr_pos], (curr_int_x_)[curr_pos]))
-				{
-					found_int_x_ = false;
-					curr_integrality_gap_x = fabs((curr_relax_x_)[curr_pos] - 1.0 * ((curr_int_x_)[curr_pos]));
-					(curr_integrality_gap_) += curr_integrality_gap_x;
-				}
+	// std::cout << "rounded integer: " << std::endl;
+	// for (int i = 0; i < num_vertices; ++i)
+	// {
+	// 	for (int j : graph->AdjVerticesOut(i))
+	// 		if (curr_int_x_[curr_instance_->graph()->pos(i, j)] != 0)
+	// 			std::cout << "(" << i << ", " << j << ") :" << curr_int_x_[curr_instance_->graph()->pos(i, j)] << std::endl;
+	// }
 
-				curr_integrality_gaps_x_.push_back(std::pair<int, double>(curr_pos, curr_integrality_gap_x));
-			}
-		}
-	}
+	// getchar();
+	// getchar();
 
-	if (found_int_x_)
-	{
-		for (int i = 0; i < num_vertices; ++i)
-		{
-			for (int j = 0; j < num_vertices; ++j)
-				if ((i != j) && !(double_equals(curr_relax_x_[curr_instance_->graph()->pos(j, i)], 0.0)))
-					std::cout << j << ", " << i << " :" << curr_relax_x_[curr_instance_->graph()->pos(j, i)] << std::endl;
-		}
-	}
+	// if (found_int_x_)
+	// {
+	// 	for (int i = 0; i < num_vertices; ++i)
+	// 	{
+	// 		for (int j = 0; j < num_vertices; ++j)
+	// 			if ((i != j) && !(double_equals(curr_relax_x_[curr_instance_->graph()->pos(j, i)], 0.0)))
+	// 				std::cout << j << ", " << i << " :" << curr_relax_x_[curr_instance_->graph()->pos(j, i)] << std::endl;
+	// 	}
+	// }
 }
 
 void FeasibilityPump::SetNewObjStage1()
@@ -674,7 +730,7 @@ void FeasibilityPump::Run()
 		{
 			previous_alpha_ = curr_alpha_;
 			(curr_alpha_) *= alpha_decrease_rate;
-			// Update objective function according to distance from current rounded (integer) y values
+			// Update objective function according to distance from current rounded (integer) x values
 			SetNewObjStage2();
 			if (double_less(fabs(curr_alpha_ - previous_alpha_), K_APLHA_DECREMENT_PRECISION))
 				stalls_cycle_count++;
@@ -699,7 +755,7 @@ void FeasibilityPump::Run()
 				(solution_).num_restarts_stage2_ = num_restarts_stage2;
 				return;
 			}
-			// update y values
+			// update x values
 			RetrieveAndRoundArcValuesBasic();
 
 			if (!(found_int_x_))
@@ -746,24 +802,40 @@ void FeasibilityPump::Run()
 				}else */
 				if ((stage_2_iter > 1) && (double_less(fabs(curr_alpha_ - previous_alpha_), K_APLHA_DECREMENT_PRECISION)) && (curr_int_x_ == previous_int_x_))
 				{
+					std::cout << "perturbation!" << std::endl;
 					num_perturbations_stage2++;
-					curr_num_flips = num_flips_basis / 2 + 1 + rand() % num_flips_basis;
-					int cont = 0;
-					// std::cout << "num_flips: " << curr_num_flips << std::endl;
-					// getchar();getchar();
-					// std::cout << " *** ciclou!" << std::endl;
-					(curr_integrality_gaps_x_).sort(compare_func3);
+
 					for (auto it = (curr_integrality_gaps_x_).begin(); it != (curr_integrality_gaps_x_).end(); ++it)
 					{
-						// std::cout << (curr_int_x_[it->first]) << " - ";
-						if (cont < curr_num_flips)
-							((curr_int_x_)[it->first]).flip();
-						else
-							break;
-						// std::cout << (curr_int_x_[it->first]) << std::endl;
-						// getchar();getchar();
-						cont++;
+						auto arc_pos = it->first;
+						curr_prob_of_flipping = it->second * 100.0; // the probability of flipping is proportional to how far the value is from an integer bound.
+						// std::cout << "flip prob: " << curr_prob_of_flipping << std::endl;
+						// int curr_rand = rand()%101;
+						// std::cout << "curr rand: " << curr_rand << std::endl;
+						// if (rand() % 101 <= curr_prob_of_flipping)
+						if (rand() % 2 == 1)
+						{
+							// std::cout << "flippou " << arc_pos << std::endl;
+							((curr_int_x_)[arc_pos]).flip();
+						}
 					}
+					// curr_num_flips = num_flips_basis / 2 + 1 + rand() % num_flips_basis;
+					// int cont = 0;
+					// // std::cout << "num_flips: " << curr_num_flips << std::endl;
+					// // getchar();getchar();
+					// // std::cout << " *** ciclou!" << std::endl;
+					// (curr_integrality_gaps_x_).sort(compare_func3);
+					// for (auto it = (curr_integrality_gaps_x_).begin(); it != (curr_integrality_gaps_x_).end(); ++it)
+					// {
+					// 	// std::cout << (curr_int_x_[it->first]) << " - ";
+					// 	if (cont < curr_num_flips)
+					// 		((curr_int_x_)[it->first]).flip();
+					// 	else
+					// 		break;
+					// 	// std::cout << (curr_int_x_[it->first]) << std::endl;
+					// 	// getchar();getchar();
+					// 	cont++;
+					// }
 					// std::cout << std::endl;
 					// getchar();getchar();
 				}

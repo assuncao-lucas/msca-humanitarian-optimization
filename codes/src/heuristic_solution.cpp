@@ -1341,7 +1341,7 @@ std::ostream &operator<<(std::ostream &out, HeuristicSolution &sol)
 	return out;
 }
 
-void HeuristicSolution::WriteToFile(std::string algo, std::string folder, std::string file_name)
+void HeuristicSolution::WriteToFile(Instance &instance, std::string algo, std::string folder, std::string file_name)
 {
 	Route *curr_route = nullptr;
 	std::fstream file;
@@ -1375,7 +1375,7 @@ void HeuristicSolution::WriteToFile(std::string algo, std::string folder, std::s
 
 			for (auto it = (curr_route->vertices_).begin(); it != (curr_route->vertices_).end(); ++it)
 			{
-				file << *it << " ";
+				file << instance.getOriginalVertexPosition(*it) << " ";
 			}
 
 			// file << this->dimension_ - 1;
@@ -1521,7 +1521,7 @@ void ALNSHeuristicSolution::Reset(int dimension, int dimension2, int num_routes)
 	this->elapsed_time_ = 0.0;
 }
 
-void ALNSHeuristicSolution::WriteToFile(std::string algo, std::string folder, std::string file_name)
+void ALNSHeuristicSolution::WriteToFile(Instance &instance, std::string algo, std::string folder, std::string file_name)
 {
 	std::fstream file;
 	std::string path = ".//solutions";
@@ -1554,7 +1554,7 @@ void ALNSHeuristicSolution::WriteToFile(std::string algo, std::string folder, st
 
 	file.close();
 
-	HeuristicSolution::WriteToFile(algo, folder, file_name);
+	HeuristicSolution::WriteToFile(instance, algo, folder, file_name);
 }
 
 void ALNSHeuristicSolution::ReadFromFile(Instance &inst, std::string algo, std::string folder, std::string file_name)
@@ -1673,7 +1673,7 @@ std::string FPHeuristicSolution::GenerateFileName()
 	return file_name;
 }
 
-void FPHeuristicSolution::WriteToFile(std::string algo, std::string folder, std::string file_name)
+void FPHeuristicSolution::WriteToFile(Instance &instance, std::string algo, std::string folder, std::string file_name)
 {
 	std::fstream file;
 	std::string path = ".//solutions";
@@ -1712,7 +1712,7 @@ void FPHeuristicSolution::WriteToFile(std::string algo, std::string folder, std:
 
 	file.close();
 
-	HeuristicSolution::WriteToFile(algo, folder, file_name);
+	HeuristicSolution::WriteToFile(instance, algo, folder, file_name);
 }
 
 LBHeuristicSolution::LBHeuristicSolution(int dimension, int dimension2, int num_routes) : HeuristicSolution(dimension, dimension2, num_routes)
@@ -1754,7 +1754,7 @@ std::string LBHeuristicSolution::GenerateFileName()
 	return "";
 }
 
-void LBHeuristicSolution::WriteToFile(std::string algo, std::string folder, std::string file_name)
+void LBHeuristicSolution::WriteToFile(Instance &instance, std::string algo, std::string folder, std::string file_name)
 { /*
 	 std::fstream file;
 	 std::string path = ".//solutions";
@@ -1789,5 +1789,5 @@ void LBHeuristicSolution::WriteToFile(std::string algo, std::string folder, std:
 
 		 file.close();
  */
-	HeuristicSolution::WriteToFile(algo, folder, file_name);
+	HeuristicSolution::WriteToFile(instance, algo, folder, file_name);
 }
