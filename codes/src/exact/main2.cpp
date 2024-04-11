@@ -10,7 +10,8 @@
 #include "src/timer.h"
 #include "src/graph_algorithms.h"
 #include "src/heuristic_solution.h"
-#include "src/feasibility_pump.h"
+#include "src/feasibility_pump/feasibility_pump.h"
+#include "src/kernel_search/kernel_search.h"
 
 void GenerateAlgorithmsLatexTablePerInstance(double total_time_limit)
 {
@@ -664,18 +665,23 @@ int main()
 	// return 0;
 	int time_limit = -1;
 	int num_routes = 2;
-	int uncertainty_budget = 2;
+	int uncertainty_budget = 10;
 	int seed = 1000;
 	std::string instance_name = "test.txt";
-	Instance inst("/home/lucas/Documentos/Research/msca-humanitarian-optimization/instances/R-STOP-DP/", instance_name, num_routes, 0.25, uncertainty_budget, false);
+	Instance inst("/home/lucas/Documentos/Research/msca-humanitarian-optimization/instances/R-STOP-DP/", instance_name, num_routes, 0.1, uncertainty_budget, false);
 
-	FeasibilityPump fp;
-	fp.Init(inst);
-	std::cout << (fp.solution_).GenerateFileName() + "_seed_" + std::to_string(seed) << std::endl;
-	fp.Run();
-	(fp.solution_).WriteToFile(inst, (fp.solution_).GenerateFileName() + "_seed_" + std::to_string(seed), "//", instance_name);
+	// FeasibilityPump fp;
+	// fp.Init(inst);
+	// std::cout << (fp.solution_).GenerateFileName() + "_seed_" + std::to_string(seed) << std::endl;
+	// fp.Run();
+	// (fp.solution_).WriteToFile(inst, (fp.solution_).GenerateFileName() + "_seed_" + std::to_string(seed), "//", instance_name);
 
-	std::cout << fp.solution_.profits_sum_ << std::endl;
+	// std::cout << fp.solution_.profits_sum_ << std::endl;
+
+	KernelSearch ks(inst);
+	ks.Run();
+
+	// std::cout << fp.solution_.profits_sum_ << std::endl;
 
 	return 0;
 	// Route route;

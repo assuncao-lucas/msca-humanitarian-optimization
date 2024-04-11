@@ -1502,25 +1502,27 @@ static void AllocateMasterVariablesBaseline(IloEnv &env, MasterVariables &master
   }
 }
 
-void AllocateMasterVariablesSingleCommodity(IloEnv &env, MasterVariables &master_vars, Instance &instance, bool force_use_all_vehicles, bool solve_relax)
+void AllocateMasterVariablesSingleCommodity(IloEnv &env, MasterVariables &master_vars, const Instance &instance, bool force_use_all_vehicles, bool solve_relax, bool disable_all_binary_vars)
 {
   const Graph *graph = instance.graph();
   const int num_vertices = graph->num_vertices();
   const int num_arcs = graph->num_arcs();
   const int num_routes = instance.num_vehicles();
 
+  const double binary_upper_bound = disable_all_binary_vars ? 0.0 : 1.0;
+
   master_vars.slack = IloNumVar(env, 0, force_use_all_vehicles ? 0 : num_routes, ILOFLOAT);
   master_vars.dual_bound = IloNumVar(env, 0, num_arcs * instance.limit(), ILOFLOAT);
 
   if (solve_relax)
   {
-    master_vars.x = IloNumVarArray(env, num_arcs, 0.0, 1.0, ILOFLOAT);
-    master_vars.y = IloNumVarArray(env, num_vertices, 0.0, 1.0, ILOFLOAT);
+    master_vars.x = IloNumVarArray(env, num_arcs, 0.0, binary_upper_bound, ILOFLOAT);
+    master_vars.y = IloNumVarArray(env, num_vertices, 0.0, binary_upper_bound, ILOFLOAT);
   }
   else
   {
-    master_vars.x = IloNumVarArray(env, num_arcs, 0.0, 1.0, ILOINT);
-    master_vars.y = IloNumVarArray(env, num_vertices, 0.0, 1.0, ILOINT);
+    master_vars.x = IloNumVarArray(env, num_arcs, 0.0, binary_upper_bound, ILOINT);
+    master_vars.y = IloNumVarArray(env, num_vertices, 0.0, binary_upper_bound, ILOINT);
   }
 }
 
@@ -1640,7 +1642,7 @@ void CompactSingleCommodity(Instance &inst, double *R0, double *Rn, double time_
   env.end();
 }
 
-void PopulateByRowCompactSingleCommodity(IloCplex &cplex, IloEnv &env, IloModel &model, MasterVariables &master_vars, IloNumVarArray &f, Instance &instance, double *R0, double *Rn, bool force_use_all_vehicles, bool export_model)
+void PopulateByRowCompactSingleCommodity(IloCplex &cplex, IloEnv &env, IloModel &model, MasterVariables &master_vars, IloNumVarArray &f, const Instance &instance, double *R0, double *Rn, bool force_use_all_vehicles, bool export_model)
 {
   const Graph *graph = instance.graph();
   const int num_vehicles = instance.num_vehicles();
@@ -1702,7 +1704,7 @@ void PopulateByRowCompactSingleCommodity(IloCplex &cplex, IloEnv &env, IloModel 
   }
 }
 
-static void PopulateByRowCommon(IloEnv &env, IloModel &model, MasterVariables &master_vars, Instance &instance, bool force_use_all_vehicles)
+static void PopulateByRowCommon(IloEnv &env, IloModel &model, MasterVariables &master_vars, const Instance &instance, bool force_use_all_vehicles)
 {
   int num_vehicles = instance.num_vehicles();
   int num_vertices = (instance.graph())->num_vertices();
@@ -1770,7 +1772,7 @@ static void PopulateByRowCommon(IloEnv &env, IloModel &model, MasterVariables &m
   }
 }
 
-static void PopulateByRowCompactSingleCommodityContinuousSpace(IloEnv &env, IloModel &model, IloNumVarArray &x, IloNumVarArray &y, IloNumVarArray &f, std::optional<std::reference_wrapper<IloNumArray>> x_values, std::optional<std::reference_wrapper<IloNumArray>> y_values, double *R0, double *Rn, Instance &instance)
+static void PopulateByRowCompactSingleCommodityContinuousSpace(IloEnv &env, IloModel &model, IloNumVarArray &x, IloNumVarArray &y, IloNumVarArray &f, std::optional<std::reference_wrapper<IloNumArray>> x_values, std::optional<std::reference_wrapper<IloNumArray>> y_values, double *R0, double *Rn, const Instance &instance)
 {
   const Graph *graph = instance.graph();
   const int num_vertices = graph->num_vertices();
@@ -1854,7 +1856,7 @@ static void PopulateByRowCompactSingleCommodityContinuousSpace(IloEnv &env, IloM
   }
 }
 
-static void PopulateByRowCompactBaselineContinuousSpace(IloEnv &env, IloModel &model, IloNumVarArray &x, IloNumVarArray &y, IloNumVarArray &a, std::optional<std::reference_wrapper<IloNumArray>> x_values, std::optional<std::reference_wrapper<IloNumArray>> y_values, Instance &instance)
+static void PopulateByRowCompactBaselineContinuousSpace(IloEnv &env, IloModel &model, IloNumVarArray &x, IloNumVarArray &y, IloNumVarArray &a, std::optional<std::reference_wrapper<IloNumArray>> x_values, std::optional<std::reference_wrapper<IloNumArray>> y_values, const Instance &instance)
 {
   const int num_vertices = (instance.graph())->num_vertices();
   const int num_mandatory = instance.num_mandatory();

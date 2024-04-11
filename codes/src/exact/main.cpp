@@ -20,7 +20,7 @@
 #include "src/graph_algorithms.h"
 #include "src/solution.hpp"
 #include "src/heuristic_solution.h"
-#include "src/feasibility_pump.h"
+#include "src/feasibility_pump/feasibility_pump.h"
 #include "src/ALNS.h"
 
 // Instance* GenerateFilesFromOPinstancesIter(std::string dir_path, std::string file_name, double mandatory_percentage)
@@ -352,66 +352,69 @@ void GenrateRelaxCSVTable(std::vector<std::string> dirs, bool stop, double total
 
 	std::fstream output;
 	std::string output_name;
-	if(stop) output_name = ".//tables//CSV//stop_relax_table.csc";
-	else output_name = ".//tables//CSV//relax_table.csv";
-	output.open(output_name.c_str(),std::fstream::out);
+	if (stop)
+		output_name = ".//tables//CSV//stop_relax_table.csc";
+	else
+		output_name = ".//tables//CSV//relax_table.csv";
+	output.open(output_name.c_str(), std::fstream::out);
 
-	if(!output.is_open())
+	if (!output.is_open())
 	{
 		std::cout << "Could not open file " << output_name << std::endl;
 		throw 1;
 	}
 
-	//std::cout << output_name << std::endl;
+	// std::cout << output_name << std::endl;
 
 	output << std::setprecision(2) << std::fixed;
 
-	std::vector<std::vector<double>> total_time_per_algo(algorithms.size(),std::vector<double>());
-	std::vector<std::vector<double>> total_cuts_per_algo(algorithms.size(),std::vector<double>());
-	std::vector<double> total_avg_time(algorithms.size(),0.0);
-	std::vector<double> total_avg_cuts(algorithms.size(),0.0);
+	std::vector<std::vector<double>> total_time_per_algo(algorithms.size(), std::vector<double>());
+	std::vector<std::vector<double>> total_cuts_per_algo(algorithms.size(), std::vector<double>());
+	std::vector<double> total_avg_time(algorithms.size(), 0.0);
+	std::vector<double> total_avg_cuts(algorithms.size(), 0.0);
 	int total_num_instances = 0;
 
 	output << "set";
-	for(size_t j = 0; j < algorithms.size(); j++)
+	for (size_t j = 0; j < algorithms.size(); j++)
 	{
 		output << ";" << algorithms[j] << ";" << algorithms[j];
 	}
 	output << std::endl;
-	for(size_t j = 0; j < algorithms.size(); j++)
+	for (size_t j = 0; j < algorithms.size(); j++)
 	{
 		output << ";tempo(s);#cuts";
 	}
 	output << std::endl;
-	for(size_t j = 0; j < dirs.size(); j++)
+	for (size_t j = 0; j < dirs.size(); j++)
 	{
-		std::vector<std::vector<double>> time_per_algo(algorithms.size(),std::vector<double>());
-		std::vector<std::vector<double>> cuts_per_algo(algorithms.size(),std::vector<double>());
-		std::vector<double> avg_time(algorithms.size(),0.0);
-		std::vector<double> avg_cuts(algorithms.size(),0.0);
+		std::vector<std::vector<double>> time_per_algo(algorithms.size(), std::vector<double>());
+		std::vector<std::vector<double>> cuts_per_algo(algorithms.size(), std::vector<double>());
+		std::vector<double> avg_time(algorithms.size(), 0.0);
+		std::vector<double> avg_cuts(algorithms.size(), 0.0);
 
 		std::vector<std::string> instances;
 		std::string folder = dirs[j].substr(20);
-		AddInstancesFromDirectory(dirs[j],instances,false);
+		AddInstancesFromDirectory(dirs[j], instances, false);
 
-		total_num_instances+=(instances.size());
-		for(size_t i = 0; i < instances.size(); i++)
+		total_num_instances += (instances.size());
+		for (size_t i = 0; i < instances.size(); i++)
 		{
-			for(size_t j = 0; j < algorithms.size(); j++)
+			for (size_t j = 0; j < algorithms.size(); j++)
 			{
 				curr_file = ".//solutions//";
 				curr_file.append(folder);
 				curr_file.append("s_");
-				if(stop) curr_file.append("stop_");
+				if (stop)
+					curr_file.append("stop_");
 				curr_file.append(algorithms[j]);
 				curr_file.append("_");
 				curr_file.append(instances[i]);
-				//std::cout << curr_file << std::endl;
+				// std::cout << curr_file << std::endl;
 
 				std::fstream input;
-				input.open(curr_file.c_str(),std::fstream::in);
+				input.open(curr_file.c_str(), std::fstream::in);
 
-				if(!input.is_open())
+				if (!input.is_open())
 				{
 					std::cout << "Could not open file " << curr_file << std::endl;
 					throw 4;
@@ -423,36 +426,38 @@ void GenrateRelaxCSVTable(std::vector<std::string> dirs, bool stop, double total
 				int num_cuts = 0;
 				std::string line;
 
-				for(int i = 0; i < 5; i++) getline(input,line);
+				for (int i = 0; i < 5; i++)
+					getline(input, line);
 
 				size_t pos = line.find_first_of(":");
 				s_time << line.substr(pos + 2);
 				s_time >> time;
-				//std::cout << line << "    " << time << std::endl;
-				//getchar(); getchar();
+				// std::cout << line << "    " << time << std::endl;
+				// getchar(); getchar();
 
-				for(int i = 0; i < 4; i++) getline(input,line);
+				for (int i = 0; i < 4; i++)
+					getline(input, line);
 
-				for(int i = 0; i < K_NUM_TYPES_CALLBACKS; i++)
+				for (int i = 0; i < K_NUM_TYPES_CALLBACKS; i++)
 				{
 					std::stringstream s_cuts;
 					int cuts_iter = 0;
-					getline(input,line);
+					getline(input, line);
 					pos = line.find_first_of(":");
 					size_t pos2 = line.find_first_of("/");
-					s_cuts << line.substr(pos + 2, pos2-pos -2);
+					s_cuts << line.substr(pos + 2, pos2 - pos - 2);
 					s_cuts >> cuts_iter;
-					num_cuts+=cuts_iter;
+					num_cuts += cuts_iter;
 
-					//std::cout << line << "    " << cuts_iter << std::endl;
-					//getchar(); getchar();
+					// std::cout << line << "    " << cuts_iter << std::endl;
+					// getchar(); getchar();
 				}
 				time_per_algo[j].push_back(time);
 				total_time_per_algo[j].push_back(time);
 				total_avg_time[j] += time;
 				avg_time[j] += time;
 
-				//std::cout << "lp: " << lp << " improvement: " << curr_improvement << std::endl;
+				// std::cout << "lp: " << lp << " improvement: " << curr_improvement << std::endl;
 
 				cuts_per_algo[j].push_back(num_cuts);
 				total_cuts_per_algo[j].push_back(num_cuts);
@@ -463,27 +468,29 @@ void GenrateRelaxCSVTable(std::vector<std::string> dirs, bool stop, double total
 				input.close();
 			}
 
-			//getchar();getchar();
+			// getchar();getchar();
 		}
 
-		output << j+1;
+		output << j + 1;
 
-		for(size_t j = 0; j < algorithms.size(); j++)
+		for (size_t j = 0; j < algorithms.size(); j++)
 		{
-			if((time_per_algo[j]).size() > 0) avg_time[j]/=(1.0*((time_per_algo[j]).size()));
-			else avg_time[j] = -1;
-			avg_cuts[j]/=(1.0*((cuts_per_algo[j]).size()));
+			if ((time_per_algo[j]).size() > 0)
+				avg_time[j] /= (1.0 * ((time_per_algo[j]).size()));
+			else
+				avg_time[j] = -1;
+			avg_cuts[j] /= (1.0 * ((cuts_per_algo[j]).size()));
 			output << ";" << avg_time[j] << ";" << avg_cuts[j];
 		}
 		output << std::endl;
 	}
 
 	output << "Total";
-	for(size_t j = 0; j < algorithms.size(); j++)
+	for (size_t j = 0; j < algorithms.size(); j++)
 	{
-		//std::cout << total_improvement_per_algo[j].size() << std::endl;
-		total_avg_time[j]/=(1.0*((total_time_per_algo[j]).size()));
-		total_avg_cuts[j]/=(1.0*((total_cuts_per_algo[j]).size()));
+		// std::cout << total_improvement_per_algo[j].size() << std::endl;
+		total_avg_time[j] /= (1.0 * ((total_time_per_algo[j]).size()));
+		total_avg_cuts[j] /= (1.0 * ((total_cuts_per_algo[j]).size()));
 		output << ";" << total_avg_time[j] << ";" << total_avg_cuts[j];
 	}
 
@@ -497,11 +504,11 @@ void GenerateAlgorithmsLatexTable(std::vector<std::string> dirs, bool stop, doub
 	std::string curr_file;
 	std::vector<std::string> algorithms;
 
-	//algorithms.push_back("bc_b1");
-	//algorithms.push_back("csc3");
-	//algorithms.push_back("csc3_2");
-	//algorithms.push_back("cb_csc3");
-	//algorithms.push_back("cb2_csc3");
+	// algorithms.push_back("bc_b1");
+	// algorithms.push_back("csc3");
+	// algorithms.push_back("csc3_2");
+	// algorithms.push_back("cb_csc3");
+	// algorithms.push_back("cb2_csc3");
 
 	/*std::string algo = "cb_csc3_";
 	if(stop) algo += "stop_";
@@ -514,70 +521,75 @@ void GenerateAlgorithmsLatexTable(std::vector<std::string> dirs, bool stop, doub
 	algorithms.push_back(algo);*/
 
 	std::string algo = "cb_csc3_";
-	if(stop) algo += "stop_";
+	if (stop)
+		algo += "stop_";
 	algo += "fp_cuts_alpha2_100_p_fixed_10_PR_ALNS_5000";
 	algorithms.push_back(algo);
 
 	algo = "cb2_csc3_";
-	if(stop) algo += "stop_";
+	if (stop)
+		algo += "stop_";
 	algo += "fp_cuts_alpha2_100_p_fixed_10_PR_ALNS_5000";
 	algorithms.push_back(algo);
 
 	std::fstream output;
 	std::string output_name;
-	if(stop) output_name = ".//tables//latex//stop_table_algorithms_new.txt";
-	else output_name = ".//tables//latex//table_algorithms_new.txt";
-	output.open(output_name.c_str(),std::fstream::out);
+	if (stop)
+		output_name = ".//tables//latex//stop_table_algorithms_new.txt";
+	else
+		output_name = ".//tables//latex//table_algorithms_new.txt";
+	output.open(output_name.c_str(), std::fstream::out);
 
-	if(!output.is_open())
+	if (!output.is_open())
 	{
 		std::cout << "Could not open file " << output_name << std::endl;
 		throw 1;
 	}
 
-	//std::cout << output_name << std::endl;
+	// std::cout << output_name << std::endl;
 
 	output << std::setprecision(2) << std::fixed;
 
-	std::vector<std::vector<double>> total_time_per_algo(algorithms.size(),std::vector<double>());
-	std::vector<std::vector<double>> total_gap_per_algo(algorithms.size(),std::vector<double>());
-	std::vector<double> total_avg_time(algorithms.size(),0.0);
-	std::vector<double> total_avg_gap(algorithms.size(),0.0);
-	std::vector<int> total_num_optimal(algorithms.size(),0);
+	std::vector<std::vector<double>> total_time_per_algo(algorithms.size(), std::vector<double>());
+	std::vector<std::vector<double>> total_gap_per_algo(algorithms.size(), std::vector<double>());
+	std::vector<double> total_avg_time(algorithms.size(), 0.0);
+	std::vector<double> total_avg_gap(algorithms.size(), 0.0);
+	std::vector<int> total_num_optimal(algorithms.size(), 0);
 	int total_num_instances = 0;
 
-	for(size_t j = 0; j < dirs.size(); j++)
+	for (size_t j = 0; j < dirs.size(); j++)
 	{
-		std::vector<std::vector<double>> time_per_algo(algorithms.size(),std::vector<double>());
-		std::vector<std::vector<double>> gap_per_algo(algorithms.size(),std::vector<double>());
-		std::vector<double> avg_time(algorithms.size(),0.0);
-		std::vector<double> avg_gap(algorithms.size(),0.0);
-		std::vector<double> st_dev(algorithms.size(),0.0);
+		std::vector<std::vector<double>> time_per_algo(algorithms.size(), std::vector<double>());
+		std::vector<std::vector<double>> gap_per_algo(algorithms.size(), std::vector<double>());
+		std::vector<double> avg_time(algorithms.size(), 0.0);
+		std::vector<double> avg_gap(algorithms.size(), 0.0);
+		std::vector<double> st_dev(algorithms.size(), 0.0);
 
-		std::vector<int> num_optimal(algorithms.size(),0);
+		std::vector<int> num_optimal(algorithms.size(), 0);
 
 		std::vector<std::string> instances;
 		std::string folder = dirs[j].substr(20);
-		AddInstancesFromDirectory(dirs[j],instances,false);
+		AddInstancesFromDirectory(dirs[j], instances, false);
 
-		total_num_instances+=(instances.size());
-		for(size_t i = 0; i < instances.size(); i++)
+		total_num_instances += (instances.size());
+		for (size_t i = 0; i < instances.size(); i++)
 		{
-			for(size_t j = 0; j < algorithms.size(); j++)
+			for (size_t j = 0; j < algorithms.size(); j++)
 			{
 				curr_file = ".//solutions//";
 				curr_file.append(folder);
 				curr_file.append("s_");
-				if(stop) curr_file.append("stop_");
+				if (stop)
+					curr_file.append("stop_");
 				curr_file.append(algorithms[j]);
 				curr_file.append("_");
 				curr_file.append(instances[i]);
-				//std::cout << curr_file << std::endl;
+				// std::cout << curr_file << std::endl;
 
 				std::fstream input;
-				input.open(curr_file.c_str(),std::fstream::in);
+				input.open(curr_file.c_str(), std::fstream::in);
 
-				if(!input.is_open())
+				if (!input.is_open())
 				{
 					std::cout << "Could not open file " << curr_file << std::endl;
 					throw 4;
@@ -588,37 +600,41 @@ void GenerateAlgorithmsLatexTable(std::vector<std::string> dirs, bool stop, doub
 				double lb = 0.0, ub = 0.0, time = 0.0, gap = 0.0;
 				std::string line;
 
-				getline(input,line);
+				getline(input, line);
 				size_t pos = line.find_first_of(":");
 				status = line.substr(pos + 2);
 
-				std::string::iterator end_pos = std::remove(status.begin(),status.end(),' ');
+				std::string::iterator end_pos = std::remove(status.begin(), status.end(), ' ');
 				status.erase(end_pos, status.end());
 
-				getline(input,line);
-				getline(input,line);
+				getline(input, line);
+				getline(input, line);
 				pos = line.find_first_of(":");
 				s_lb << line.substr(pos + 2);
-				if(s_lb.str() == "-inf") lb = -1;
-				else s_lb >> lb;
+				if (s_lb.str() == "-inf")
+					lb = -1;
+				else
+					s_lb >> lb;
 
-				getline(input,line);
+				getline(input, line);
 				pos = line.find_first_of(":");
 				s_ub << line.substr(pos + 2);
-				if(s_ub.str() == "inf") ub = -1;
-				else s_ub >> ub;
+				if (s_ub.str() == "inf")
+					ub = -1;
+				else
+					s_ub >> ub;
 
-				getline(input,line);
-				getline(input,line);
+				getline(input, line);
+				getline(input, line);
 				pos = line.find_first_of(":");
 				s_time << line.substr(pos + 2);
 				s_time >> time;
 
-				if((status != "OPTIMAL") && (status != "INFEASIBLE"))
+				if ((status != "OPTIMAL") && (status != "INFEASIBLE"))
 				{
-					if((!(double_equals(lb,-1))) && (!(double_equals(ub,-1))))
+					if ((!(double_equals(lb, -1))) && (!(double_equals(ub, -1))))
 					{
-						if(double_less(time,total_time_limit))
+						if (double_less(time, total_time_limit))
 						{
 							(num_optimal[j])++;
 							(total_num_optimal[j])++;
@@ -627,9 +643,14 @@ void GenerateAlgorithmsLatexTable(std::vector<std::string> dirs, bool stop, doub
 
 							total_avg_time[j] += time;
 							avg_time[j] += time;
-						}else gap = (100.0*(ub-lb))/ub;
-					}else gap = 100.0;
-				}else
+						}
+						else
+							gap = (100.0 * (ub - lb)) / ub;
+					}
+					else
+						gap = 100.0;
+				}
+				else
 				{
 					(num_optimal[j])++;
 					(total_num_optimal[j])++;
@@ -640,9 +661,9 @@ void GenerateAlgorithmsLatexTable(std::vector<std::string> dirs, bool stop, doub
 					avg_time[j] += time;
 				}
 
-				//std::cout << "lp: " << lp << " improvement: " << curr_improvement << std::endl;
+				// std::cout << "lp: " << lp << " improvement: " << curr_improvement << std::endl;
 
-				if(!double_equals(gap,0.0))
+				if (!double_equals(gap, 0.0))
 				{
 					gap_per_algo[j].push_back(gap);
 					total_gap_per_algo[j].push_back(gap);
@@ -654,36 +675,45 @@ void GenerateAlgorithmsLatexTable(std::vector<std::string> dirs, bool stop, doub
 				input.close();
 			}
 
-			//getchar();getchar();
+			// getchar();getchar();
 		}
 
-		output << j+1;
+		output << j + 1;
 
-		if(stop) output << "\\_5\\%";
+		if (stop)
+			output << "\\_5\\%";
 
-		for(size_t j = 0; j < algorithms.size(); j++)
+		for (size_t j = 0; j < algorithms.size(); j++)
 		{
-			if((time_per_algo[j]).size() > 0) avg_time[j]/=(1.0*((time_per_algo[j]).size()));
-			else avg_time[j] = -1;
-			if((gap_per_algo[j]).size() > 0)
+			if ((time_per_algo[j]).size() > 0)
+				avg_time[j] /= (1.0 * ((time_per_algo[j]).size()));
+			else
+				avg_time[j] = -1;
+			if ((gap_per_algo[j]).size() > 0)
 			{
-				avg_gap[j]/=(1.0*((gap_per_algo[j]).size()));
-				st_dev[j] = StDev(gap_per_algo[j],avg_gap[j]);
-			}else avg_gap[j] = st_dev[j] = -1;
+				avg_gap[j] /= (1.0 * ((gap_per_algo[j]).size()));
+				st_dev[j] = StDev(gap_per_algo[j], avg_gap[j]);
+			}
+			else
+				avg_gap[j] = st_dev[j] = -1;
 			output << " & & " << num_optimal[j] << "/" << instances.size() << " & " << avg_time[j] << " & " << avg_gap[j] << " & " << st_dev[j];
 		}
 		output << "\\\\" << std::endl;
 	}
 
 	output << "Total";
-	for(size_t j = 0; j < algorithms.size(); j++)
+	for (size_t j = 0; j < algorithms.size(); j++)
 	{
-		//std::cout << total_improvement_per_algo[j].size() << std::endl;
-		if((total_time_per_algo[j]).size() > 0) total_avg_time[j]/=(1.0*((total_time_per_algo[j]).size()));
-		else total_avg_time[j] = -1;
-		if((total_gap_per_algo[j]).size() > 0) total_avg_gap[j]/=(1.0*((total_gap_per_algo[j]).size()));
-		else total_avg_gap[j] = -1;
-		output << "& & " << total_num_optimal[j] << "/" << total_num_instances << " & " << total_avg_time[j] << " & " << total_avg_gap[j] << " & " << StDev(total_gap_per_algo[j],total_avg_gap[j]);
+		// std::cout << total_improvement_per_algo[j].size() << std::endl;
+		if ((total_time_per_algo[j]).size() > 0)
+			total_avg_time[j] /= (1.0 * ((total_time_per_algo[j]).size()));
+		else
+			total_avg_time[j] = -1;
+		if ((total_gap_per_algo[j]).size() > 0)
+			total_avg_gap[j] /= (1.0 * ((total_gap_per_algo[j]).size()));
+		else
+			total_avg_gap[j] = -1;
+		output << "& & " << total_num_optimal[j] << "/" << total_num_instances << " & " << total_avg_time[j] << " & " << total_avg_gap[j] << " & " << StDev(total_gap_per_algo[j], total_avg_gap[j]);
 	}
 
 	output << "\\\\" << std::endl;
@@ -701,58 +731,61 @@ void GenerateValidIneqsActiveLatexTable(std::vector<std::string> dirs, bool stop
 
 	std::fstream output;
 	std::string output_name;
-	if(stop) output_name = ".//tables//latex//stop_table_valid_ineq_active.txt";
-	else output_name = ".//tables//latex//table_valid_ineq_active.txt";
-	output.open(output_name.c_str(),std::fstream::out);
+	if (stop)
+		output_name = ".//tables//latex//stop_table_valid_ineq_active.txt";
+	else
+		output_name = ".//tables//latex//table_valid_ineq_active.txt";
+	output.open(output_name.c_str(), std::fstream::out);
 
-	if(!output.is_open())
+	if (!output.is_open())
 	{
 		std::cout << "Could not open file " << output_name << std::endl;
 		throw 1;
 	}
 
-	//std::cout << output_name << std::endl;
+	// std::cout << output_name << std::endl;
 
 	output << std::setprecision(2) << std::fixed;
 
-	std::vector<std::vector<double>> total_percentage_active_per_algo(algorithms.size(),std::vector<double>());
-	std::vector<double> total_avg_percentage_active(algorithms.size(),0.0);
+	std::vector<std::vector<double>> total_percentage_active_per_algo(algorithms.size(), std::vector<double>());
+	std::vector<double> total_avg_percentage_active(algorithms.size(), 0.0);
 
 	std::vector<int> total_num_active_per_algo(algorithms.size(), 0);
-	std::vector<int> total_count(algorithms.size(),0);
+	std::vector<int> total_count(algorithms.size(), 0);
 
-	for(size_t j = 0; j < dirs.size(); j++)
+	for (size_t j = 0; j < dirs.size(); j++)
 	{
-		std::vector<std::vector<double>> percentage_active_per_algo(algorithms.size(),std::vector<double>());
-		std::vector<double> avg_percentage_active(algorithms.size(),0.0);
-		std::vector<double> st_dev(algorithms.size(),0.0);
+		std::vector<std::vector<double>> percentage_active_per_algo(algorithms.size(), std::vector<double>());
+		std::vector<double> avg_percentage_active(algorithms.size(), 0.0);
+		std::vector<double> st_dev(algorithms.size(), 0.0);
 
 		std::vector<int> num_active_per_algo(algorithms.size(), 0);
-		std::vector<int> count(algorithms.size(),0);
+		std::vector<int> count(algorithms.size(), 0);
 
 		std::vector<std::string> instances;
 		std::string folder = dirs[j].substr(20);
-		AddInstancesFromDirectory(dirs[j],instances,false);
-		for(size_t i = 0; i < instances.size(); i++)
+		AddInstancesFromDirectory(dirs[j], instances, false);
+		for (size_t i = 0; i < instances.size(); i++)
 		{
-			//std::cout << "* " << instances[i] << std::endl;
+			// std::cout << "* " << instances[i] << std::endl;
 			int num_active = 0, num_total = 0;
 			double percentage_active = 0.0;
-			for(size_t j = 0; j < algorithms.size(); j++)
+			for (size_t j = 0; j < algorithms.size(); j++)
 			{
 				curr_file = ".//solutions//";
 				curr_file.append(folder);
 				curr_file.append("s_");
-				if(stop) curr_file.append("stop_");
+				if (stop)
+					curr_file.append("stop_");
 				curr_file.append(algorithms[j]);
 				curr_file.append("_");
 				curr_file.append(instances[i]);
-				//std::cout << curr_file << std::endl;
+				// std::cout << curr_file << std::endl;
 
 				std::fstream input;
-				input.open(curr_file.c_str(),std::fstream::in);
+				input.open(curr_file.c_str(), std::fstream::in);
 
-				if(!input.is_open())
+				if (!input.is_open())
 				{
 					std::cout << "Could not open file " << curr_file << std::endl;
 					throw 4;
@@ -762,55 +795,56 @@ void GenerateValidIneqsActiveLatexTable(std::vector<std::string> dirs, bool stop
 				int curr_active = 0, curr_total = 0;
 				std::string line;
 
-				for(int k = 0; k < 12; k++) getline(input,line);
+				for (int k = 0; k < 12; k++)
+					getline(input, line);
 				size_t pos = line.find_first_of(":"), pos2 = line.find_first_of("/");
 
-				s_active << line.substr(pos + 2,pos2 - pos -2);
+				s_active << line.substr(pos + 2, pos2 - pos - 2);
 				s_active >> num_active;
 
 				s_total << line.substr(pos2 + 1);
 				s_total >> num_total;
 
-				//std::cout << num_active << "/" << num_total << std::endl;
-				//getchar();getchar();
+				// std::cout << num_active << "/" << num_total << std::endl;
+				// getchar();getchar();
 
-				if(num_total != 0)
+				if (num_total != 0)
 				{
-					percentage_active = (num_active*1.0)/num_total;
+					percentage_active = (num_active * 1.0) / num_total;
 					percentage_active_per_algo[j].push_back(percentage_active);
 					total_percentage_active_per_algo[j].push_back(percentage_active);
 					total_avg_percentage_active[j] += percentage_active;
 					avg_percentage_active[j] += percentage_active;
 
-					(num_active_per_algo[j])+=num_active;
-					(total_num_active_per_algo[j])+=num_active;
+					(num_active_per_algo[j]) += num_active;
+					(total_num_active_per_algo[j]) += num_active;
 					(count[j])++;
 					(total_count[j])++;
 				}
 
-				//std::cout << "lp: " << lp << " improvement: " << curr_improvement << std::endl;
+				// std::cout << "lp: " << lp << " improvement: " << curr_improvement << std::endl;
 				input.close();
 			}
 		}
 
-		output << j+1;
+		output << j + 1;
 
-		for(size_t j = 0; j < algorithms.size(); j++)
+		for (size_t j = 0; j < algorithms.size(); j++)
 		{
-			avg_percentage_active[j]/=(1.0*((percentage_active_per_algo[j]).size()));
-			st_dev[j] = StDev(percentage_active_per_algo[j],avg_percentage_active[j]);
-			output << " & & " << (1.0*num_active_per_algo[j])/(count[j]) << " & " << avg_percentage_active[j] << " & " << st_dev[j];
+			avg_percentage_active[j] /= (1.0 * ((percentage_active_per_algo[j]).size()));
+			st_dev[j] = StDev(percentage_active_per_algo[j], avg_percentage_active[j]);
+			output << " & & " << (1.0 * num_active_per_algo[j]) / (count[j]) << " & " << avg_percentage_active[j] << " & " << st_dev[j];
 		}
 		output << "\\\\" << std::endl;
 	}
 
 	output << "Total";
 
-	for(size_t j = 0; j < algorithms.size(); j++)
+	for (size_t j = 0; j < algorithms.size(); j++)
 	{
-		//std::cout << total_improvement_per_algo[j].size() << std::endl;
-		total_avg_percentage_active[j]/=(1.0*((total_percentage_active_per_algo[j]).size()));
-		output << "& & " << (1.0*total_num_active_per_algo[j])/(total_count[j]) << " & " << total_avg_percentage_active[j] << " & " << StDev(total_percentage_active_per_algo[j],total_avg_percentage_active[j]);
+		// std::cout << total_improvement_per_algo[j].size() << std::endl;
+		total_avg_percentage_active[j] /= (1.0 * ((total_percentage_active_per_algo[j]).size()));
+		output << "& & " << (1.0 * total_num_active_per_algo[j]) / (total_count[j]) << " & " << total_avg_percentage_active[j] << " & " << StDev(total_percentage_active_per_algo[j], total_avg_percentage_active[j]);
 	}
 
 	output << "\\\\" << std::endl;
@@ -832,51 +866,55 @@ void GenerateValidIneqsImprovementsLatexTable(std::vector<std::string> dirs, boo
 
 	std::fstream output;
 	std::string output_name;
-	if(stop) output_name = ".//tables//latex//stop_table_valid_ineq_improvements.txt";
-	else output_name = ".//tables//latex//table_valid_ineq_improvements.txt";
-	output.open(output_name.c_str(),std::fstream::out);
+	if (stop)
+		output_name = ".//tables//latex//stop_table_valid_ineq_improvements.txt";
+	else
+		output_name = ".//tables//latex//table_valid_ineq_improvements.txt";
+	output.open(output_name.c_str(), std::fstream::out);
 
-	if(!output.is_open())
+	if (!output.is_open())
 	{
 		std::cout << "Could not open file " << output_name << std::endl;
 		throw 1;
 	}
 
-	//std::cout << output_name << std::endl;
+	// std::cout << output_name << std::endl;
 
 	output << std::setprecision(2) << std::fixed;
 
-	std::vector<std::vector<double>> total_improvement_per_algo(algorithms.size(),std::vector<double>()), total_improvement_per_algo2(algorithms.size(),std::vector<double>());
-	std::vector<double> total_avg_improvement(algorithms.size(),0.0), total_avg_improvement2(algorithms.size(),0.0);
+	std::vector<std::vector<double>> total_improvement_per_algo(algorithms.size(), std::vector<double>()), total_improvement_per_algo2(algorithms.size(), std::vector<double>());
+	std::vector<double> total_avg_improvement(algorithms.size(), 0.0), total_avg_improvement2(algorithms.size(), 0.0);
 
-	for(size_t j = 0; j < dirs.size(); j++)
+	for (size_t j = 0; j < dirs.size(); j++)
 	{
-		std::vector<std::vector<double>> improvement_per_algo(algorithms.size(),std::vector<double>()), improvement_per_algo2(algorithms.size(),std::vector<double>());
-		std::vector<double> avg_improvement(algorithms.size(),0.0),avg_improvement2(algorithms.size(),0.0);
-		std::vector<double> st_dev(algorithms.size(),0.0), st_dev2(algorithms.size(),0.0);
+		std::vector<std::vector<double>> improvement_per_algo(algorithms.size(), std::vector<double>()), improvement_per_algo2(algorithms.size(), std::vector<double>());
+		std::vector<double> avg_improvement(algorithms.size(), 0.0), avg_improvement2(algorithms.size(), 0.0);
+		std::vector<double> st_dev(algorithms.size(), 0.0), st_dev2(algorithms.size(), 0.0);
 
 		std::vector<std::string> instances;
 		std::string folder = dirs[j].substr(20);
-		AddInstancesFromDirectory(dirs[j],instances,false);
-		for(size_t i = 0; i < instances.size(); i++)
+		AddInstancesFromDirectory(dirs[j], instances, false);
+		for (size_t i = 0; i < instances.size(); i++)
 		{
-			double original_lp = 0.0, original_lp2 = 0.0;;
-			for(size_t j = 0; j < algorithms.size(); j++)
+			double original_lp = 0.0, original_lp2 = 0.0;
+			;
+			for (size_t j = 0; j < algorithms.size(); j++)
 			{
 				double curr_improvement = 0.0;
 				curr_file = ".//solutions//";
 				curr_file.append(folder);
 				curr_file.append("s_");
-				if(stop) curr_file.append("stop_");
+				if (stop)
+					curr_file.append("stop_");
 				curr_file.append(algorithms[j]);
 				curr_file.append("_");
 				curr_file.append(instances[i]);
-				//std::cout << curr_file << std::endl;
+				// std::cout << curr_file << std::endl;
 
 				std::fstream input;
-				input.open(curr_file.c_str(),std::fstream::in);
+				input.open(curr_file.c_str(), std::fstream::in);
 
-				if(!input.is_open())
+				if (!input.is_open())
 				{
 					std::cout << "Could not open file " << curr_file << std::endl;
 					throw 4;
@@ -887,38 +925,44 @@ void GenerateValidIneqsImprovementsLatexTable(std::vector<std::string> dirs, boo
 				double lp = 0.0;
 				std::string line;
 
-				getline(input,line);
+				getline(input, line);
 				size_t pos = line.find_first_of(":");
 				status = line.substr(pos + 2);
 
-				std::string::iterator end_pos = std::remove(status.begin(),status.end(),' ');
+				std::string::iterator end_pos = std::remove(status.begin(), status.end(), ' ');
 				status.erase(end_pos, status.end());
 
-				getline(input,line);
+				getline(input, line);
 				pos = line.find_first_of(":");
 				s_lp << line.substr(pos + 2);
 				s_lp >> lp;
 
-				if(j == 0)
+				if (j == 0)
 				{
-					if((double_equals(lp,-1)) || (status == "INFEASIBLE"))
+					if ((double_equals(lp, -1)) || (status == "INFEASIBLE"))
 					{
 						original_lp = -1.0;
-					}else original_lp = lp;
+					}
+					else
+						original_lp = lp;
 					curr_improvement = 0.0;
-				}else
+				}
+				else
 				{
-					if((double_equals(lp,-1)) || (status == "INFEASIBLE") || (double_equals(original_lp,-1)))
+					if ((double_equals(lp, -1)) || (status == "INFEASIBLE") || (double_equals(original_lp, -1)))
 					{
 						curr_improvement = 0.0;
-					}else
+					}
+					else
 					{
-						if(double_equals(original_lp,0.0)) curr_improvement = 0;
-						else curr_improvement = (100*(original_lp-lp))/original_lp;
+						if (double_equals(original_lp, 0.0))
+							curr_improvement = 0;
+						else
+							curr_improvement = (100 * (original_lp - lp)) / original_lp;
 					}
 				}
 
-				//std::cout << "lp: " << lp << " improvement: " << curr_improvement << std::endl;
+				// std::cout << "lp: " << lp << " improvement: " << curr_improvement << std::endl;
 
 				improvement_per_algo[j].push_back(curr_improvement);
 				total_improvement_per_algo[j].push_back(curr_improvement);
@@ -927,22 +971,23 @@ void GenerateValidIneqsImprovementsLatexTable(std::vector<std::string> dirs, boo
 				input.close();
 			}
 
-			for(size_t j = 0; j < algorithms2.size(); j++)
+			for (size_t j = 0; j < algorithms2.size(); j++)
 			{
 				double curr_improvement = 0.0;
 				curr_file = ".//solutions//";
 				curr_file.append(folder);
 				curr_file.append("s_");
-				if(stop) curr_file.append("stop_");
+				if (stop)
+					curr_file.append("stop_");
 				curr_file.append(algorithms2[j]);
 				curr_file.append("_");
 				curr_file.append(instances[i]);
-				//std::cout << curr_file << std::endl;
+				// std::cout << curr_file << std::endl;
 
 				std::fstream input;
-				input.open(curr_file.c_str(),std::fstream::in);
+				input.open(curr_file.c_str(), std::fstream::in);
 
-				if(!input.is_open())
+				if (!input.is_open())
 				{
 					std::cout << "Could not open file " << curr_file << std::endl;
 					throw 4;
@@ -953,40 +998,44 @@ void GenerateValidIneqsImprovementsLatexTable(std::vector<std::string> dirs, boo
 				double lp = 0.0;
 				std::string line;
 
-				getline(input,line);
+				getline(input, line);
 				size_t pos = line.find_first_of(":");
 				status = line.substr(pos + 2);
 
-				std::string::iterator end_pos = std::remove(status.begin(),status.end(),' ');
+				std::string::iterator end_pos = std::remove(status.begin(), status.end(), ' ');
 				status.erase(end_pos, status.end());
 
-				getline(input,line);
+				getline(input, line);
 				pos = line.find_first_of(":");
 				s_lp << line.substr(pos + 2);
 				s_lp >> lp;
 
-				if(j == 0)
+				if (j == 0)
 				{
-					if((double_equals(lp,-1)) || (status == "INFEASIBLE"))
+					if ((double_equals(lp, -1)) || (status == "INFEASIBLE"))
 					{
 						original_lp2 = -1.0;
-					}else original_lp2 = lp;
+					}
+					else
+						original_lp2 = lp;
 					curr_improvement = 0.0;
-				}else
+				}
+				else
 				{
-					if((double_equals(lp,-1)) || (status == "INFEASIBLE") || (double_equals(original_lp2,-1)))
+					if ((double_equals(lp, -1)) || (status == "INFEASIBLE") || (double_equals(original_lp2, -1)))
 					{
 						curr_improvement = 0.0;
-					}else
-					{
-						if(double_equals(original_lp2,0.0)) curr_improvement = 0;
-						else curr_improvement = (100*(original_lp2-lp))/original_lp2;
 					}
-
-
+					else
+					{
+						if (double_equals(original_lp2, 0.0))
+							curr_improvement = 0;
+						else
+							curr_improvement = (100 * (original_lp2 - lp)) / original_lp2;
+					}
 				}
 
-				//std::cout << "lp: " << lp << " improvement: " << curr_improvement << std::endl;
+				// std::cout << "lp: " << lp << " improvement: " << curr_improvement << std::endl;
 
 				improvement_per_algo2[j].push_back(curr_improvement);
 				total_improvement_per_algo2[j].push_back(curr_improvement);
@@ -995,39 +1044,39 @@ void GenerateValidIneqsImprovementsLatexTable(std::vector<std::string> dirs, boo
 				input.close();
 			}
 
-			//getchar();getchar();
+			// getchar();getchar();
 		}
 
-		output << j+1;
+		output << j + 1;
 
-		for(size_t j = 1; j < algorithms2.size(); j++)
+		for (size_t j = 1; j < algorithms2.size(); j++)
 		{
-			avg_improvement2[j]/=(1.0*(instances.size()));
-			st_dev2[j] = StDev(improvement_per_algo2[j],avg_improvement2[j]);
-			output << " & & "<< avg_improvement2[j] << " & " << st_dev2[j];
+			avg_improvement2[j] /= (1.0 * (instances.size()));
+			st_dev2[j] = StDev(improvement_per_algo2[j], avg_improvement2[j]);
+			output << " & & " << avg_improvement2[j] << " & " << st_dev2[j];
 		}
-		for(size_t j = 1; j < algorithms.size(); j++)
+		for (size_t j = 1; j < algorithms.size(); j++)
 		{
-			avg_improvement[j]/=(1.0*(instances.size()));
-			st_dev[j] = StDev(improvement_per_algo[j],avg_improvement[j]);
-			output << " & & "<< avg_improvement[j] << " & " << st_dev[j];
+			avg_improvement[j] /= (1.0 * (instances.size()));
+			st_dev[j] = StDev(improvement_per_algo[j], avg_improvement[j]);
+			output << " & & " << avg_improvement[j] << " & " << st_dev[j];
 		}
 		output << "\\\\" << std::endl;
 	}
 
 	output << "Total";
-	for(size_t j = 1; j < algorithms2.size(); j++)
+	for (size_t j = 1; j < algorithms2.size(); j++)
 	{
-		//std::cout << total_improvement_per_algo[j].size() << std::endl;
-		total_avg_improvement2[j]/=(1.0*((total_improvement_per_algo2[j]).size()));
-		output << "& & "<< total_avg_improvement2[j] << " & " << StDev(total_improvement_per_algo2[j],total_avg_improvement2[j]);
+		// std::cout << total_improvement_per_algo[j].size() << std::endl;
+		total_avg_improvement2[j] /= (1.0 * ((total_improvement_per_algo2[j]).size()));
+		output << "& & " << total_avg_improvement2[j] << " & " << StDev(total_improvement_per_algo2[j], total_avg_improvement2[j]);
 	}
 
-	for(size_t j = 1; j < algorithms.size(); j++)
+	for (size_t j = 1; j < algorithms.size(); j++)
 	{
-		//std::cout << total_improvement_per_algo[j].size() << std::endl;
-		total_avg_improvement[j]/=(1.0*((total_improvement_per_algo[j]).size()));
-		output << "& & "<< total_avg_improvement[j] << " & " << StDev(total_improvement_per_algo[j],total_avg_improvement[j]);
+		// std::cout << total_improvement_per_algo[j].size() << std::endl;
+		total_avg_improvement[j] /= (1.0 * ((total_improvement_per_algo[j]).size()));
+		output << "& & " << total_avg_improvement[j] << " & " << StDev(total_improvement_per_algo[j], total_avg_improvement[j]);
 	}
 
 	output << "\\\\" << std::endl;
@@ -1037,7 +1086,7 @@ void GenerateValidIneqsImprovementsLatexTable(std::vector<std::string> dirs, boo
 
 void GenerateGapsNodesCutsLatexTable(std::vector<std::string> dirs, bool stop, double time_limit)
 {
-	//std::cout << "3" << std::endl; getchar(); getchar();
+	// std::cout << "3" << std::endl; getchar(); getchar();
 	std::vector<std::string> algorithms;
 
 	algorithms.push_back("bc_b1");
@@ -1046,45 +1095,47 @@ void GenerateGapsNodesCutsLatexTable(std::vector<std::string> dirs, bool stop, d
 
 	std::fstream output;
 	std::string output_name;
-	if(stop) output_name = ".//tables//latex//stop_table_gaps_nodes_cuts.txt";
-	else output_name = ".//tables//latex//table_gaps_nodes_cuts.txt";
-	output.open(output_name.c_str(),std::fstream::out);
+	if (stop)
+		output_name = ".//tables//latex//stop_table_gaps_nodes_cuts.txt";
+	else
+		output_name = ".//tables//latex//table_gaps_nodes_cuts.txt";
+	output.open(output_name.c_str(), std::fstream::out);
 
-	if(!output.is_open())
+	if (!output.is_open())
 	{
 		std::cout << "Could not open file " << output_name << std::endl;
 		throw 1;
 	}
 
-	//std::cout << output_name << std::endl;
+	// std::cout << output_name << std::endl;
 
 	output << std::setprecision(2) << std::fixed;
 
-	for(size_t k = 0; k < algorithms.size(); k++)
+	for (size_t k = 0; k < algorithms.size(); k++)
 	{
 		std::vector<double> total_gaps;
 		double total_avg_gaps = 0.0;
 		std::vector<double> total_nodes;
 		double total_avg_nodes = 0.0;
-		std::vector<std::vector<double>> total_cuts(K_NUM_TYPES_CALLBACKS,std::vector<double>());
-		std::vector<double> total_avg_cuts(K_NUM_TYPES_CALLBACKS,0.0);
+		std::vector<std::vector<double>> total_cuts(K_NUM_TYPES_CALLBACKS, std::vector<double>());
+		std::vector<double> total_avg_cuts(K_NUM_TYPES_CALLBACKS, 0.0);
 
 		output << algorithms[k] << std::endl;
 
-		for(size_t j = 0; j < dirs.size(); j++)
+		for (size_t j = 0; j < dirs.size(); j++)
 		{
 			std::vector<double> gaps;
 			double avg_gaps = 0.0;
 			std::vector<double> nodes;
 			double avg_nodes = 0.0;
-			std::vector<std::vector<double>> cuts(K_NUM_TYPES_CALLBACKS,std::vector<double>());
-			std::vector<double> avg_cuts(K_NUM_TYPES_CALLBACKS,0.0);
+			std::vector<std::vector<double>> cuts(K_NUM_TYPES_CALLBACKS, std::vector<double>());
+			std::vector<double> avg_cuts(K_NUM_TYPES_CALLBACKS, 0.0);
 
 			std::vector<std::string> instances;
 			std::string folder = dirs[j].substr(20);
-			AddInstancesFromDirectory(dirs[j],instances,false);
+			AddInstancesFromDirectory(dirs[j], instances, false);
 
-			for(size_t i = 0; i < instances.size(); i++)
+			for (size_t i = 0; i < instances.size(); i++)
 			{
 				double lb = 0.0, ub = 0.0;
 				double curr_gap = 0.0, curr_nodes = 0.0, curr_cuts = 0.0, time = 0.0;
@@ -1092,17 +1143,18 @@ void GenerateGapsNodesCutsLatexTable(std::vector<std::string> dirs, bool stop, d
 				std::string curr_file = ".//solutions//";
 				curr_file.append(folder);
 				curr_file.append("s_");
-				if(stop) curr_file.append("stop_");
+				if (stop)
+					curr_file.append("stop_");
 				curr_file.append(algorithms[k]);
 				curr_file.append("_");
 				curr_file.append(instances[i]);
-				//std::cout << curr_file << std::endl;
+				// std::cout << curr_file << std::endl;
 
 				std::fstream input;
 
-				input.open(curr_file.c_str(),std::fstream::in);
+				input.open(curr_file.c_str(), std::fstream::in);
 
-				if(!input.is_open())
+				if (!input.is_open())
 				{
 					std::cout << "Could not open file " << curr_file << std::endl;
 					throw 4;
@@ -1113,63 +1165,73 @@ void GenerateGapsNodesCutsLatexTable(std::vector<std::string> dirs, bool stop, d
 
 				std::string line;
 
-				getline(input,line);
+				getline(input, line);
 				size_t pos = line.find_first_of(":");
 				status = line.substr(pos + 2);
 
-				std::string::iterator end_pos = std::remove(status.begin(),status.end(),' ');
+				std::string::iterator end_pos = std::remove(status.begin(), status.end(), ' ');
 				status.erase(end_pos, status.end());
 
-				getline(input,line);
-				getline(input,line);
+				getline(input, line);
+				getline(input, line);
 				pos = line.find_first_of(":");
 				s_lb << line.substr(pos + 2);
-				if(s_lb.str() == "-inf") lb = -1;
-				else s_lb >> lb;
+				if (s_lb.str() == "-inf")
+					lb = -1;
+				else
+					s_lb >> lb;
 
-				getline(input,line);
+				getline(input, line);
 				pos = line.find_first_of(":");
 				s_ub << line.substr(pos + 2);
-				if(s_ub.str() == "inf") ub = -1;
-				else s_ub >> ub;
+				if (s_ub.str() == "inf")
+					ub = -1;
+				else
+					s_ub >> ub;
 
-				getline(input,line);
-				getline(input,line);
+				getline(input, line);
+				getline(input, line);
 				pos = line.find_first_of(":");
 				s_time << line.substr(pos + 2);
 				s_time >> time;
 
-				if((status != "OPTIMAL") && (status != "INFEASIBLE"))
+				if ((status != "OPTIMAL") && (status != "INFEASIBLE"))
 				{
-					if((!(double_equals(lb,-1))) && (!(double_equals(ub,-1))))
+					if ((!(double_equals(lb, -1))) && (!(double_equals(ub, -1))))
 					{
-						if(double_less(time,time_limit))
+						if (double_less(time, time_limit))
 						{
 							curr_gap = 0.0;
-						}else curr_gap = (100.0*(ub-lb))/ub;
-					}else curr_gap = 100.0;
-				}else
+						}
+						else
+							curr_gap = (100.0 * (ub - lb)) / ub;
+					}
+					else
+						curr_gap = 100.0;
+				}
+				else
 				{
 					curr_gap = 0.0;
 				}
 
-				getline(input,line);
-				getline(input,line);
-				getline(input,line);
+				getline(input, line);
+				getline(input, line);
+				getline(input, line);
 
-				for(int l = 0; l < K_NUM_TYPES_CALLBACKS; ++l) getline(input,line);
+				for (int l = 0; l < K_NUM_TYPES_CALLBACKS; ++l)
+					getline(input, line);
 
-				getline(input,line);
-				getline(input,line);
+				getline(input, line);
+				getline(input, line);
 
 				// read cuts here
-				for(int l = 0; l < K_NUM_TYPES_CALLBACKS; ++l)
+				for (int l = 0; l < K_NUM_TYPES_CALLBACKS; ++l)
 				{
 					std::stringstream s_cuts;
-					getline(input,line);
+					getline(input, line);
 					pos = line.find_first_of(":");
 					size_t pos2 = line.find_first_of("/");
-					s_cuts << line.substr(pos + 2, pos2 - pos -2);
+					s_cuts << line.substr(pos + 2, pos2 - pos - 2);
 					curr_cuts = 0.0;
 					s_cuts >> curr_cuts;
 
@@ -1177,11 +1239,11 @@ void GenerateGapsNodesCutsLatexTable(std::vector<std::string> dirs, bool stop, d
 					total_cuts[l].push_back(curr_cuts);
 					avg_cuts[l] += curr_cuts;
 					total_avg_cuts[l] += curr_cuts;
-					//std::cout << line << " " << curr_cuts << std::endl;
-					//getchar();getchar();
+					// std::cout << line << " " << curr_cuts << std::endl;
+					// getchar();getchar();
 				}
 
-				getline(input,line);
+				getline(input, line);
 				pos = line.find_first_of(":");
 				s_nodes << line.substr(pos + 2);
 				s_nodes >> curr_nodes;
@@ -1198,185 +1260,190 @@ void GenerateGapsNodesCutsLatexTable(std::vector<std::string> dirs, bool stop, d
 
 				input.close();
 			}
-			//getchar();getchar();
+			// getchar();getchar();
 
 			avg_gaps /= (gaps.size());
 			avg_nodes /= (nodes.size());
-			output << j+1;
-			if(stop) output << "\\_5\\%";
+			output << j + 1;
+			if (stop)
+				output << "\\_5\\%";
 
-			output << " & & " << avg_gaps << " & " << StDev(gaps,avg_gaps) << " & & " << avg_nodes << " &";
+			output << " & & " << avg_gaps << " & " << StDev(gaps, avg_gaps) << " & & " << avg_nodes << " &";
 
-			for(int l = 0; l < K_NUM_TYPES_CALLBACKS; ++l)
+			for (int l = 0; l < K_NUM_TYPES_CALLBACKS; ++l)
 			{
-				if(algorithms[k] == "bc_b1")
+				if (algorithms[k] == "bc_b1")
 				{
-					if(l == K_TYPE_GCC_CUT)
+					if (l == K_TYPE_GCC_CUT)
 					{
-						avg_cuts[l]/= (cuts[l].size());
+						avg_cuts[l] /= (cuts[l].size());
 						output << " & " << avg_cuts[l];
 					}
 				}
 
-				if(algorithms[k] == "cb_csc3")
+				if (algorithms[k] == "cb_csc3")
 				{
-					if((l == K_TYPE_GCC_CUT) || (l == K_TYPE_CONFLICT_CUT) || (l == K_TYPE_COVER_BOUND_CUT))
+					if ((l == K_TYPE_GCC_CUT) || (l == K_TYPE_CONFLICT_CUT) || (l == K_TYPE_COVER_BOUND_CUT))
 					{
-						avg_cuts[l]/= (cuts[l].size());
+						avg_cuts[l] /= (cuts[l].size());
 						output << " & " << avg_cuts[l];
 					}
 				}
 
-				if(algorithms[k] == "cb2_csc3")
+				if (algorithms[k] == "cb2_csc3")
 				{
-					if((l == K_TYPE_CLIQUE_CONFLICT_CUT) || (l == K_TYPE_COVER_BOUND_CUT))
+					if ((l == K_TYPE_CLIQUE_CONFLICT_CUT) || (l == K_TYPE_COVER_BOUND_CUT))
 					{
-						avg_cuts[l]/= (cuts[l].size());
+						avg_cuts[l] /= (cuts[l].size());
 						output << " & " << avg_cuts[l];
 					}
 				}
-
 			}
 
-			output <<  "\\\\" << std::endl;
+			output << "\\\\" << std::endl;
 		}
 
 		total_avg_gaps /= (total_gaps.size());
 		total_avg_nodes /= (total_nodes.size());
-		output << " & & " << total_avg_gaps << " & " << StDev(total_gaps,total_avg_gaps) << " & & " << total_avg_nodes << " &";
+		output << " & & " << total_avg_gaps << " & " << StDev(total_gaps, total_avg_gaps) << " & & " << total_avg_nodes << " &";
 
-		for(int l = 0; l < K_NUM_TYPES_CALLBACKS; ++l)
+		for (int l = 0; l < K_NUM_TYPES_CALLBACKS; ++l)
 		{
-			if(algorithms[k] == "bc_b1")
+			if (algorithms[k] == "bc_b1")
 			{
-				if(l == K_TYPE_GCC_CUT)
+				if (l == K_TYPE_GCC_CUT)
 				{
-					total_avg_cuts[l]/= (total_cuts[l].size());
+					total_avg_cuts[l] /= (total_cuts[l].size());
 					output << " & " << total_avg_cuts[l];
 				}
 			}
 
-			if(algorithms[k] == "cb_csc3")
+			if (algorithms[k] == "cb_csc3")
 			{
-				if((l == K_TYPE_GCC_CUT) || (l == K_TYPE_CONFLICT_CUT) || (l == K_TYPE_COVER_BOUND_CUT))
+				if ((l == K_TYPE_GCC_CUT) || (l == K_TYPE_CONFLICT_CUT) || (l == K_TYPE_COVER_BOUND_CUT))
 				{
-					total_avg_cuts[l]/= (total_cuts[l].size());
+					total_avg_cuts[l] /= (total_cuts[l].size());
 					output << " & " << total_avg_cuts[l];
 				}
 			}
 
-			if(algorithms[k] == "cb2_csc3")
+			if (algorithms[k] == "cb2_csc3")
 			{
-				if((l == K_TYPE_CLIQUE_CONFLICT_CUT) || (l == K_TYPE_COVER_BOUND_CUT))
+				if ((l == K_TYPE_CLIQUE_CONFLICT_CUT) || (l == K_TYPE_COVER_BOUND_CUT))
 				{
-					total_avg_cuts[l]/= (total_cuts[l].size());
+					total_avg_cuts[l] /= (total_cuts[l].size());
 					output << " & " << total_avg_cuts[l];
 				}
 			}
 		}
 
-		output <<  "\\\\" << std::endl;
+		output << "\\\\" << std::endl;
 	}
 	output.close();
 }
 
 void GenerateRootPrimalAndDualGapsLatexTable(std::vector<std::string> dirs, bool stop, double time_limit, bool user_cuts)
 {
-	//std::cout << "3" << std::endl; getchar(); getchar();
-	std::vector<std::pair<std::string,std::string>> algorithms;
+	// std::cout << "3" << std::endl; getchar(); getchar();
+	std::vector<std::pair<std::string, std::string>> algorithms;
 
-	//algorithms.push_back(std::pair<std::string,std::string>("bc_b1_initial_primal_bound","bc_b1"));
-	algorithms.push_back(std::pair<std::string,std::string>("cb_csc3_initial_primal_bound","cb_csc3"));
-	algorithms.push_back(std::pair<std::string,std::string>("cb2_csc3_initial_primal_bound","cb2_csc3"));
+	// algorithms.push_back(std::pair<std::string,std::string>("bc_b1_initial_primal_bound","bc_b1"));
+	algorithms.push_back(std::pair<std::string, std::string>("cb_csc3_initial_primal_bound", "cb_csc3"));
+	algorithms.push_back(std::pair<std::string, std::string>("cb2_csc3_initial_primal_bound", "cb2_csc3"));
 
-	std::vector<std::pair<std::string,std::string>> algorithms2;
-	//algorithms2.push_back(std::pair<std::string,std::string>("bc_b1_initial_primal_bound","bc_b1"));
-	//algorithms2.push_back(std::pair<std::string,std::string>("cb_csc3_initial_primal_bound","cb_csc3"));
-	algorithms2.push_back(std::pair<std::string,std::string>("cb2_csc3_initial_primal_bound","cb2_csc3"));;
+	std::vector<std::pair<std::string, std::string>> algorithms2;
+	// algorithms2.push_back(std::pair<std::string,std::string>("bc_b1_initial_primal_bound","bc_b1"));
+	// algorithms2.push_back(std::pair<std::string,std::string>("cb_csc3_initial_primal_bound","cb_csc3"));
+	algorithms2.push_back(std::pair<std::string, std::string>("cb2_csc3_initial_primal_bound", "cb2_csc3"));
+	;
 
 	std::fstream output;
 	std::string output_name;
-	if(stop) output_name = ".//tables//latex//stop_table_primal_dual_gaps";
-	else output_name = ".//tables//latex//table_primal_dual_gaps";
+	if (stop)
+		output_name = ".//tables//latex//stop_table_primal_dual_gaps";
+	else
+		output_name = ".//tables//latex//table_primal_dual_gaps";
 
-    if(!user_cuts) output_name += "_no_user_cuts";
+	if (!user_cuts)
+		output_name += "_no_user_cuts";
 
-    output_name += ".txt";
+	output_name += ".txt";
 
-	output.open(output_name.c_str(),std::fstream::out);
+	output.open(output_name.c_str(), std::fstream::out);
 
-	if(!output.is_open())
+	if (!output.is_open())
 	{
 		std::cout << "Could not open file " << output_name << std::endl;
 		throw 1;
 	}
 
-	//std::cout << output_name << std::endl;
+	// std::cout << output_name << std::endl;
 
 	output << std::setprecision(2) << std::fixed;
 
-	std::vector<std::vector<double>> total_initial_gap_per_algo(algorithms.size(),std::vector<double>());
-	std::vector<std::vector<double>> total_initial_gap_per_algo_cplex_cuts(algorithms.size(),std::vector<double>());
-	std::vector<std::vector<double>> total_gap_per_algo(algorithms.size(),std::vector<double>());
-	std::vector<std::vector<double>> total_primal_gap_per_algo(algorithms.size(),std::vector<double>());
-	std::vector<std::vector<double>> total_dual_gap_per_algo(algorithms.size(),std::vector<double>());
-	std::vector<std::vector<double>> total_dual_gap_per_algo_no_cplex_cuts(algorithms.size(),std::vector<double>());
+	std::vector<std::vector<double>> total_initial_gap_per_algo(algorithms.size(), std::vector<double>());
+	std::vector<std::vector<double>> total_initial_gap_per_algo_cplex_cuts(algorithms.size(), std::vector<double>());
+	std::vector<std::vector<double>> total_gap_per_algo(algorithms.size(), std::vector<double>());
+	std::vector<std::vector<double>> total_primal_gap_per_algo(algorithms.size(), std::vector<double>());
+	std::vector<std::vector<double>> total_dual_gap_per_algo(algorithms.size(), std::vector<double>());
+	std::vector<std::vector<double>> total_dual_gap_per_algo_no_cplex_cuts(algorithms.size(), std::vector<double>());
 
-	std::vector<double> total_avg_initial_gap(algorithms.size(),0.0);
-	std::vector<double> total_avg_initial_gap_cplex_cuts(algorithms.size(),0.0);
-	std::vector<double> total_avg_gap(algorithms.size(),0.0);
-	std::vector<double> total_avg_primal_gap(algorithms.size(),0.0);
-	std::vector<double> total_avg_dual_gap(algorithms.size(),0.0);
-	std::vector<double> total_avg_dual_gap_no_cplex_cuts(algorithms.size(),0.0);
+	std::vector<double> total_avg_initial_gap(algorithms.size(), 0.0);
+	std::vector<double> total_avg_initial_gap_cplex_cuts(algorithms.size(), 0.0);
+	std::vector<double> total_avg_gap(algorithms.size(), 0.0);
+	std::vector<double> total_avg_primal_gap(algorithms.size(), 0.0);
+	std::vector<double> total_avg_dual_gap(algorithms.size(), 0.0);
+	std::vector<double> total_avg_dual_gap_no_cplex_cuts(algorithms.size(), 0.0);
 
-	for(size_t j = 0; j < dirs.size(); j++)
+	for (size_t j = 0; j < dirs.size(); j++)
 	{
-		std::vector<std::vector<double>> initial_gap_per_algo(algorithms.size(),std::vector<double>());
-		std::vector<std::vector<double>> initial_gap_per_algo_cplex_cuts(algorithms.size(),std::vector<double>());
-		std::vector<std::vector<double>> gap_per_algo(algorithms.size(),std::vector<double>());
-		std::vector<std::vector<double>> primal_gap_per_algo(algorithms.size(),std::vector<double>());
-		std::vector<std::vector<double>> dual_gap_per_algo(algorithms.size(),std::vector<double>());
-		std::vector<std::vector<double>> dual_gap_per_algo_no_cplex_cuts(algorithms.size(),std::vector<double>());
+		std::vector<std::vector<double>> initial_gap_per_algo(algorithms.size(), std::vector<double>());
+		std::vector<std::vector<double>> initial_gap_per_algo_cplex_cuts(algorithms.size(), std::vector<double>());
+		std::vector<std::vector<double>> gap_per_algo(algorithms.size(), std::vector<double>());
+		std::vector<std::vector<double>> primal_gap_per_algo(algorithms.size(), std::vector<double>());
+		std::vector<std::vector<double>> dual_gap_per_algo(algorithms.size(), std::vector<double>());
+		std::vector<std::vector<double>> dual_gap_per_algo_no_cplex_cuts(algorithms.size(), std::vector<double>());
 
-		std::vector<double> avg_initial_gap(algorithms.size(),0.0);
-		std::vector<double> avg_initial_gap_cplex_cuts(algorithms.size(),0.0);
-		std::vector<double> avg_gap(algorithms.size(),0.0);
-		std::vector<double> avg_primal_gap(algorithms.size(),0.0);
-		std::vector<double> avg_dual_gap(algorithms.size(),0.0);
-		std::vector<double> avg_dual_gap_no_cplex_cuts(algorithms.size(),0.0);
+		std::vector<double> avg_initial_gap(algorithms.size(), 0.0);
+		std::vector<double> avg_initial_gap_cplex_cuts(algorithms.size(), 0.0);
+		std::vector<double> avg_gap(algorithms.size(), 0.0);
+		std::vector<double> avg_primal_gap(algorithms.size(), 0.0);
+		std::vector<double> avg_dual_gap(algorithms.size(), 0.0);
+		std::vector<double> avg_dual_gap_no_cplex_cuts(algorithms.size(), 0.0);
 
-		std::vector<double> st_dev_initial_gap(algorithms.size(),0.0);
-		std::vector<double> st_dev_initial_gap_cplex_cuts(algorithms.size(),0.0);
-		std::vector<double> st_dev_gap(algorithms.size(),0.0);
-		std::vector<double> st_dev_primal_gap(algorithms.size(),0.0);
-		std::vector<double> st_dev_dual_gap(algorithms.size(),0.0);
-		std::vector<double> st_dev_dual_gap_no_cplex_cuts(algorithms.size(),0.0);
+		std::vector<double> st_dev_initial_gap(algorithms.size(), 0.0);
+		std::vector<double> st_dev_initial_gap_cplex_cuts(algorithms.size(), 0.0);
+		std::vector<double> st_dev_gap(algorithms.size(), 0.0);
+		std::vector<double> st_dev_primal_gap(algorithms.size(), 0.0);
+		std::vector<double> st_dev_dual_gap(algorithms.size(), 0.0);
+		std::vector<double> st_dev_dual_gap_no_cplex_cuts(algorithms.size(), 0.0);
 
 		std::vector<std::string> instances;
 		std::string folder = dirs[j].substr(20);
-		AddInstancesFromDirectory(dirs[j],instances,false);
+		AddInstancesFromDirectory(dirs[j], instances, false);
 
-		for(size_t i = 0; i < instances.size(); i++)
+		for (size_t i = 0; i < instances.size(); i++)
 		{
 			double root_lb = 0.0, root_ub2 = 0.0, root_ub = 0.0, best_lb = -1.0;
 			double lb = 0.0, ub = 0.0;
 
 			// find best primal bound
-			for(size_t j = 0; j < algorithms.size(); j++)
+			for (size_t j = 0; j < algorithms.size(); j++)
 			{
 				std::string curr_file = ".//solutions//";
 				curr_file.append(folder);
 				curr_file.append("s_");
-				if(stop) curr_file.append("stop_");
+				if (stop)
+					curr_file.append("stop_");
 				curr_file.append((algorithms[j]).second);
 				curr_file.append("_");
 				curr_file.append(instances[i]);
-				//std::cout << curr_file << std::endl;
+				// std::cout << curr_file << std::endl;
 
 				std::fstream input;
-				input.open(curr_file.c_str(),std::fstream::in);
+				input.open(curr_file.c_str(), std::fstream::in);
 
-				if(!input.is_open())
+				if (!input.is_open())
 				{
 					std::cout << "Could not open file " << curr_file << std::endl;
 					throw 4;
@@ -1386,29 +1453,32 @@ void GenerateRootPrimalAndDualGapsLatexTable(std::vector<std::string> dirs, bool
 				std::string status;
 				std::string line;
 
-				getline(input,line);
+				getline(input, line);
 				size_t pos = line.find_first_of(":");
 				status = line.substr(pos + 2);
 
-				std::string::iterator end_pos = std::remove(status.begin(),status.end(),' ');
+				std::string::iterator end_pos = std::remove(status.begin(), status.end(), ' ');
 				status.erase(end_pos, status.end());
 
-				//std::cout << status << std::endl;
-				getline(input,line);
-				getline(input,line);
+				// std::cout << status << std::endl;
+				getline(input, line);
+				getline(input, line);
 				pos = line.find_first_of(":");
 				s_lb1 << line.substr(pos + 2);
 
-				if(s_lb1.str() == "-inf") lb = -1.0;
-				else s_lb1 >> lb;
+				if (s_lb1.str() == "-inf")
+					lb = -1.0;
+				else
+					s_lb1 >> lb;
 
-				if((!double_equals(lb,-1.0)) && (status != "INFEASIBLE") && (double_greater(lb,best_lb))) best_lb = lb;
+				if ((!double_equals(lb, -1.0)) && (status != "INFEASIBLE") && (double_greater(lb, best_lb)))
+					best_lb = lb;
 
-				//std::cout << "best_lb: " << best_lb << std::endl;
+				// std::cout << "best_lb: " << best_lb << std::endl;
 				input.close();
 			}
 
-			for(size_t j = 0; j < algorithms2.size(); j++)
+			for (size_t j = 0; j < algorithms2.size(); j++)
 			{
 				double curr_initial_gap_cplex_cuts = 0.0, curr_initial_gap = 0.0, curr_gap = 0.0, curr_primal_gap = 0.0, curr_dual_gap = 0.0, curr_dual_gap_no_cplex_cuts = 0.0, time = 0.0;
 				ub = 0.0;
@@ -1420,140 +1490,174 @@ void GenerateRootPrimalAndDualGapsLatexTable(std::vector<std::string> dirs, bool
 				std::string curr_file = ".//solutions//";
 				curr_file.append(folder);
 				curr_file.append("s_");
-				if(stop) curr_file.append("stop_");
+				if (stop)
+					curr_file.append("stop_");
 				curr_file.append((algorithms2[j]).first);
 
-                if(!user_cuts) curr_file += "_no_user_cuts";
+				if (!user_cuts)
+					curr_file += "_no_user_cuts";
 				curr_file.append("_");
 				curr_file.append(instances[i]);
-				//std::cout << curr_file << std::endl;
+				// std::cout << curr_file << std::endl;
 
 				std::fstream input;
-				input.open(curr_file.c_str(),std::fstream::in);
+				input.open(curr_file.c_str(), std::fstream::in);
 
-				if(!input.is_open())
+				if (!input.is_open())
 				{
 					std::cout << "Could not open file " << curr_file << std::endl;
 					throw 4;
 				}
 
-
 				std::string status, status2;
 				std::string line;
 				std::stringstream s_root_lb, s_root_ub2;
 
-				getline(input,line);
+				getline(input, line);
 				size_t pos = line.find_first_of(":");
 				status = line.substr(pos + 2);
 
-				std::string::iterator end_pos = std::remove(status.begin(),status.end(),' ');
+				std::string::iterator end_pos = std::remove(status.begin(), status.end(), ' ');
 				status.erase(end_pos, status.end());
 
-				getline(input,line);
-				getline(input,line);
+				getline(input, line);
+				getline(input, line);
 
 				pos = line.find_first_of(":");
 				s_root_lb << line.substr(pos + 2);
-				if(s_root_lb.str() == "-inf") root_lb = -1.0;
-				else s_root_lb >> root_lb;
+				if (s_root_lb.str() == "-inf")
+					root_lb = -1.0;
+				else
+					s_root_lb >> root_lb;
 
-				getline(input,line);
+				getline(input, line);
 
 				pos = line.find_first_of(":");
 				s_root_ub2 << line.substr(pos + 2);
-				if(s_root_ub2.str() == "inf") root_ub2 = -1.0;
-				else s_root_ub2 >> root_ub2;
+				if (s_root_ub2.str() == "inf")
+					root_ub2 = -1.0;
+				else
+					s_root_ub2 >> root_ub2;
 
 				input.close();
 
 				curr_file = ".//solutions//";
 				curr_file.append(folder);
 				curr_file.append("s_");
-				if(stop) curr_file.append("stop_");
+				if (stop)
+					curr_file.append("stop_");
 				curr_file.append((algorithms2[j]).second);
 				curr_file.append("_");
 				curr_file.append(instances[i]);
-				//std::cout << curr_file << std::endl;
+				// std::cout << curr_file << std::endl;
 
-				input.open(curr_file.c_str(),std::fstream::in);
+				input.open(curr_file.c_str(), std::fstream::in);
 
-				if(!input.is_open())
+				if (!input.is_open())
 				{
 					std::cout << "Could not open file " << curr_file << std::endl;
 					throw 4;
 				}
 
 				std::stringstream s_root_ub, s_lb, s_ub, s_time;
-				getline(input,line);
+				getline(input, line);
 				pos = line.find_first_of(":");
 				status2 = line.substr(pos + 2);
 
-				std::string::iterator end_pos2 = std::remove(status2.begin(),status2.end(),' ');
+				std::string::iterator end_pos2 = std::remove(status2.begin(), status2.end(), ' ');
 				status2.erase(end_pos2, status2.end());
 
-				getline(input,line);
+				getline(input, line);
 
 				pos = line.find_first_of(":");
 				s_root_ub << line.substr(pos + 2);
-				if(s_root_ub.str() == "inf") root_ub = -1.0;
-				else s_root_ub >> root_ub;
+				if (s_root_ub.str() == "inf")
+					root_ub = -1.0;
+				else
+					s_root_ub >> root_ub;
 
-				getline(input,line);
+				getline(input, line);
 				pos = line.find_first_of(":");
 				s_lb << line.substr(pos + 2);
-				if(s_lb.str() == "-inf") lb = -1.0;
-				else s_lb >> lb;
+				if (s_lb.str() == "-inf")
+					lb = -1.0;
+				else
+					s_lb >> lb;
 
-				getline(input,line);
+				getline(input, line);
 				pos = line.find_first_of(":");
 				s_ub << line.substr(pos + 2);
-				if(s_ub.str() == "inf") ub = -1.0;
-				else s_ub >> ub;
+				if (s_ub.str() == "inf")
+					ub = -1.0;
+				else
+					s_ub >> ub;
 
-
-				getline(input,line);
-				getline(input,line);
+				getline(input, line);
+				getline(input, line);
 				pos = line.find_first_of(":");
 				s_time << line.substr(pos + 2);
 				s_time >> time;
 
-				if((status2 != "OPTIMAL") && (status2 != "INFEASIBLE"))
+				if ((status2 != "OPTIMAL") && (status2 != "INFEASIBLE"))
 				{
-					if((double_equals(ub,-1)) || (double_equals(lb,-1))) curr_gap = 100.0;
-					else if(double_equals(ub,0.0) || double_less(time,time_limit)) curr_gap = 0.0;
-					else curr_gap = (100*(ub - lb))/ub;
-				}else
+					if ((double_equals(ub, -1)) || (double_equals(lb, -1)))
+						curr_gap = 100.0;
+					else if (double_equals(ub, 0.0) || double_less(time, time_limit))
+						curr_gap = 0.0;
+					else
+						curr_gap = (100 * (ub - lb)) / ub;
+				}
+				else
 				{
 					curr_gap = 0.0;
 				}
 
-				if(status != "INFEASIBLE")
+				if (status != "INFEASIBLE")
 				{
-					if((double_equals(root_ub,-1)) || (double_equals(root_lb,-1))) curr_initial_gap = 100.0;
-					else if(double_equals(root_ub,0.0)) curr_initial_gap = 0.0;
-					else curr_initial_gap = (100*(root_ub - root_lb))/root_ub;
+					if ((double_equals(root_ub, -1)) || (double_equals(root_lb, -1)))
+						curr_initial_gap = 100.0;
+					else if (double_equals(root_ub, 0.0))
+						curr_initial_gap = 0.0;
+					else
+						curr_initial_gap = (100 * (root_ub - root_lb)) / root_ub;
 
-					if((double_equals(root_ub2,-1)) || (double_equals(root_lb,-1))) curr_initial_gap_cplex_cuts = 100.0;
-					else if(double_equals(root_ub2,0.0)) curr_initial_gap_cplex_cuts = 0.0;
-					else curr_initial_gap_cplex_cuts = (100*(root_ub2 - root_lb))/root_ub2;
-				}else curr_initial_gap = curr_initial_gap_cplex_cuts = 0.0;
+					if ((double_equals(root_ub2, -1)) || (double_equals(root_lb, -1)))
+						curr_initial_gap_cplex_cuts = 100.0;
+					else if (double_equals(root_ub2, 0.0))
+						curr_initial_gap_cplex_cuts = 0.0;
+					else
+						curr_initial_gap_cplex_cuts = (100 * (root_ub2 - root_lb)) / root_ub2;
+				}
+				else
+					curr_initial_gap = curr_initial_gap_cplex_cuts = 0.0;
 
-				if(!double_equals(best_lb,-1.0))
+				if (!double_equals(best_lb, -1.0))
 				{
-					if((double_equals(root_lb,-1)) || (double_equals(root_ub2,-1))) curr_primal_gap = 100.0;
-					else if(double_equals(root_ub2,0.0)) curr_primal_gap = 0.0;
-					else curr_primal_gap = (100*(best_lb - root_lb))/root_ub2;
+					if ((double_equals(root_lb, -1)) || (double_equals(root_ub2, -1)))
+						curr_primal_gap = 100.0;
+					else if (double_equals(root_ub2, 0.0))
+						curr_primal_gap = 0.0;
+					else
+						curr_primal_gap = (100 * (best_lb - root_lb)) / root_ub2;
 
-					if(double_equals(root_ub2,-1)) curr_dual_gap = 100.0;
-					else if(double_equals(root_ub2,0.0)) curr_dual_gap = 0.0;
-					else curr_dual_gap = (100*(root_ub2 - best_lb))/root_ub2;
+					if (double_equals(root_ub2, -1))
+						curr_dual_gap = 100.0;
+					else if (double_equals(root_ub2, 0.0))
+						curr_dual_gap = 0.0;
+					else
+						curr_dual_gap = (100 * (root_ub2 - best_lb)) / root_ub2;
 
-					if(double_equals(root_ub,-1)) curr_dual_gap_no_cplex_cuts = 100.0;
-					else if(double_equals(root_ub,0.0)) curr_dual_gap_no_cplex_cuts = 0.0;
-					else curr_dual_gap_no_cplex_cuts = (100*(root_ub - best_lb))/root_ub;
-				}else curr_primal_gap = curr_dual_gap = curr_dual_gap_no_cplex_cuts = 0.0;
+					if (double_equals(root_ub, -1))
+						curr_dual_gap_no_cplex_cuts = 100.0;
+					else if (double_equals(root_ub, 0.0))
+						curr_dual_gap_no_cplex_cuts = 0.0;
+					else
+						curr_dual_gap_no_cplex_cuts = (100 * (root_ub - best_lb)) / root_ub;
+				}
+				else
+					curr_primal_gap = curr_dual_gap = curr_dual_gap_no_cplex_cuts = 0.0;
 
-				//std::cout << "lp: " << lp << " improvement: " << curr_improvement << std::endl;
+				// std::cout << "lp: " << lp << " improvement: " << curr_improvement << std::endl;
 
 				initial_gap_per_algo[j].push_back(curr_initial_gap);
 				initial_gap_per_algo_cplex_cuts[j].push_back(curr_initial_gap_cplex_cuts);
@@ -1585,42 +1689,43 @@ void GenerateRootPrimalAndDualGapsLatexTable(std::vector<std::string> dirs, bool
 
 				input.close();
 			}
-			//getchar();getchar();
+			// getchar();getchar();
 		}
 
-		output << j+1;
-		if(stop) output << "\\_5\\%";
+		output << j + 1;
+		if (stop)
+			output << "\\_5\\%";
 
-		for(size_t k = 0; k < algorithms2.size(); k++)
+		for (size_t k = 0; k < algorithms2.size(); k++)
 		{
-			avg_initial_gap[k]/=(1.0*(instances.size()));
-			st_dev_initial_gap[k] = StDev(initial_gap_per_algo[k],avg_initial_gap[k]);
-			avg_initial_gap_cplex_cuts[k]/=(1.0*(instances.size()));
-			st_dev_initial_gap_cplex_cuts[k] = StDev(initial_gap_per_algo_cplex_cuts[k],avg_initial_gap_cplex_cuts[k]);
-			avg_gap[k]/=(1.0*(instances.size()));
-			st_dev_gap[k] = StDev(gap_per_algo[k],avg_gap[k]);
-			avg_primal_gap[k]/=(1.0*(instances.size()));
-			st_dev_primal_gap[k] = StDev(primal_gap_per_algo[k],avg_primal_gap[k]);
-			avg_dual_gap[k]/=(1.0*(instances.size()));
-			st_dev_dual_gap[k] = StDev(dual_gap_per_algo[k],avg_dual_gap[k]);
-			avg_dual_gap_no_cplex_cuts[k]/=(1.0*(instances.size()));
-			st_dev_dual_gap_no_cplex_cuts[k] = StDev(dual_gap_per_algo_no_cplex_cuts[k],avg_dual_gap_no_cplex_cuts[k]);
+			avg_initial_gap[k] /= (1.0 * (instances.size()));
+			st_dev_initial_gap[k] = StDev(initial_gap_per_algo[k], avg_initial_gap[k]);
+			avg_initial_gap_cplex_cuts[k] /= (1.0 * (instances.size()));
+			st_dev_initial_gap_cplex_cuts[k] = StDev(initial_gap_per_algo_cplex_cuts[k], avg_initial_gap_cplex_cuts[k]);
+			avg_gap[k] /= (1.0 * (instances.size()));
+			st_dev_gap[k] = StDev(gap_per_algo[k], avg_gap[k]);
+			avg_primal_gap[k] /= (1.0 * (instances.size()));
+			st_dev_primal_gap[k] = StDev(primal_gap_per_algo[k], avg_primal_gap[k]);
+			avg_dual_gap[k] /= (1.0 * (instances.size()));
+			st_dev_dual_gap[k] = StDev(dual_gap_per_algo[k], avg_dual_gap[k]);
+			avg_dual_gap_no_cplex_cuts[k] /= (1.0 * (instances.size()));
+			st_dev_dual_gap_no_cplex_cuts[k] = StDev(dual_gap_per_algo_no_cplex_cuts[k], avg_dual_gap_no_cplex_cuts[k]);
 			output << " & & " << avg_initial_gap_cplex_cuts[k] << " & " << st_dev_initial_gap_cplex_cuts[k] << " & & " << avg_primal_gap[k] << " & " << st_dev_primal_gap[k] << " & & " << avg_dual_gap[k] << " & " << st_dev_dual_gap[k];
 		}
 		output << "\\\\" << std::endl;
 	}
 
 	output << "Total";
-	for(size_t j = 0; j < algorithms2.size(); j++)
+	for (size_t j = 0; j < algorithms2.size(); j++)
 	{
-		//std::cout << total_improvement_per_algo[j].size() << std::endl;
-		total_avg_initial_gap[j]/=(1.0*((total_initial_gap_per_algo[j]).size()));
-		total_avg_initial_gap_cplex_cuts[j]/=(1.0*((total_initial_gap_per_algo_cplex_cuts[j]).size()));
-		total_avg_gap[j]/=(1.0*((total_gap_per_algo[j]).size()));
-		total_avg_primal_gap[j]/=(1.0*((total_primal_gap_per_algo[j]).size()));
-		total_avg_dual_gap[j]/=(1.0*((total_dual_gap_per_algo[j]).size()));
-		total_avg_dual_gap_no_cplex_cuts[j]/=(1.0*((total_dual_gap_per_algo_no_cplex_cuts[j]).size()));
-		output << "& & "<< total_avg_initial_gap_cplex_cuts[j] << " & " << StDev(total_initial_gap_per_algo_cplex_cuts[j],total_avg_initial_gap_cplex_cuts[j]) << "& & " << total_avg_primal_gap[j] << " & " << StDev(total_primal_gap_per_algo[j],total_avg_primal_gap[j]) << " & & " << total_avg_dual_gap[j] << " & " << StDev(total_dual_gap_per_algo[j],total_avg_dual_gap[j]);
+		// std::cout << total_improvement_per_algo[j].size() << std::endl;
+		total_avg_initial_gap[j] /= (1.0 * ((total_initial_gap_per_algo[j]).size()));
+		total_avg_initial_gap_cplex_cuts[j] /= (1.0 * ((total_initial_gap_per_algo_cplex_cuts[j]).size()));
+		total_avg_gap[j] /= (1.0 * ((total_gap_per_algo[j]).size()));
+		total_avg_primal_gap[j] /= (1.0 * ((total_primal_gap_per_algo[j]).size()));
+		total_avg_dual_gap[j] /= (1.0 * ((total_dual_gap_per_algo[j]).size()));
+		total_avg_dual_gap_no_cplex_cuts[j] /= (1.0 * ((total_dual_gap_per_algo_no_cplex_cuts[j]).size()));
+		output << "& & " << total_avg_initial_gap_cplex_cuts[j] << " & " << StDev(total_initial_gap_per_algo_cplex_cuts[j], total_avg_initial_gap_cplex_cuts[j]) << "& & " << total_avg_primal_gap[j] << " & " << StDev(total_primal_gap_per_algo[j], total_avg_primal_gap[j]) << " & & " << total_avg_dual_gap[j] << " & " << StDev(total_dual_gap_per_algo[j], total_avg_dual_gap[j]);
 	}
 
 	output << "\\\\" << std::endl;
@@ -1636,24 +1741,23 @@ void GenerateLPImprovementsLatexTable(std::vector<std::string> dirs, bool stop)
 	algorithms.push_back("relax_FBs_cb_csc3");
 	algorithms.push_back("relax_FBs_GCCs_cb_csc3");
 	algorithms.push_back("relax_FBs_CCs_cb_csc3");
-	//algorithms.push_back("relax_FBs_CCCs_cb_csc3");
+	// algorithms.push_back("relax_FBs_CCCs_cb_csc3");
 	algorithms.push_back("relax_FBs_LCIs_cb_csc3");
-	//algorithms.push_back("relax_FBs_AVICs_cb_csc3");
+	// algorithms.push_back("relax_FBs_AVICs_cb_csc3");
 
 	algorithms.push_back("relax_FBs_GCCs_CCs_cb_csc3");
 	algorithms.push_back("relax_FBs_GCCs_CCs_LCIs_cb_csc3");
-	//algorithms.push_back("relax_FBs_GCCs_CCs_LCIs_AVICs_cb_csc3");
-	//algorithms.push_back("relax_FBs_CCCs_LCIs_cb_csc3");
-	//algorithms.push_back("relax_FBs_CCCs_LCIs_AVICs_cb_csc3");*/
-	//algorithms.push_back("relax_5_cb_csc3");
+	// algorithms.push_back("relax_FBs_GCCs_CCs_LCIs_AVICs_cb_csc3");
+	// algorithms.push_back("relax_FBs_CCCs_LCIs_cb_csc3");
+	// algorithms.push_back("relax_FBs_CCCs_LCIs_AVICs_cb_csc3");*/
+	// algorithms.push_back("relax_5_cb_csc3");
 	/*algorithms.push_back("relax_6_cb_csc3");
 	algorithms.push_back("relax_7_cb_csc3");
 	algorithms.push_back("relax_8_cb_csc3");
 	algorithms.push_back("relax_9_cb_csc3");*/
 
-
-	//algorithms.push_back("cb_csc3");
-	//algorithms.push_back("cb_angle_0.03_clique_ccs_lcis_csc3");
+	// algorithms.push_back("cb_csc3");
+	// algorithms.push_back("cb_angle_0.03_clique_ccs_lcis_csc3");
 	/*algorithms.push_back("relax_all_gccs");
 	//algorithms.push_back("relax_all_gccs2");
 	//algorithms.push_back("relax_all_gccs3");
@@ -1670,79 +1774,82 @@ void GenerateLPImprovementsLatexTable(std::vector<std::string> dirs, bool stop)
 	algorithms.push_back("relax_maximum_clique_ccs_active_vertices_unilateral");
 	algorithms.push_back("relax_angle_0.1_maximum_clique_ccs_active_vertices_unilateral");
 	algorithms.push_back("relax_angle_0.05_clique_ccs_active_vertices_unilateral");*/
-	//algorithms.push_back("relax_csc3e");
-	//algorithms.push_back("relax_cb_csc3e"); // é o relax_clique_ccs_cb_csc3e
-	//algorithms.push_back("relax_clique_ccs_lcis_cb_csc3e");
-	//algorithms.push_back("relax_angle_0.03_clique_ccs_active_vertices_unilateral");
-	//algorithms.push_back("relax_lcis_clique_ccs_active_vertices_unilateral");
-	//algorithms.push_back("relax_clique_ccs");
-	//algorithms.push_back("relax_all_cb_csc3");
-	//algorithms.push_back("relax_all_maximal_cliques_ccs_cb_csc3");
-	//algorithms.push_back("relax_all_clique_ccs_cb_csc3");
-	//algorithms.push_back("relax_all_clique_ccs_cb_csc3_new");
-	//algorithms.push_back("relax_clique_ccs_cb_csc3");
-	//algorithms.push_back("relax_clique_ccs_lcis_cb_csc3");
-	//algorithms.push_back("relax_clique_ccs_cb_csc3_new_unilateral");
-	//algorithms.push_back("relax_clique_ccs_cb_csc3");
+	// algorithms.push_back("relax_csc3e");
+	// algorithms.push_back("relax_cb_csc3e"); // é o relax_clique_ccs_cb_csc3e
+	// algorithms.push_back("relax_clique_ccs_lcis_cb_csc3e");
+	// algorithms.push_back("relax_angle_0.03_clique_ccs_active_vertices_unilateral");
+	// algorithms.push_back("relax_lcis_clique_ccs_active_vertices_unilateral");
+	// algorithms.push_back("relax_clique_ccs");
+	// algorithms.push_back("relax_all_cb_csc3");
+	// algorithms.push_back("relax_all_maximal_cliques_ccs_cb_csc3");
+	// algorithms.push_back("relax_all_clique_ccs_cb_csc3");
+	// algorithms.push_back("relax_all_clique_ccs_cb_csc3_new");
+	// algorithms.push_back("relax_clique_ccs_cb_csc3");
+	// algorithms.push_back("relax_clique_ccs_lcis_cb_csc3");
+	// algorithms.push_back("relax_clique_ccs_cb_csc3_new_unilateral");
+	// algorithms.push_back("relax_clique_ccs_cb_csc3");
 	/*algorithms.push_back("relax_gccs_cb_csc3");
 	algorithms.push_back("relax_ccs_cb_csc3");
 	algorithms.push_back("relax_lcis_cb_csc3");
 	algorithms.push_back("relax_gccs_ccs_cb_csc3");
 	algorithms.push_back("relax_all_cb_csc3");*/
-	//algorithms.push_back("relax_cccs_cb_csc3");
-	//algorithms.push_back("relax_all_maximal_cliques_ccs_cb_csc3");
-	//algorithms.push_back("relax_gccs_all_maximal_cliques_ccs_cb_csc3");
+	// algorithms.push_back("relax_cccs_cb_csc3");
+	// algorithms.push_back("relax_all_maximal_cliques_ccs_cb_csc3");
+	// algorithms.push_back("relax_gccs_all_maximal_cliques_ccs_cb_csc3");
 
-	//algorithms.push_back("relax_3gccs_cb_csc3");
+	// algorithms.push_back("relax_3gccs_cb_csc3");
 
 	std::fstream output;
 	std::string output_name;
-	if(stop) output_name = ".//tables//latex//stop_table_LP_improvements.txt";
-	else output_name = ".//tables//latex//table_LP_improvements.txt";
-	output.open(output_name.c_str(),std::fstream::out);
+	if (stop)
+		output_name = ".//tables//latex//stop_table_LP_improvements.txt";
+	else
+		output_name = ".//tables//latex//table_LP_improvements.txt";
+	output.open(output_name.c_str(), std::fstream::out);
 
-	if(!output.is_open())
+	if (!output.is_open())
 	{
 		std::cout << "Could not open file " << output_name << std::endl;
 		throw 1;
 	}
 
-	//std::cout << output_name << std::endl;
+	// std::cout << output_name << std::endl;
 
 	output << std::setprecision(2) << std::fixed;
 
-	std::vector<std::vector<double>> total_improvement_per_algo(algorithms.size(),std::vector<double>());
-	std::vector<double> total_avg_improvement(algorithms.size(),0.0);
+	std::vector<std::vector<double>> total_improvement_per_algo(algorithms.size(), std::vector<double>());
+	std::vector<double> total_avg_improvement(algorithms.size(), 0.0);
 
-	for(size_t j = 0; j < dirs.size(); j++)
+	for (size_t j = 0; j < dirs.size(); j++)
 	{
-		std::vector<std::vector<double>> improvement_per_algo(algorithms.size(),std::vector<double>());
-		std::vector<double> avg_improvement(algorithms.size(),0.0);
-		std::vector<double> st_dev(algorithms.size(),0.0);
+		std::vector<std::vector<double>> improvement_per_algo(algorithms.size(), std::vector<double>());
+		std::vector<double> avg_improvement(algorithms.size(), 0.0);
+		std::vector<double> st_dev(algorithms.size(), 0.0);
 
 		std::vector<std::string> instances;
 		std::string folder = dirs[j].substr(20);
-		AddInstancesFromDirectory(dirs[j],instances,false);
-		for(size_t i = 0; i < instances.size(); i++)
+		AddInstancesFromDirectory(dirs[j], instances, false);
+		for (size_t i = 0; i < instances.size(); i++)
 		{
 			std::cout << instances[i] << std::endl;
 			double original_lp = 0.0;
-			for(size_t j = 0; j < algorithms.size(); j++)
+			for (size_t j = 0; j < algorithms.size(); j++)
 			{
 				double curr_improvement = 0.0;
 				curr_file = ".//solutions//";
 				curr_file.append(folder);
 				curr_file.append("s_");
-				if(stop) curr_file.append("stop_");
+				if (stop)
+					curr_file.append("stop_");
 				curr_file.append(algorithms[j]);
 				curr_file.append("_");
 				curr_file.append(instances[i]);
-				//std::cout << curr_file << std::endl;
+				// std::cout << curr_file << std::endl;
 
 				std::fstream input;
-				input.open(curr_file.c_str(),std::fstream::in);
+				input.open(curr_file.c_str(), std::fstream::in);
 
-				if(!input.is_open())
+				if (!input.is_open())
 				{
 					std::cout << "Could not open file " << curr_file << std::endl;
 					throw 4;
@@ -1753,44 +1860,53 @@ void GenerateLPImprovementsLatexTable(std::vector<std::string> dirs, bool stop)
 				double lp = 0.0;
 				std::string line;
 
-				getline(input,line);
+				getline(input, line);
 				size_t pos = line.find_first_of(":");
 				status = line.substr(pos + 2);
 
-				std::string::iterator end_pos = std::remove(status.begin(),status.end(),' ');
+				std::string::iterator end_pos = std::remove(status.begin(), status.end(), ' ');
 				status.erase(end_pos, status.end());
 
-				getline(input,line);
+				getline(input, line);
 				pos = line.find_first_of(":");
 				s_lp << line.substr(pos + 2);
 
-				if(s_lp.str() == "inf") lp = -1;
-				else s_lp >> lp;
+				if (s_lp.str() == "inf")
+					lp = -1;
+				else
+					s_lp >> lp;
 
-				if(j == 0)
+				if (j == 0)
 				{
-					if((double_equals(lp,-1)) || (status == "INFEASIBLE"))
+					if ((double_equals(lp, -1)) || (status == "INFEASIBLE"))
 					{
 						original_lp = -1.0;
-					}else original_lp = lp;
+					}
+					else
+						original_lp = lp;
 					curr_improvement = 0.0;
-				}else
+				}
+				else
 				{
-					if((double_equals(lp,-1)) || (status == "INFEASIBLE") || (double_equals(original_lp,-1)))
+					if ((double_equals(lp, -1)) || (status == "INFEASIBLE") || (double_equals(original_lp, -1)))
 					{
 						curr_improvement = -1;
-					}else
+					}
+					else
 					{
-						if(double_equals(original_lp,0.0)) curr_improvement = 0.0;
-						else curr_improvement = (100*(original_lp-lp))/original_lp;
+						if (double_equals(original_lp, 0.0))
+							curr_improvement = 0.0;
+						else
+							curr_improvement = (100 * (original_lp - lp)) / original_lp;
 
-						if(double_less(curr_improvement,0)) std::cout << original_lp << " - " << lp << std::endl;
+						if (double_less(curr_improvement, 0))
+							std::cout << original_lp << " - " << lp << std::endl;
 					}
 				}
 
-				//std::cout << "lp: " << lp << " improvement: " << curr_improvement << std::endl;
+				// std::cout << "lp: " << lp << " improvement: " << curr_improvement << std::endl;
 
-				if(!double_equals(curr_improvement,-1))
+				if (!double_equals(curr_improvement, -1))
 				{
 					improvement_per_algo[j].push_back(curr_improvement);
 					total_improvement_per_algo[j].push_back(curr_improvement);
@@ -1800,26 +1916,26 @@ void GenerateLPImprovementsLatexTable(std::vector<std::string> dirs, bool stop)
 				input.close();
 			}
 
-			//getchar();getchar();
+			// getchar();getchar();
 		}
 
-		output << j+1;
+		output << j + 1;
 
-		for(size_t j = 1; j < algorithms.size(); j++)
+		for (size_t j = 1; j < algorithms.size(); j++)
 		{
-			avg_improvement[j]/=(1.0*((improvement_per_algo[j]).size()));
-			st_dev[j] = StDev(improvement_per_algo[j],avg_improvement[j]);
-			output << " & & "<< avg_improvement[j] << " & " << st_dev[j];
+			avg_improvement[j] /= (1.0 * ((improvement_per_algo[j]).size()));
+			st_dev[j] = StDev(improvement_per_algo[j], avg_improvement[j]);
+			output << " & & " << avg_improvement[j] << " & " << st_dev[j];
 		}
 		output << "\\\\" << std::endl;
 	}
 
 	output << "Total";
-	for(size_t j = 1; j < algorithms.size(); j++)
+	for (size_t j = 1; j < algorithms.size(); j++)
 	{
-		//std::cout << total_improvement_per_algo[j].size() << std::endl;
-		total_avg_improvement[j]/=(1.0*((total_improvement_per_algo[j]).size()));
-		output << "& & "<< total_avg_improvement[j] << " & " << StDev(total_improvement_per_algo[j],total_avg_improvement[j]);
+		// std::cout << total_improvement_per_algo[j].size() << std::endl;
+		total_avg_improvement[j] /= (1.0 * ((total_improvement_per_algo[j]).size()));
+		output << "& & " << total_avg_improvement[j] << " & " << StDev(total_improvement_per_algo[j], total_avg_improvement[j]);
 	}
 
 	output << "\\\\" << std::endl;
@@ -1835,80 +1951,84 @@ void GenerateCutsConfigurationsPerInstanceResultsCSV(std::vector<std::string> di
 	algorithms.push_back("relax_FBs_cb_csc3");
 	algorithms.push_back("relax_FBs_GCCs_cb_csc3");
 	algorithms.push_back("relax_FBs_CCs_cb_csc3");
-	//algorithms.push_back("relax_FBs_CCCs_cb_csc3");
+	// algorithms.push_back("relax_FBs_CCCs_cb_csc3");
 	algorithms.push_back("relax_FBs_LCIs_cb_csc3");
-	//algorithms.push_back("relax_FBs_AVICs_cb_csc3");
+	// algorithms.push_back("relax_FBs_AVICs_cb_csc3");
 
 	algorithms.push_back("relax_FBs_GCCs_CCs_cb_csc3");
 	algorithms.push_back("relax_FBs_GCCs_CCs_LCIs_cb_csc3");
-	//algorithms.push_back("relax_FBs_GCCs_CCs_LCIs_AVICs_cb_csc3");
-	//algorithms.push_back("relax_FBs_CCCs_LCIs_cb_csc3");
-	//algorithms.push_back("relax_FBs_CCCs_LCIs_AVICs_cb_csc3");
+	// algorithms.push_back("relax_FBs_GCCs_CCs_LCIs_AVICs_cb_csc3");
+	// algorithms.push_back("relax_FBs_CCCs_LCIs_cb_csc3");
+	// algorithms.push_back("relax_FBs_CCCs_LCIs_AVICs_cb_csc3");
 
 	std::fstream output;
 	std::string output_name;
-	if(stop) output_name = ".//tables//CSV//stop_table_LP_bounds.csv";
-	else output_name = ".//tables//CSV//table_LP_bounds.csv";
-	output.open(output_name.c_str(),std::fstream::out);
+	if (stop)
+		output_name = ".//tables//CSV//stop_table_LP_bounds.csv";
+	else
+		output_name = ".//tables//CSV//table_LP_bounds.csv";
+	output.open(output_name.c_str(), std::fstream::out);
 
-	if(!output.is_open())
+	if (!output.is_open())
 	{
 		std::cout << "Could not open file " << output_name << std::endl;
 		throw 1;
 	}
 
-	//std::cout << output_name << std::endl;
+	// std::cout << output_name << std::endl;
 
-  output << "Configuration;";
+	output << "Configuration;";
 
-  for(size_t i = 0;  i < algorithms.size(); ++i)
-  {
-    output << i << ";";
-  }
+	for (size_t i = 0; i < algorithms.size(); ++i)
+	{
+		output << i << ";";
+	}
 
-  output << std::endl;
+	output << std::endl;
 
-  output << "Instance;";
+	output << "Instance;";
 
-  for(size_t i = 0;  i < algorithms.size(); ++i)
-    output << "upper bound;";
+	for (size_t i = 0; i < algorithms.size(); ++i)
+		output << "upper bound;";
 
-  output << std::endl;
+	output << std::endl;
 	output << std::setprecision(2) << std::fixed;
 
-	for(size_t j = 0; j < dirs.size(); j++)
+	for (size_t j = 0; j < dirs.size(); j++)
 	{
 
 		std::vector<std::string> instances;
 		std::string folder = dirs[j].substr(20);
-		AddInstancesFromDirectory(dirs[j],instances,false);
+		AddInstancesFromDirectory(dirs[j], instances, false);
 
-    std::sort(instances.begin(),instances.end());
+		std::sort(instances.begin(), instances.end());
 
-		for(size_t i = 0; i < instances.size(); i++)
+		for (size_t i = 0; i < instances.size(); i++)
 		{
 			std::cout << instances[i] << std::endl;
 
+			if (stop)
+				output << instances[i].substr(0, instances[i].size() - 4) << "_5%;";
+			else
+				output << instances[i].substr(0, instances[i].size() - 4) << ";";
 
-      if(stop) output << instances[i].substr(0,instances[i].size() - 4) << "_5%;";
-			else output << instances[i].substr(0,instances[i].size() - 4) << ";";
-
-			for(size_t j = 0; j < algorithms.size(); j++)
+			for (size_t j = 0; j < algorithms.size(); j++)
 			{
 				double curr_improvement = 0.0;
 				curr_file = ".//solutions//";
 				curr_file.append(folder);
 				curr_file.append("s_");
-				if(stop) curr_file.append("stop_");
+				if (stop)
+					curr_file.append("stop_");
 				curr_file.append(algorithms[j]);
 				curr_file.append("_");
 				curr_file.append(instances[i]);
-				//std::cout << curr_file << std::endl;
+				// std::cout << curr_file << std::endl;
 
 				std::fstream input;
-				input.open(curr_file.c_str(),std::fstream::in);
+				input.open(curr_file.c_str(), std::fstream::in);
 
-				if(!input.is_open())
+				if (!input.is_open())
 				{
 					std::cout << "Could not open file " << curr_file << std::endl;
 					throw 4;
@@ -1918,28 +2038,29 @@ void GenerateCutsConfigurationsPerInstanceResultsCSV(std::vector<std::string> di
 				std::string status;
 				std::string line;
 
-				getline(input,line);
+				getline(input, line);
 				size_t pos = line.find_first_of(":");
 				status = line.substr(pos + 2);
 
-				std::string::iterator end_pos = std::remove(status.begin(),status.end(),' ');
+				std::string::iterator end_pos = std::remove(status.begin(), status.end(), ' ');
 				status.erase(end_pos, status.end());
 
-				getline(input,line);
+				getline(input, line);
 				pos = line.find_first_of(":");
 				s_lp << line.substr(pos + 2);
 
-        if(status == "INFEASIBLE") output << " - ;";
-        else output << s_lp.str() << ";";
+				if (status == "INFEASIBLE")
+					output << " - ;";
+				else
+					output << s_lp.str() << ";";
 
-        //output << s_lp.str() << ";";
+				// output << s_lp.str() << ";";
 				input.close();
 			}
 
-			//getchar();getchar();
-      output << std::endl;
+			// getchar();getchar();
+			output << std::endl;
 		}
-
 	}
 
 	output.close();
@@ -1951,31 +2072,33 @@ void GenerateExactAlgorithmsPerInstanceResultsCSV(std::vector<std::string> dirs,
 	double time = 0.0;
 	double ub = 0.0, lb = 0.0;
 
-    std::vector<std::string> algorithms;
-    algorithms.push_back("bc_b1");
-    algorithms.push_back("cb_csc3");
-    /*algorithms.push_back("cb2_csc3");*/
+	std::vector<std::string> algorithms;
+	algorithms.push_back("bc_b1");
+	algorithms.push_back("cb_csc3");
+	/*algorithms.push_back("cb2_csc3");*/
 
-		/*std::string algo = "cb2_csc3_";
-		if(stop) algo += "stop_";
-		algo += "fp_cuts_alpha2_0_p_fixed_10_PR_ALNS_5000";
-		algorithms.push_back(algo);
+	/*std::string algo = "cb2_csc3_";
+	if(stop) algo += "stop_";
+	algo += "fp_cuts_alpha2_0_p_fixed_10_PR_ALNS_5000";
+	algorithms.push_back(algo);
 
-		algo = "cb2_csc3_";
-		if(stop) algo += "stop_";
-		algo += "fp_cuts_alpha2_100_p_fixed_10_PR_ALNS_5000";
-		algorithms.push_back(algo);*/
+	algo = "cb2_csc3_";
+	if(stop) algo += "stop_";
+	algo += "fp_cuts_alpha2_100_p_fixed_10_PR_ALNS_5000";
+	algorithms.push_back(algo);*/
 
 	std::fstream output;
 	std::string output_name;
 
-	//std::cout << output_name << std::endl;
+	// std::cout << output_name << std::endl;
 
-	if(stop) output_name = ".//tables//CSV//stop_exact_algorithms_per_instance.csv";
-	else output_name = ".//tables//CSV//exact_algorithms_per_instance.csv";
-	output.open(output_name.c_str(),std::fstream::out);
+	if (stop)
+		output_name = ".//tables//CSV//stop_exact_algorithms_per_instance.csv";
+	else
+		output_name = ".//tables//CSV//exact_algorithms_per_instance.csv";
+	output.open(output_name.c_str(), std::fstream::out);
 
-	if(!output.is_open())
+	if (!output.is_open())
 	{
 		std::cout << "Could not open file " << output_name << std::endl;
 		throw 1;
@@ -1984,9 +2107,9 @@ void GenerateExactAlgorithmsPerInstanceResultsCSV(std::vector<std::string> dirs,
 	output << std::setprecision(2) << std::fixed;
 
 	output << "Algorithm;";
-	for(size_t i = 0; i < algorithms.size(); ++i)
+	for (size_t i = 0; i < algorithms.size(); ++i)
 	{
-		for(size_t j = 0; j < 3; ++j)
+		for (size_t j = 0; j < 3; ++j)
 		{
 			output << algorithms[i] << ";";
 		}
@@ -1995,90 +2118,97 @@ void GenerateExactAlgorithmsPerInstanceResultsCSV(std::vector<std::string> dirs,
 	output << std::endl;
 
 	output << "Instance;";
-	for(size_t i = 0; i < algorithms.size(); ++i)
+	for (size_t i = 0; i < algorithms.size(); ++i)
 	{
-			output << "lb;ub;time(s);";
+		output << "lb;ub;time(s);";
 	}
 
 	output << std::endl;
 
-	for(size_t j = 0; j < dirs.size(); j++)
+	for (size_t j = 0; j < dirs.size(); j++)
 	{
 		std::vector<std::string> instances;
 		std::string folder = dirs[j].substr(20);
-		AddInstancesFromDirectory(dirs[j],instances,false);
+		AddInstancesFromDirectory(dirs[j], instances, false);
 
-		std::sort(instances.begin(),instances.end());
+		std::sort(instances.begin(), instances.end());
 
-		//output << folder << std::endl;
+		// output << folder << std::endl;
 
-		for(size_t i = 0; i < instances.size(); i++)
+		for (size_t i = 0; i < instances.size(); i++)
 		{
-			if(stop) output << instances[i].substr(0,instances[i].size() - 4) << "_5%;";
-			else output << instances[i].substr(0,instances[i].size() - 4) << ";";
+			if (stop)
+				output << instances[i].substr(0, instances[i].size() - 4) << "_5%;";
+			else
+				output << instances[i].substr(0, instances[i].size() - 4) << ";";
 
-            for(size_t k = 0; k < algorithms.size(); ++k)
-            {
-						    curr_file = ".//solutions//";
-						    curr_file.append(folder);
-						    curr_file.append("s_");
-						    if(stop) curr_file.append("stop_");
-			                curr_file.append(algorithms[k]);
-						    curr_file.append("_");
-						    curr_file.append(instances[i]);
-						    //std::cout << curr_file << std::endl;
+			for (size_t k = 0; k < algorithms.size(); ++k)
+			{
+				curr_file = ".//solutions//";
+				curr_file.append(folder);
+				curr_file.append("s_");
+				if (stop)
+					curr_file.append("stop_");
+				curr_file.append(algorithms[k]);
+				curr_file.append("_");
+				curr_file.append(instances[i]);
+				// std::cout << curr_file << std::endl;
 
-						    std::fstream input;
-						    input.open(curr_file.c_str(),std::fstream::in);
+				std::fstream input;
+				input.open(curr_file.c_str(), std::fstream::in);
 
-						    if(!input.is_open())
-						    {
-							    std::cout << "Could not open file " << curr_file << std::endl;
-							    throw 4;
-						    }
+				if (!input.is_open())
+				{
+					std::cout << "Could not open file " << curr_file << std::endl;
+					throw 4;
+				}
 
-						    std::stringstream s_lb, s_ub, s_time;
-						    std::string status;
-						    std::string line;
+				std::stringstream s_lb, s_ub, s_time;
+				std::string status;
+				std::string line;
 
-						    getline(input,line);
-						    size_t pos = line.find_first_of(":");
-						    status = line.substr(pos + 2);
+				getline(input, line);
+				size_t pos = line.find_first_of(":");
+				status = line.substr(pos + 2);
 
-						    std::string::iterator end_pos = std::remove(status.begin(),status.end(),' ');
-						    status.erase(end_pos, status.end());
+				std::string::iterator end_pos = std::remove(status.begin(), status.end(), ' ');
+				status.erase(end_pos, status.end());
 
-						    getline(input,line);
-						    getline(input,line);
-						    pos = line.find_first_of(":");
-						    s_lb << line.substr(pos + 2);
-						    getline(input,line);
-						    pos = line.find_first_of(":");
-						    s_ub << line.substr(pos + 2);
+				getline(input, line);
+				getline(input, line);
+				pos = line.find_first_of(":");
+				s_lb << line.substr(pos + 2);
+				getline(input, line);
+				pos = line.find_first_of(":");
+				s_ub << line.substr(pos + 2);
 
-						    getline(input,line);
-						    getline(input,line);
-						    pos = line.find_first_of(":");
-						    s_time << line.substr(pos + 2);
+				getline(input, line);
+				getline(input, line);
+				pos = line.find_first_of(":");
+				s_time << line.substr(pos + 2);
 
-						    s_time >> time;
-						    s_lb >> lb;
-						    s_ub >> ub;
-						    //gap1 = 0.0;
+				s_time >> time;
+				s_lb >> lb;
+				s_ub >> ub;
+				// gap1 = 0.0;
 
-						    //if((status != "OPTIMAL") && (status != "INFEASIBLE"))
-						    //{
-							    //if(!double_less(time,time_limit)) gap1 = (100.0*(ub-lb))/ub;
-						    //}
+				// if((status != "OPTIMAL") && (status != "INFEASIBLE"))
+				//{
+				// if(!double_less(time,time_limit)) gap1 = (100.0*(ub-lb))/ub;
+				//}
 
-			                if( ( (status == "OPTIMAL") || (double_less(time,7200))) && (!double_equals(lb,ub)) ) std::cout << algorithms[k] << "_" << instances[i] << " " << status << " " << time << "s " << lb << " != " << ub << std::endl;
+				if (((status == "OPTIMAL") || (double_less(time, 7200))) && (!double_equals(lb, ub)))
+					std::cout << algorithms[k] << "_" << instances[i] << " " << status << " " << time << "s " << lb << " != " << ub << std::endl;
 
-						    if(double_greater(time,7200)) time = 7200;
-						    if(status == "INFEASIBLE") output << " - ; - ; " << time << ";";
-						    else output << s_lb.str() << " ; " << s_ub.str() << " ; " << time << ";";
-						    input.close();
-            }
-            output << std::endl;
+				if (double_greater(time, 7200))
+					time = 7200;
+				if (status == "INFEASIBLE")
+					output << " - ; - ; " << time << ";";
+				else
+					output << s_lb.str() << " ; " << s_ub.str() << " ; " << time << ";";
+				input.close();
+			}
+			output << std::endl;
 		}
 	}
 	output.close();
@@ -2090,31 +2220,35 @@ void GenerateAppendixLatexTable(std::vector<std::string> dirs, bool stop, double
 	double time = 0.0;
 	double ub = 0.0, lb = 0.0;
 
-    std::vector<std::string> algorithms;
-    /*algorithms.push_back("bc_b1");
-    algorithms.push_back("cb_csc3");
-    algorithms.push_back("cb2_csc3");*/
+	std::vector<std::string> algorithms;
+	/*algorithms.push_back("bc_b1");
+	algorithms.push_back("cb_csc3");
+	algorithms.push_back("cb2_csc3");*/
 
-		std::string algo = "cb2_csc3_";
-		if(stop) algo += "stop_";
-		algo += "fp_cuts_alpha2_0_p_fixed_10_PR_ALNS_5000";
-		algorithms.push_back(algo);
+	std::string algo = "cb2_csc3_";
+	if (stop)
+		algo += "stop_";
+	algo += "fp_cuts_alpha2_0_p_fixed_10_PR_ALNS_5000";
+	algorithms.push_back(algo);
 
-		algo = "cb2_csc3_";
-		if(stop) algo += "stop_";
-		algo += "fp_cuts_alpha2_100_p_fixed_10_PR_ALNS_5000";
-		algorithms.push_back(algo);
+	algo = "cb2_csc3_";
+	if (stop)
+		algo += "stop_";
+	algo += "fp_cuts_alpha2_100_p_fixed_10_PR_ALNS_5000";
+	algorithms.push_back(algo);
 
 	std::fstream output;
 	std::string output_name;
 
-	//std::cout << output_name << std::endl;
+	// std::cout << output_name << std::endl;
 
-	if(stop) output_name = ".//tables//latex//stop_appendix.txt";
-	else output_name = ".//tables//latex//appendix.txt";
-	output.open(output_name.c_str(),std::fstream::out);
+	if (stop)
+		output_name = ".//tables//latex//stop_appendix.txt";
+	else
+		output_name = ".//tables//latex//appendix.txt";
+	output.open(output_name.c_str(), std::fstream::out);
 
-	if(!output.is_open())
+	if (!output.is_open())
 	{
 		std::cout << "Could not open file " << output_name << std::endl;
 		throw 1;
@@ -2122,167 +2256,175 @@ void GenerateAppendixLatexTable(std::vector<std::string> dirs, bool stop, double
 
 	output << std::setprecision(2) << std::fixed;
 
-	for(size_t j = 0; j < dirs.size(); j++)
+	for (size_t j = 0; j < dirs.size(); j++)
 	{
 		std::vector<std::string> instances;
 		std::string folder = dirs[j].substr(20);
-		AddInstancesFromDirectory(dirs[j],instances,false);
+		AddInstancesFromDirectory(dirs[j], instances, false);
 
-		std::sort(instances.begin(),instances.end());
+		std::sort(instances.begin(), instances.end());
 
-		//output << folder << std::endl;
+		// output << folder << std::endl;
 
-		for(size_t i = 0; i < instances.size(); i++)
+		for (size_t i = 0; i < instances.size(); i++)
 		{
-			if(stop) output << instances[i].substr(0,instances[i].size() - 4) << "\\_5\\%";
-			else output << instances[i].substr(0,instances[i].size() - 4);
+			if (stop)
+				output << instances[i].substr(0, instances[i].size() - 4) << "\\_5\\%";
+			else
+				output << instances[i].substr(0, instances[i].size() - 4);
 
-            for(size_t k = 0; k < algorithms.size(); ++k)
-            {
-			    curr_file = ".//solutions//";
-			    curr_file.append(folder);
-			    curr_file.append("s_");
-			    if(stop) curr_file.append("stop_");
-                curr_file.append(algorithms[k]);
-			    curr_file.append("_");
-			    curr_file.append(instances[i]);
-			    //std::cout << curr_file << std::endl;
+			for (size_t k = 0; k < algorithms.size(); ++k)
+			{
+				curr_file = ".//solutions//";
+				curr_file.append(folder);
+				curr_file.append("s_");
+				if (stop)
+					curr_file.append("stop_");
+				curr_file.append(algorithms[k]);
+				curr_file.append("_");
+				curr_file.append(instances[i]);
+				// std::cout << curr_file << std::endl;
 
-			    std::fstream input;
-			    input.open(curr_file.c_str(),std::fstream::in);
+				std::fstream input;
+				input.open(curr_file.c_str(), std::fstream::in);
 
-			    if(!input.is_open())
-			    {
-				    std::cout << "Could not open file " << curr_file << std::endl;
-				    throw 4;
-			    }
+				if (!input.is_open())
+				{
+					std::cout << "Could not open file " << curr_file << std::endl;
+					throw 4;
+				}
 
-			    std::stringstream s_lb, s_ub, s_time;
-			    std::string status;
-			    std::string line;
+				std::stringstream s_lb, s_ub, s_time;
+				std::string status;
+				std::string line;
 
-			    getline(input,line);
-			    size_t pos = line.find_first_of(":");
-			    status = line.substr(pos + 2);
+				getline(input, line);
+				size_t pos = line.find_first_of(":");
+				status = line.substr(pos + 2);
 
-			    std::string::iterator end_pos = std::remove(status.begin(),status.end(),' ');
-			    status.erase(end_pos, status.end());
+				std::string::iterator end_pos = std::remove(status.begin(), status.end(), ' ');
+				status.erase(end_pos, status.end());
 
-			    getline(input,line);
-			    getline(input,line);
-			    pos = line.find_first_of(":");
-			    s_lb << line.substr(pos + 2);
-			    getline(input,line);
-			    pos = line.find_first_of(":");
-			    s_ub << line.substr(pos + 2);
+				getline(input, line);
+				getline(input, line);
+				pos = line.find_first_of(":");
+				s_lb << line.substr(pos + 2);
+				getline(input, line);
+				pos = line.find_first_of(":");
+				s_ub << line.substr(pos + 2);
 
-			    getline(input,line);
-			    getline(input,line);
-			    pos = line.find_first_of(":");
-			    s_time << line.substr(pos + 2);
+				getline(input, line);
+				getline(input, line);
+				pos = line.find_first_of(":");
+				s_time << line.substr(pos + 2);
 
-			    s_time >> time;
-			    s_lb >> lb;
-			    s_ub >> ub;
-			    //gap1 = 0.0;
+				s_time >> time;
+				s_lb >> lb;
+				s_ub >> ub;
+				// gap1 = 0.0;
 
-			    //if((status != "OPTIMAL") && (status != "INFEASIBLE"))
-			    //{
-				    //if(!double_less(time,time_limit)) gap1 = (100.0*(ub-lb))/ub;
-			    //}
+				// if((status != "OPTIMAL") && (status != "INFEASIBLE"))
+				//{
+				// if(!double_less(time,time_limit)) gap1 = (100.0*(ub-lb))/ub;
+				//}
 
-                if( ( (status == "OPTIMAL") || (double_less(time,7200))) && (!double_equals(lb,ub)) ) std::cout << algorithms[k] << "_" << instances[i] << " " << status << " " << time << "s " << lb << " != " << ub << std::endl;
+				if (((status == "OPTIMAL") || (double_less(time, 7200))) && (!double_equals(lb, ub)))
+					std::cout << algorithms[k] << "_" << instances[i] << " " << status << " " << time << "s " << lb << " != " << ub << std::endl;
 
+				if (k != 0)
+					output << " & ";
+				if (double_greater(time, 7200))
+					time = 7200;
+				if (status == "INFEASIBLE")
+					output << " & -- & -- & " << time;
+				else
+					output << " & " << s_lb.str() << " & " << s_ub.str() << " & " << time;
+				input.close();
 
-                if(k != 0) output << " & ";
-			    if(double_greater(time,7200)) time = 7200;
-			    if(status == "INFEASIBLE") output << " & -- & -- & " << time;
-			    else output << " & " << s_lb.str() << " & " << s_ub.str() << " & " << time;
-			    input.close();
+				/*curr_file = ".//solutions//";
+				curr_file.append(folder);
+				curr_file.append("s_");
+				if(stop) curr_file.append("stop_");
+				curr_file.append("relax_none_cb_csc3_");
+				curr_file.append(instances[i]);
+				//std::cout << curr_file << std::endl;
 
-			    /*curr_file = ".//solutions//";
-			    curr_file.append(folder);
-			    curr_file.append("s_");
-			    if(stop) curr_file.append("stop_");
-			    curr_file.append("relax_none_cb_csc3_");
-			    curr_file.append(instances[i]);
-			    //std::cout << curr_file << std::endl;
+				input.open(curr_file.c_str(),std::fstream::in);
+				if(!input.is_open())
+				{
+					std::cout << "Could not open file " << curr_file << std::endl;
+					throw 4;
+				}
 
-			    input.open(curr_file.c_str(),std::fstream::in);
-			    if(!input.is_open())
-			    {
-				    std::cout << "Could not open file " << curr_file << std::endl;
-				    throw 4;
-			    }
+				std::stringstream s_lp, s_lp_cuts;
 
-			    std::stringstream s_lp, s_lp_cuts;
+				getline(input,line);
+				getline(input,line);
+				pos = line.find_first_of(":");
+				s_lp << line.substr(pos + 2);
 
-			    getline(input,line);
-			    getline(input,line);
-			    pos = line.find_first_of(":");
-			    s_lp << line.substr(pos + 2);
+				input.close();
 
-			    input.close();
+				curr_file = ".//solutions//";
+				curr_file.append(folder);
+				curr_file.append("s_");
+				if(stop) curr_file.append("stop_");
+				curr_file.append("cb_csc3_");
+				curr_file.append(instances[i]);
+				//std::cout << curr_file << std::endl;
 
-			    curr_file = ".//solutions//";
-			    curr_file.append(folder);
-			    curr_file.append("s_");
-			    if(stop) curr_file.append("stop_");
-			    curr_file.append("cb_csc3_");
-			    curr_file.append(instances[i]);
-			    //std::cout << curr_file << std::endl;
+				input.open(curr_file.c_str(),std::fstream::in);
+				if(!input.is_open())
+				{
+					std::cout << "Could not open file " << curr_file << std::endl;
+					throw 4;
+				}
 
-			    input.open(curr_file.c_str(),std::fstream::in);
-			    if(!input.is_open())
-			    {
-				    std::cout << "Could not open file " << curr_file << std::endl;
-				    throw 4;
-			    }
+				std::stringstream s_lb2, s_ub2, s_time2;
 
-			    std::stringstream s_lb2, s_ub2, s_time2;
+				getline(input,line);
+				pos = line.find_first_of(":");
+				status = line.substr(pos + 2);
 
-			    getline(input,line);
-			    pos = line.find_first_of(":");
-			    status = line.substr(pos + 2);
+				end_pos = std::remove(status.begin(),status.end(),' ');
+				status.erase(end_pos, status.end());
 
-			    end_pos = std::remove(status.begin(),status.end(),' ');
-			    status.erase(end_pos, status.end());
+				getline(input,line);
+				pos = line.find_first_of(":");
+				s_lp_cuts << line.substr(pos + 2);
+				getline(input,line);
+				pos = line.find_first_of(":");
+				s_lb2 << line.substr(pos + 2);
+				getline(input,line);
+				pos = line.find_first_of(":");
+				s_ub2 << line.substr(pos + 2);
 
-			    getline(input,line);
-			    pos = line.find_first_of(":");
-			    s_lp_cuts << line.substr(pos + 2);
-			    getline(input,line);
-			    pos = line.find_first_of(":");
-			    s_lb2 << line.substr(pos + 2);
-			    getline(input,line);
-			    pos = line.find_first_of(":");
-			    s_ub2 << line.substr(pos + 2);
+				getline(input,line);
+				getline(input,line);
+				pos = line.find_first_of(":");
+				s_time2 << line.substr(pos + 2);
 
-			    getline(input,line);
-			    getline(input,line);
-			    pos = line.find_first_of(":");
-			    s_time2 << line.substr(pos + 2);
+				s_time2 >> time;
 
-			    s_time2 >> time;
+				s_lb2 >> lb;
+				s_ub2 >> ub;
+				gap2 = 0.0;
 
-			    s_lb2 >> lb;
-			    s_ub2 >> ub;
-			    gap2 = 0.0;
+				if((status != "OPTIMAL") && (status != "INFEASIBLE"))
+				{
+					if(!double_less(time,time_limit)) gap2 = (100.0*(ub-lb))/ub;
+				}
 
-			    if((status != "OPTIMAL") && (status != "INFEASIBLE"))
-			    {
-				    if(!double_less(time,time_limit)) gap2 = (100.0*(ub-lb))/ub;
-			    }
-
-			    if(double_greater(time,7200)) time = 7200;
-			    if(status == "INFEASIBLE") output << "-- & -- & " << time << " & -- & --";
-			    else output << s_lb2.str() << " & " << s_ub2.str() << " & " << time << " & " << s_lp.str() << " & " << s_lp_cuts.str();*/
-			    //for(int i = 0; i < 10; i++) getline(input,line);
-            }
-            output << "\\\\" << std::endl;
+				if(double_greater(time,7200)) time = 7200;
+				if(status == "INFEASIBLE") output << "-- & -- & " << time << " & -- & --";
+				else output << s_lb2.str() << " & " << s_ub2.str() << " & " << time << " & " << s_lp.str() << " & " << s_lp_cuts.str();*/
+				// for(int i = 0; i < 10; i++) getline(input,line);
+			}
+			output << "\\\\" << std::endl;
 		}
 
-		if(j != dirs.size() - 1) output << "\\\\" << std::endl;
+		if (j != dirs.size() - 1)
+			output << "\\\\" << std::endl;
 	}
 	output.close();
 }
@@ -2292,75 +2434,75 @@ void GenerateCSVFile(std::string dir, double time_limit, bool stop)
 	std::string folder = dir.substr(20);
 
 	std::vector<std::string> instances;
-	AddInstancesFromDirectory(dir,instances,false);
-	std::sort(instances.begin(),instances.end());
+	AddInstancesFromDirectory(dir, instances, false);
+	std::sort(instances.begin(), instances.end());
 	std::string curr_file;
 
 	std::vector<std::string> algorithms;
 	/*algorithms.push_back("bcsc1");
 	algorithms.push_back("bcsc2");
 	algorithms.push_back("bcsc3");*/
-	//algorithms.push_back("bcsc4");
+	// algorithms.push_back("bcsc4");
 
 	/*algorithms.push_back("bcmc1");
 	algorithms.push_back("bcmc2");
 	algorithms.push_back("bcmc3");*/
-	//algorithms.push_back("bcmc4");
+	// algorithms.push_back("bcmc4");
 
-	//algorithms.push_back("bctc");
-	//algorithms.push_back("bcmtc");
+	// algorithms.push_back("bctc");
+	// algorithms.push_back("bcmtc");
 
-	//algorithms.push_back("csc1");
-	//algorithms.push_back("csc3");
-	//algorithms.push_back("csc4");
+	// algorithms.push_back("csc1");
+	// algorithms.push_back("csc3");
+	// algorithms.push_back("csc4");
 
-	//algorithms.push_back("cmc1");
-	//algorithms.push_back("cmc2");
+	// algorithms.push_back("cmc1");
+	// algorithms.push_back("cmc2");
 
-	//algorithms.push_back("ctc1");
-	//algorithms.push_back("ctc2");
+	// algorithms.push_back("ctc1");
+	// algorithms.push_back("ctc2");
 
-	//algorithms.push_back("cmtc1");
-	//algorithms.push_back("cmtc2");
+	// algorithms.push_back("cmtc1");
+	// algorithms.push_back("cmtc2");
 
-	//algorithms.push_back("kb");
+	// algorithms.push_back("kb");
 
-	//algorithms.push_back("b1");
-	//algorithms.push_back("b2");
+	// algorithms.push_back("b1");
+	// algorithms.push_back("b2");
 
 	/*algorithms.push_back("bcsc4");
 	algorithms.push_back("bcmc4");
 	algorithms.push_back("bctc");
 	algorithms.push_back("bcmtc");*/
-	//algorithms.push_back("csc3_relax1");
+	// algorithms.push_back("csc3_relax1");
 
 	/*algorithms.push_back("csc3_raw");
 	algorithms.push_back("csc3");
 	algorithms.push_back("csc3_avics");
 	algorithms.push_back("avics_csc3");*/
 
-	//algorithms.push_back("bc_csc3_heuristic_all_cuts");
-	//algorithms.push_back("csc3");
-	//algorithms.push_back("csc3_heuristic_advance_2");
-	//algorithms.push_back("cb_csc3_heuristic_avics_hard_coded_advance_2");
-	//algorithms.push_back("cb_csc3_heuristic_avics_cuts_advance_2");
+	// algorithms.push_back("bc_csc3_heuristic_all_cuts");
+	// algorithms.push_back("csc3");
+	// algorithms.push_back("csc3_heuristic_advance_2");
+	// algorithms.push_back("cb_csc3_heuristic_avics_hard_coded_advance_2");
+	// algorithms.push_back("cb_csc3_heuristic_avics_cuts_advance_2");
 
-	//algorithms.push_back("cb_csc3");
-	//algorithms.push_back("cb_csc3_heuristic");
-	//algorithms.push_back("cb_csc3_heuristic_advance_2");
-	//algorithms.push_back("cb_csc3_new_heuristic_advance_2");
+	// algorithms.push_back("cb_csc3");
+	// algorithms.push_back("cb_csc3_heuristic");
+	// algorithms.push_back("cb_csc3_heuristic_advance_2");
+	// algorithms.push_back("cb_csc3_new_heuristic_advance_2");
 
 	/*algorithms.push_back("cb_avics_gccs_ccs_lcis_csc3");
 	algorithms.push_back("cb_avics_clique_ccs_lcis_csc3");
 	algorithms.push_back("cb_angle_0.03_clique_ccs_lcis_csc3");*/
-	//algorithms.push_back("cb_avics_clique_ccs_lcis_csc3");
-	//algorithms.push_back("cb_heuristic");
-	//algorithms.push_back("cb_heuristic_advance_2");
-	//algorithms.push_back("cb_csc3_heuristic_avics_cover_advance_2");
+	// algorithms.push_back("cb_avics_clique_ccs_lcis_csc3");
+	// algorithms.push_back("cb_heuristic");
+	// algorithms.push_back("cb_heuristic_advance_2");
+	// algorithms.push_back("cb_csc3_heuristic_avics_cover_advance_2");
 	algorithms.push_back("bc_b1");
 	algorithms.push_back("cb_csc3");
-	//algorithms.push_back("cb2_csc3");
-	//algorithms.push_back("bc_b1");
+	// algorithms.push_back("cb2_csc3");
+	// algorithms.push_back("bc_b1");
 
 	std::string algo = "cb_csc3_";
 	/*if(stop) algo += "stop_";
@@ -2378,88 +2520,93 @@ void GenerateCSVFile(std::string dir, double time_limit, bool stop)
 	algorithms.push_back(algo);*/
 
 	algo = "cb2_csc3_";
-	if(stop) algo += "stop_";
+	if (stop)
+		algo += "stop_";
 	algo += "fp_cuts_alpha2_100_p_fixed_10_PR_ALNS_5000";
 	algorithms.push_back(algo);
 
-	//algorithms.push_back("cb_angle_0.03_clique_ccs_lcis_csc3");
+	// algorithms.push_back("cb_angle_0.03_clique_ccs_lcis_csc3");
 	/*algorithms.push_back("bc_branchcallback_csc3");
 	algorithms.push_back("bc_cutcallback_branchcallback_csc3");
 	algorithms.push_back("bc_cutcallback_csc3");
 	algorithms.push_back("bc_initialflowbounds_cutcallback_branchcallback_csc3");*/
-	//algorithms.push_back("st_bc_b1");
-	//algorithms.push_back("st_cb_csc3");
-	//algorithms.push_back("csc3_relax3");
-	//algorithms.push_back("cb_r3");
-	//algorithms.push_back("cb_r4");
+	// algorithms.push_back("st_bc_b1");
+	// algorithms.push_back("st_cb_csc3");
+	// algorithms.push_back("csc3_relax3");
+	// algorithms.push_back("cb_r3");
+	// algorithms.push_back("cb_r4");
 	/*algorithms.push_back("bc1_0.05_PREPROCESS_WITH_Y_b1");
 	algorithms.push_back("bc1_0.05_PREPROCESS_WITH_Y_csc3");
 	algorithms.push_back("bc4_0.6_0.1_PREPROCESS_WITH_Y_b1");
 	algorithms.push_back("bc4_0.6_0.1_PREPROCESS_WITH_Y_csc3");*/
-	//algorithms.push_back("csc4");
+	// algorithms.push_back("csc4");
 	/*algorithms.push_back("cmc2");
 	algorithms.push_back("ctc1");
 	algorithms.push_back("cmtc1");
 	algorithms.push_back("kb");*/
-	//algorithms.push_back("b2");
+	// algorithms.push_back("b2");
 
 	std::fstream output;
 	std::string output_name = ".//tables//CSV//";
 	output_name.append(folder);
-	if(stop) output_name.append("correct_table_stop.csv");
-	else output_name.append("correct_table_top.csv");
-	output.open(output_name.c_str(),std::fstream::out);
+	if (stop)
+		output_name.append("correct_table_stop.csv");
+	else
+		output_name.append("correct_table_top.csv");
+	output.open(output_name.c_str(), std::fstream::out);
 
-	if(!output.is_open())
+	if (!output.is_open())
 	{
 		std::cout << "Could not open file " << output_name << std::endl;
 		throw 1;
 	}
 
-	//std::cout << output_name << std::endl;
+	// std::cout << output_name << std::endl;
 
 	output << std::setprecision(2) << std::fixed;
 	output << "Formulation;;;;";
 
-	for(size_t j = 0; j < algorithms.size(); j++)
+	for (size_t j = 0; j < algorithms.size(); j++)
 	{
-		if(stop) algorithms[j] = "stop_" + algorithms[j];
-		output << algorithms[j] <<";" << algorithms[j] <<";" << algorithms[j] << ";" << algorithms[j] << ";" << algorithms[j] << ";" << algorithms[j] << ";;";
+		if (stop)
+			algorithms[j] = "stop_" + algorithms[j];
+		output << algorithms[j] << ";" << algorithms[j] << ";" << algorithms[j] << ";" << algorithms[j] << ";" << algorithms[j] << ";" << algorithms[j] << ";;";
 	}
 
-	output << std::endl << "Instance;T;m;;";
-	for(size_t j = 0; j < algorithms.size(); j++)
+	output << std::endl
+		   << "Instance;T;m;;";
+	for (size_t j = 0; j < algorithms.size(); j++)
 	{
 		output << "status;lp;lb;ub;gap;time(s);;";
 	}
 
 	output << std::endl;
 
-	for(size_t i = 0; i < instances.size(); i++)
+	for (size_t i = 0; i < instances.size(); i++)
 	{
 		curr_file = dir + instances[i];
 		double limit = 0.0;
 		int num_vehicles = 0;
 
 		std::fstream file;
-		file.open(curr_file.c_str(),std::fstream::in);
+		file.open(curr_file.c_str(), std::fstream::in);
 
-		if(file.is_open())
+		if (file.is_open())
 		{
 			std::stringstream parameter;
 			std::string line;
-			getline(file,line);
+			getline(file, line);
 
-			getline(file,line);
+			getline(file, line);
 
-			getline(file,line);
+			getline(file, line);
 			std::size_t pos_1 = line.find_first_of(" ");
 
 			parameter.clear();
 			parameter << line.substr(pos_1 + 1);
 			parameter >> num_vehicles;
 
-			getline(file,line);
+			getline(file, line);
 			pos_1 = line.find_first_of(" ");
 
 			parameter.clear();
@@ -2470,7 +2617,7 @@ void GenerateCSVFile(std::string dir, double time_limit, bool stop)
 		}
 
 		output << instances[i] << ";" << limit << ";" << num_vehicles << ";;";
-		for(size_t j = 0; j < algorithms.size(); j++)
+		for (size_t j = 0; j < algorithms.size(); j++)
 		{
 			curr_file = ".//solutions//";
 			curr_file.append(folder);
@@ -2478,15 +2625,20 @@ void GenerateCSVFile(std::string dir, double time_limit, bool stop)
 			curr_file.append(algorithms[j]);
 			curr_file.append("_");
 			curr_file.append(instances[i]);
-			//std::cout << curr_file << std::endl;
+			// std::cout << curr_file << std::endl;
 
 			std::fstream input;
 			std::cout << curr_file << std::endl;
-			input.open(curr_file.c_str(),std::fstream::in);
+			input.open(curr_file.c_str(), std::fstream::in);
 
-			if(!input.is_open())
+			if (!input.is_open())
 			{
-				output << ";" << ";" << ";" << ";" << ";" << ";;";
+				output << ";"
+					   << ";"
+					   << ";"
+					   << ";"
+					   << ";"
+					   << ";;";
 				continue;
 			}
 
@@ -2495,24 +2647,24 @@ void GenerateCSVFile(std::string dir, double time_limit, bool stop)
 			double lp, lb, ub, time, gap;
 			std::string line;
 
-			getline(input,line);
+			getline(input, line);
 			size_t pos = line.find_first_of(":");
 			status = line.substr(pos + 2);
 
-			getline(input,line);
+			getline(input, line);
 			pos = line.find_first_of(":");
 			s_lp << line.substr(pos + 2);
 
-			getline(input,line);
+			getline(input, line);
 			pos = line.find_first_of(":");
 			s_lb << line.substr(pos + 2);
 
-			getline(input,line);
+			getline(input, line);
 			pos = line.find_first_of(":");
 			s_ub << line.substr(pos + 2);
 
-			getline(input,line);
-			getline(input,line);
+			getline(input, line);
+			getline(input, line);
 			pos = line.find_first_of(":");
 			s_time << line.substr(pos + 2);
 
@@ -2521,20 +2673,31 @@ void GenerateCSVFile(std::string dir, double time_limit, bool stop)
 			s_ub >> ub;
 			s_time >> time;
 
-			std::string::iterator end_pos = std::remove(status.begin(),status.end(),' ');
+			std::string::iterator end_pos = std::remove(status.begin(), status.end(), ' ');
 			status.erase(end_pos, status.end());
 
-			if(double_equals(lp,-1)) output << status << ";" << "-" << ";";
-			else output << status << ";" << lp << ";";
-			if(double_less(time,time_limit)) status = "OPTIMAL";
+			if (double_equals(lp, -1))
+				output << status << ";"
+					   << "-"
+					   << ";";
+			else
+				output << status << ";" << lp << ";";
+			if (double_less(time, time_limit))
+				status = "OPTIMAL";
 
-			if(status != "INFEASIBLE")
+			if (status != "INFEASIBLE")
 			{
-				gap = (100.0*(ub - lb))/ub;
+				gap = (100.0 * (ub - lb)) / ub;
 
-				output << lb << ";" << ub << ";" <<  gap << ";" << time << ";;";
-			}else output << "-" << ";" << "-" << ";" <<  "-" << ";" << time << ";;";
-
+				output << lb << ";" << ub << ";" << gap << ";" << time << ";;";
+			}
+			else
+				output << "-"
+					   << ";"
+					   << "-"
+					   << ";"
+					   << "-"
+					   << ";" << time << ";;";
 		}
 		output << std::endl;
 	}
@@ -2542,82 +2705,87 @@ void GenerateCSVFile(std::string dir, double time_limit, bool stop)
 	output.close();
 }
 
-double RetrieveTimeSpentInFP(Instance& inst, std::string algo, std::string folder, std::string file_name)
+double RetrieveTimeSpentInFP(Instance &inst, std::string algo, std::string folder, std::string file_name)
 {
-		double t1 = 0.0, t2 = 0.0;
-		std::stringstream s_t1, s_t2;
+	double t1 = 0.0, t2 = 0.0;
+	std::stringstream s_t1, s_t2;
 
-    std::fstream input;
-    std::string path = ".//solutions";
-    path.append(folder);
-    //struct stat sb;
-    //if(stat(path.c_str(),&sb) != 0 || !S_ISDIR(sb.st_mode)) mkdir(path.c_str(),0777);
-    path.append("s_");
-    path.append(algo);
-    path.append("_");
-    path.append(file_name);
-	//std::cout << path << std::endl;
+	std::fstream input;
+	std::string path = ".//solutions";
+	path.append(folder);
+	// struct stat sb;
+	// if(stat(path.c_str(),&sb) != 0 || !S_ISDIR(sb.st_mode)) mkdir(path.c_str(),0777);
+	path.append("s_");
+	path.append(algo);
+	path.append("_");
+	path.append(file_name);
+	// std::cout << path << std::endl;
 
-    input.open(path.c_str(),std::fstream::in);
+	input.open(path.c_str(), std::fstream::in);
 
-		if(!(input.is_open())) throw "Error opening file 2";
-		std::string line;
-		for(int i = 1; i <= 7; ++i) getline(input,line);
+	if (!(input.is_open()))
+		throw "Error opening file 2";
+	std::string line;
+	for (int i = 1; i <= 7; ++i)
+		getline(input, line);
 
-		size_t pos = line.find_first_of(":");
-		s_t1 << line.substr(pos + 2);
-		s_t1 >> t1;
+	size_t pos = line.find_first_of(":");
+	s_t1 << line.substr(pos + 2);
+	s_t1 >> t1;
 
-		for(int i = 1; i <= 5; ++i) getline(input,line);
+	for (int i = 1; i <= 5; ++i)
+		getline(input, line);
 
-		pos = line.find_first_of(":");
-		s_t2 << line.substr(pos + 2);
-		s_t2 >> t2;
+	pos = line.find_first_of(":");
+	s_t2 << line.substr(pos + 2);
+	s_t2 >> t2;
 
-		input.close();
+	input.close();
 
-		//std::cout << path << std::endl;
-		//std::cout << t1 << std::endl;
-		//std::cout << t2 << std::endl;
-		return t1+t2;
+	// std::cout << path << std::endl;
+	// std::cout << t1 << std::endl;
+	// std::cout << t2 << std::endl;
+	return t1 + t2;
 }
 
-double RetrieveTimeSpentInLNS(Instance& inst, std::string algo, std::string folder, std::string file_name)
+double RetrieveTimeSpentInLNS(Instance &inst, std::string algo, std::string folder, std::string file_name)
 {
-		double time = 0.0;
-		std::stringstream s_time;
+	double time = 0.0;
+	std::stringstream s_time;
 
-    std::fstream input;
-    std::string path = ".//solutions";
-    path.append(folder);
-    //struct stat sb;
-    //if(stat(path.c_str(),&sb) != 0 || !S_ISDIR(sb.st_mode)) mkdir(path.c_str(),0777);
-    path.append("s_");
-    path.append(algo);
-    path.append("_");
-    path.append(file_name);
-	//std::cout << path << std::endl;
+	std::fstream input;
+	std::string path = ".//solutions";
+	path.append(folder);
+	// struct stat sb;
+	// if(stat(path.c_str(),&sb) != 0 || !S_ISDIR(sb.st_mode)) mkdir(path.c_str(),0777);
+	path.append("s_");
+	path.append(algo);
+	path.append("_");
+	path.append(file_name);
+	// std::cout << path << std::endl;
 
-    input.open(path.c_str(),std::fstream::in);
+	input.open(path.c_str(), std::fstream::in);
 
-		if(!(input.is_open())) throw "Error opening file 2";
-		std::string line;
-		for(int i = 1; i <= 5; ++i) getline(input,line);
+	if (!(input.is_open()))
+		throw "Error opening file 2";
+	std::string line;
+	for (int i = 1; i <= 5; ++i)
+		getline(input, line);
 
-		size_t pos = line.find_first_of(":");
-		s_time << line.substr(pos + 2);
-		s_time >> time;
-		input.close();
+	size_t pos = line.find_first_of(":");
+	s_time << line.substr(pos + 2);
+	s_time >> time;
+	input.close();
 
-		//std::cout << path << std::endl;
-		//std::cout << time << std::endl;
-		return time;
+	// std::cout << path << std::endl;
+	// std::cout << time << std::endl;
+	return time;
 }
 
-void AddInstances(std::vector<std::string> & instances)
+void AddInstances(std::vector<std::string> &instances)
 {
-	//AddInstancesFromDirectory(".//instances//STOP//unsolved//",instances);
-	AddInstancesFromDirectory(".//instances//STOP//current//",instances);
+	// AddInstancesFromDirectory(".//instances//STOP//unsolved//",instances);
+	AddInstancesFromDirectory(".//instances//STOP//current//", instances);
 	/*AddInstancesFromDirectory(".//instances//STOP//Set_21_234//Set_0.05//",instances);
 	AddInstancesFromDirectory(".//instances//STOP//Set_32_234//Set_0.05//",instances);
 	AddInstancesFromDirectory(".//instances//STOP//Set_33_234//Set_0.05//",instances);
@@ -2629,42 +2797,47 @@ void AddInstances(std::vector<std::string> & instances)
 
 std::string GenerateAlgorithmName()
 {
-	std::vector<bool> * CALLBACKS_SELECTION = GetCallbackSelection();
+	std::vector<bool> *CALLBACKS_SELECTION = GetCallbackSelection();
 	std::string algo;
 
-	if((*CALLBACKS_SELECTION)[K_TYPE_INITIAL_FLOW_BOUNDS_CUT]) algo += "FBs_";
-	if((*CALLBACKS_SELECTION)[K_TYPE_GCC_CUT]) algo += "GCCs_";
-	if((*CALLBACKS_SELECTION)[K_TYPE_CONFLICT_CUT]) algo += "CCs_";
-	if((*CALLBACKS_SELECTION)[K_TYPE_CLIQUE_CONFLICT_CUT]) algo += "CCCs_";
-	if((*CALLBACKS_SELECTION)[K_TYPE_COVER_BOUND_CUT]) algo += "LCIs_";
-	if((*CALLBACKS_SELECTION)[K_TYPE_INITIAL_ARC_VERTEX_INFERENCE_CUT]) algo += "AVICs_";
+	if ((*CALLBACKS_SELECTION)[K_TYPE_INITIAL_FLOW_BOUNDS_CUT])
+		algo += "FBs_";
+	if ((*CALLBACKS_SELECTION)[K_TYPE_GCC_CUT])
+		algo += "GCCs_";
+	if ((*CALLBACKS_SELECTION)[K_TYPE_CONFLICT_CUT])
+		algo += "CCs_";
+	if ((*CALLBACKS_SELECTION)[K_TYPE_CLIQUE_CONFLICT_CUT])
+		algo += "CCCs_";
+	if ((*CALLBACKS_SELECTION)[K_TYPE_COVER_BOUND_CUT])
+		algo += "LCIs_";
+	if ((*CALLBACKS_SELECTION)[K_TYPE_INITIAL_ARC_VERTEX_INFERENCE_CUT])
+		algo += "AVICs_";
 
 	return algo;
 }
 
 static const struct option longOpts[] = {
-	{ "compact", no_argument, NULL, 'a' },
-	{ "cutting-plane", no_argument, NULL, 'b' },
-	{ "branch-and-cut", no_argument, NULL, 'c' },
-	{ "baseline", no_argument, NULL, 'd' },
-	{ "capacity-based", no_argument, NULL, 'e' },
-	{ "time-limit", required_argument, NULL, 'f' },
-	{ "instance", required_argument, NULL, 'g' },
-	{ "generate-convex-hull", no_argument, NULL, 'h' },
-	{ "num-vehicles", required_argument, NULL, 'i' },
-	{ "service-time-deviation", required_argument, NULL, 'j' },
-	{ "uncertainty-budget", required_argument, NULL, 'k' },
-	{ "CCCs", no_argument, NULL, 'l' },
-	{ "AVICs", no_argument, NULL, 'm' },
-	{ "solve-relaxed", no_argument, NULL, 'n' },
-	{ "solve-benders", no_argument, NULL, 'o' },
-	{ "benders-generic-callback", no_argument, NULL, 'p' },
-	{ "combine-feas-opt-cuts", no_argument, NULL, 'q' },
-	{ "separate-benders-cuts-relaxation", no_argument, NULL, 'r' },
-	{ NULL, no_argument, NULL, 0 }
-};
+	{"compact", no_argument, NULL, 'a'},
+	{"cutting-plane", no_argument, NULL, 'b'},
+	{"branch-and-cut", no_argument, NULL, 'c'},
+	{"baseline", no_argument, NULL, 'd'},
+	{"capacity-based", no_argument, NULL, 'e'},
+	{"time-limit", required_argument, NULL, 'f'},
+	{"instance", required_argument, NULL, 'g'},
+	{"generate-convex-hull", no_argument, NULL, 'h'},
+	{"num-vehicles", required_argument, NULL, 'i'},
+	{"service-time-deviation", required_argument, NULL, 'j'},
+	{"uncertainty-budget", required_argument, NULL, 'k'},
+	{"CCCs", no_argument, NULL, 'l'},
+	{"AVICs", no_argument, NULL, 'm'},
+	{"solve-relaxed", no_argument, NULL, 'n'},
+	{"solve-benders", no_argument, NULL, 'o'},
+	{"benders-generic-callback", no_argument, NULL, 'p'},
+	{"combine-feas-opt-cuts", no_argument, NULL, 'q'},
+	{"separate-benders-cuts-relaxation", no_argument, NULL, 'r'},
+	{NULL, no_argument, NULL, 0}};
 
-void ParseArgumentsAndRun(int argc, char* argv[] )
+void ParseArgumentsAndRun(int argc, char *argv[])
 {
 	std::string instance, folder, file_name;
 	int c;
@@ -2676,195 +2849,209 @@ void ParseArgumentsAndRun(int argc, char* argv[] )
 	bool export_model = false;
 	bool separate_benders_cuts_relaxation = false;
 
-	std::vector<bool> * CALLBACKS_SELECTION = GetCallbackSelection();
+	std::vector<bool> *CALLBACKS_SELECTION = GetCallbackSelection();
 
-	while( ( c = getopt_long (argc, argv, "f:g:i:j:k:", longOpts, NULL) ) != -1 )
+	while ((c = getopt_long(argc, argv, "f:g:i:j:k:", longOpts, NULL)) != -1)
 	{
-		switch(c)
+		switch (c)
 		{
-			case 'a':
+		case 'a':
 			solve_compact = true;
 			break;
-			case 'b':
+		case 'b':
 			solve_cb = true;
 			break;
-			case 'c':
+		case 'c':
 			solve_bc = true;
 			break;
-			case 'd':
+		case 'd':
 			baseline = true;
 			break;
-			case 'e':
+		case 'e':
 			capacity_based = true;
 			break;
-			case 'f':
-			if(optarg) time_limit = std::atoi(optarg);
+		case 'f':
+			if (optarg)
+				time_limit = std::atoi(optarg);
 			break;
-			case 'g':
-			if(optarg) instance = std::string(optarg);
+		case 'g':
+			if (optarg)
+				instance = std::string(optarg);
 			break;
-			case 'h':
+		case 'h':
 			generate_convex_hull = true;
 			break;
-			case 'i':
-			if(optarg) num_vehicles = std::atoi(optarg);
+		case 'i':
+			if (optarg)
+				num_vehicles = std::atoi(optarg);
 			break;
-			case 'j':
-			if(optarg) service_time_deviation = std::atof(optarg);
+		case 'j':
+			if (optarg)
+				service_time_deviation = std::atof(optarg);
 			break;
-			case 'k':
-			if(optarg) uncertainty_budget = std::atoi(optarg);
+		case 'k':
+			if (optarg)
+				uncertainty_budget = std::atoi(optarg);
 			break;
-			case 'l':
+		case 'l':
 			(*CALLBACKS_SELECTION)[K_TYPE_CLIQUE_CONFLICT_CUT] = true;
 			break;
-			case 'm':
+		case 'm':
 			(*CALLBACKS_SELECTION)[K_TYPE_INITIAL_ARC_VERTEX_INFERENCE_CUT] = true;
 			break;
-			case 'n':
+		case 'n':
 			solve_relaxed = true;
 			break;
-			case 'o':
+		case 'o':
 			solve_benders = true;
 			break;
-			case 'p':
+		case 'p':
 			solve_generic_callback = true;
 			break;
-			case 'q':
+		case 'q':
 			combine_feas_opt_cuts = true;
 			break;
-			case 'r':
-			separate_benders_cuts_relaxation=true;
+		case 'r':
+			separate_benders_cuts_relaxation = true;
 			break;
 		}
 	}
 
-	if((solve_compact && solve_bc) || (solve_compact && solve_benders) || (solve_compact && solve_cb) ||
-		(solve_bc && solve_cb) ) throw 2;
-	if(baseline && capacity_based) throw 3;
-	if(baseline == capacity_based) throw 4;
+	if ((solve_compact && solve_bc) || (solve_compact && solve_benders) || (solve_compact && solve_cb) ||
+		(solve_bc && solve_cb))
+		throw 2;
+	if (baseline && capacity_based)
+		throw 3;
+	if (baseline == capacity_based)
+		throw 4;
 
-	split_file_path(instance,folder,file_name);
+	split_file_path(instance, folder, file_name);
 	std::cout << "* " << folder << " " << file_name << std::endl;
 
-	//std::cout << num_vehicles << " " << service_time_deviation << " " << uncertainty_budget << std::endl;
-	Instance inst(folder,file_name,num_vehicles,service_time_deviation,uncertainty_budget,false);
-	const Graph* graph = inst.graph();
+	// std::cout << num_vehicles << " " << service_time_deviation << " " << uncertainty_budget << std::endl;
+	Instance inst(folder, file_name, num_vehicles, service_time_deviation, uncertainty_budget, false);
+	const Graph *graph = inst.graph();
 	std::string instance_name = inst.GetInstanceName();
 	std::cout << instance_name << std::endl;
 
 	Solution<double> sol(graph->num_vertices());
 
-	double * R0 = Dijkstra(graph,false,false);
-	double * Rn = Dijkstra(graph,true,false);
+	double *R0 = Dijkstra(graph, false, false);
+	double *Rn = Dijkstra(graph, true, false);
 
-	if(solve_compact)
+	if (solve_compact)
 	{
-		if(baseline)
+		if (baseline)
 		{
-			std::list<UserCutGeneral*> * root_cuts = nullptr;
+			std::list<UserCutGeneral *> *root_cuts = nullptr;
 
 			// compute relaxation just to get limits at root node.
 			bool use_valid_inequalities = false;
 			bool find_root_cuts = false;
-			CompactBaseline(inst,R0,Rn,time_limit,true,use_valid_inequalities,find_root_cuts,nullptr,nullptr,force_use_all_vehicles,export_model,root_cuts,sol);
-	
-			if(!solve_relaxed)
-				CompactBaseline(inst,R0,Rn,time_limit,false,use_valid_inequalities,find_root_cuts,nullptr,nullptr,force_use_all_vehicles,export_model,root_cuts,sol);
+			CompactBaseline(inst, R0, Rn, time_limit, true, use_valid_inequalities, find_root_cuts, nullptr, nullptr, force_use_all_vehicles, export_model, root_cuts, sol);
+
+			if (!solve_relaxed)
+				CompactBaseline(inst, R0, Rn, time_limit, false, use_valid_inequalities, find_root_cuts, nullptr, nullptr, force_use_all_vehicles, export_model, root_cuts, sol);
 			std::string algo;
-			if(solve_relaxed) algo += "relax_";
+			if (solve_relaxed)
+				algo += "relax_";
 			algo += "baseline";
-			//std::cout << algo << std::endl;
-			sol.write_to_file(algo,"//",instance_name);
+			// std::cout << algo << std::endl;
+			sol.write_to_file(algo, "//", instance_name);
 		}
 
-		if(capacity_based)
+		if (capacity_based)
 		{
-			std::list<UserCutGeneral*> * root_cuts = nullptr;
+			std::list<UserCutGeneral *> *root_cuts = nullptr;
 
 			// compute relaxation just to get limits at root node.
 			bool use_valid_inequalities = false;
 			bool find_root_cuts = false;
-			CompactSingleCommodity(inst,R0,Rn,time_limit,true,use_valid_inequalities,find_root_cuts,nullptr,nullptr,force_use_all_vehicles,export_model,root_cuts,sol);
-	
-			if(!solve_relaxed)
-				CompactSingleCommodity(inst,R0,Rn,time_limit,false,use_valid_inequalities,find_root_cuts,nullptr,nullptr,force_use_all_vehicles,export_model, root_cuts,sol);
+			CompactSingleCommodity(inst, R0, Rn, time_limit, true, use_valid_inequalities, find_root_cuts, nullptr, nullptr, force_use_all_vehicles, export_model, root_cuts, sol);
+
+			if (!solve_relaxed)
+				CompactSingleCommodity(inst, R0, Rn, time_limit, false, use_valid_inequalities, find_root_cuts, nullptr, nullptr, force_use_all_vehicles, export_model, root_cuts, sol);
 			std::string algo;
-			if(solve_relaxed) algo += "relax_";
+			if (solve_relaxed)
+				algo += "relax_";
 			algo += "csc";
-			//std::cout << algo << std::endl;
-			sol.write_to_file(algo,"//",instance_name);
+			// std::cout << algo << std::endl;
+			sol.write_to_file(algo, "//", instance_name);
 		}
 	}
 
-	if(solve_cb && !solve_benders)
+	if (solve_cb && !solve_benders)
 	{
-		auto root_cuts = new std::list<UserCutGeneral*>();
+		auto root_cuts = new std::list<UserCutGeneral *>();
 
-		if(baseline)
+		if (baseline)
 		{
 			bool use_valid_inequalities = false;
 			bool find_root_cuts = true;
-			CompactBaseline(inst,R0,Rn,time_limit,true,use_valid_inequalities,find_root_cuts,nullptr,nullptr,force_use_all_vehicles,export_model,root_cuts,sol);
-	
-			if(time_limit != -1) time_limit = std::max(0.0, time_limit - sol.root_time_);
+			CompactBaseline(inst, R0, Rn, time_limit, true, use_valid_inequalities, find_root_cuts, nullptr, nullptr, force_use_all_vehicles, export_model, root_cuts, sol);
+
+			if (time_limit != -1)
+				time_limit = std::max(0.0, time_limit - sol.root_time_);
 			sol.milp_time_ = sol.root_time_;
 
 			use_valid_inequalities = true;
 			find_root_cuts = false;
-			if(!solve_relaxed)
-				CompactBaseline(inst,R0,Rn,time_limit,false,use_valid_inequalities,find_root_cuts,root_cuts,nullptr,force_use_all_vehicles,export_model,nullptr,sol);
+			if (!solve_relaxed)
+				CompactBaseline(inst, R0, Rn, time_limit, false, use_valid_inequalities, find_root_cuts, root_cuts, nullptr, force_use_all_vehicles, export_model, nullptr, sol);
 
 			std::string algo;
-			if(solve_relaxed) algo += "relax_";
+			if (solve_relaxed)
+				algo += "relax_";
 			algo += "cb_baseline";
-			//std::cout << algo << std::endl;
-			sol.write_to_file(algo,"//",instance_name);
+			// std::cout << algo << std::endl;
+			sol.write_to_file(algo, "//", instance_name);
 		}
 
-		if(capacity_based)
+		if (capacity_based)
 		{
 			bool use_valid_inequalities = false;
 			bool find_root_cuts = true;
-			
-			CompactSingleCommodity(inst,R0,Rn,time_limit,true,use_valid_inequalities,find_root_cuts,nullptr,nullptr,force_use_all_vehicles,export_model,root_cuts,sol);
-	
-			if(time_limit != -1) time_limit = std::max(0.0, time_limit - sol.root_time_);
+
+			CompactSingleCommodity(inst, R0, Rn, time_limit, true, use_valid_inequalities, find_root_cuts, nullptr, nullptr, force_use_all_vehicles, export_model, root_cuts, sol);
+
+			if (time_limit != -1)
+				time_limit = std::max(0.0, time_limit - sol.root_time_);
 			sol.milp_time_ = sol.root_time_;
 
 			use_valid_inequalities = true;
 			find_root_cuts = false;
-			if(!solve_relaxed)
-				CompactSingleCommodity(inst,R0,Rn,time_limit,false,use_valid_inequalities,find_root_cuts,root_cuts,nullptr,force_use_all_vehicles,export_model,nullptr,sol);
-	
+			if (!solve_relaxed)
+				CompactSingleCommodity(inst, R0, Rn, time_limit, false, use_valid_inequalities, find_root_cuts, root_cuts, nullptr, force_use_all_vehicles, export_model, nullptr, sol);
+
 			std::string algo;
-			if(solve_relaxed) algo += "relax_";
+			if (solve_relaxed)
+				algo += "relax_";
 			algo += "cb_csc";
-			//std::cout << algo << std::endl;
-			sol.write_to_file(algo,"//",instance_name);
+			// std::cout << algo << std::endl;
+			sol.write_to_file(algo, "//", instance_name);
 		}
 
 		DeleteCuts(root_cuts);
-		if(root_cuts != nullptr)
+		if (root_cuts != nullptr)
 		{
 			delete root_cuts;
 			root_cuts = nullptr;
 		}
 	}
 
-	if(solve_benders)
+	if (solve_benders)
 	{
-		auto root_cuts = new std::list<UserCutGeneral*>();
+		auto root_cuts = new std::list<UserCutGeneral *>();
 
 		BendersFormulation formulation;
 		std::string formulation_name;
 
-		if(baseline)
+		if (baseline)
 		{
 			formulation = BendersFormulation::baseline;
 			formulation_name = "baseline";
 		}
-		if(capacity_based)
+		if (capacity_based)
 		{
 			formulation = BendersFormulation::single_commodity;
 			formulation_name = "csc";
@@ -2872,120 +3059,122 @@ void ParseArgumentsAndRun(int argc, char* argv[] )
 
 		bool use_valid_inequalities = false;
 		bool find_root_cuts = false;
-		if(solve_cb)
+		if (solve_cb)
 		{
 			use_valid_inequalities = false;
 			find_root_cuts = true;
 
-			Benders(inst,formulation,R0,Rn,time_limit,solve_generic_callback,combine_feas_opt_cuts,separate_benders_cuts_relaxation,true,use_valid_inequalities,find_root_cuts,nullptr,nullptr,force_use_all_vehicles,export_model,root_cuts,sol);
-		
-			if(time_limit != -1) time_limit = std::max(0.0, time_limit - sol.root_time_);
+			Benders(inst, formulation, R0, Rn, time_limit, solve_generic_callback, combine_feas_opt_cuts, separate_benders_cuts_relaxation, true, use_valid_inequalities, find_root_cuts, nullptr, nullptr, force_use_all_vehicles, export_model, root_cuts, sol);
+
+			if (time_limit != -1)
+				time_limit = std::max(0.0, time_limit - sol.root_time_);
 			sol.milp_time_ = sol.root_time_;
 
 			use_valid_inequalities = true;
 			find_root_cuts = false;
-		}else if (solve_relaxed)
+		}
+		else if (solve_relaxed)
 		{
-			Benders(inst,formulation,R0,Rn,time_limit,solve_generic_callback,combine_feas_opt_cuts,separate_benders_cuts_relaxation,true,use_valid_inequalities,find_root_cuts,nullptr,nullptr,force_use_all_vehicles,export_model,root_cuts,sol);
+			Benders(inst, formulation, R0, Rn, time_limit, solve_generic_callback, combine_feas_opt_cuts, separate_benders_cuts_relaxation, true, use_valid_inequalities, find_root_cuts, nullptr, nullptr, force_use_all_vehicles, export_model, root_cuts, sol);
 		}
 
-		if(!solve_relaxed)
-			Benders(inst,formulation,R0,Rn,time_limit,solve_generic_callback,combine_feas_opt_cuts,separate_benders_cuts_relaxation,false,use_valid_inequalities,find_root_cuts,root_cuts,nullptr,force_use_all_vehicles,export_model,nullptr,sol);
+		if (!solve_relaxed)
+			Benders(inst, formulation, R0, Rn, time_limit, solve_generic_callback, combine_feas_opt_cuts, separate_benders_cuts_relaxation, false, use_valid_inequalities, find_root_cuts, root_cuts, nullptr, force_use_all_vehicles, export_model, nullptr, sol);
 
 		// std::cout << "# opt cuts: " << sol.num_benders_opt_cuts_ << std::endl;
 		// std::cout << "# feas cuts: " << sol.num_benders_feas_cuts_ << std::endl;
 		// std::cout << "num cuts: " << sol.num_cuts_found_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << "/" << sol.num_cuts_added_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << std::endl;
 
 		std::string algo;
-		if(solve_relaxed)
+		if (solve_relaxed)
 			algo += "relax_";
-		if(solve_bc)
+		if (solve_bc)
 			algo += "cb_";
 
 		algo += formulation_name + "_";
-		if(combine_feas_opt_cuts)
+		if (combine_feas_opt_cuts)
 			algo += "benders_combined";
 		else
 			algo += "benders";
-		
-		if(separate_benders_cuts_relaxation)
+
+		if (separate_benders_cuts_relaxation)
 			algo += "_cuts_relaxation";
-			
-		if(solve_generic_callback)
+
+		if (solve_generic_callback)
 			algo += "_generic_callback";
 		else
 			algo += "_lazy_callback";
 
 		std::cout << algo << std::endl;
-		sol.write_to_file(algo,"//",instance_name);
+		sol.write_to_file(algo, "//", instance_name);
 
 		DeleteCuts(root_cuts);
-		if(root_cuts != nullptr)
+		if (root_cuts != nullptr)
 		{
 			delete root_cuts;
 			root_cuts = nullptr;
 		}
 	}
 
-
 	if (solve_relaxed)
 	{
-		std::cout <<  " LP: " << sol.lp_ << std::endl;
+		std::cout << " LP: " << sol.lp_ << std::endl;
 	}
 	else
 	{
-		sol.is_optimal_? std::cout <<  " optimal: " << sol.lb_ << std::endl
-		: std::cout <<  " non optimal: [" << sol.lb_ << ", " << sol.ub_ << "]" << std::endl;
+		sol.is_optimal_ ? std::cout << " optimal: " << sol.lb_ << std::endl
+						: std::cout << " non optimal: [" << sol.lb_ << ", " << sol.ub_ << "]" << std::endl;
 	}
 	std::cout << "num cuts: " << sol.num_cuts_found_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << "/" << sol.num_cuts_added_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << std::endl;
 
 	std::cout << "# opt cuts: " << sol.num_benders_opt_cuts_ << std::endl;
-	std::cout << "# feas cuts: " << sol.num_benders_feas_cuts_ << std::endl << std::endl;
+	std::cout << "# feas cuts: " << sol.num_benders_feas_cuts_ << std::endl
+			  << std::endl;
 
-	delete [] R0;
+	delete[] R0;
 	R0 = nullptr;
 
-	delete [] Rn;
+	delete[] Rn;
 	Rn = nullptr;
 }
 
-int main(int argc, char* argv[])
+int main(int argc, char *argv[])
 {
 	try
 	{
-		if(K_GETOPT)
+		if (K_GETOPT)
 		{
 			ParseArgumentsAndRun(argc, argv);
-            DeleteTimer();
-            DeleteCallbackSelection();
+			DeleteTimer();
+			DeleteCallbackSelection();
 			return 0;
 		}
 	}
-	catch(const std::runtime_error& re)
+	catch (const std::runtime_error &re)
 	{
 		std::cout << "Runtime error: " << re.what() << std::endl;
 	}
-	catch(const std::exception& ex)
+	catch (const std::exception &ex)
 	{
 		std::cout << "Error occurred: " << ex.what() << std::endl;
 	}
-	catch(const int& error)
+	catch (const int &error)
 	{
 		std::cout << "Error occurred: " << error << std::endl;
 	}
-	catch (IloException& e)
+	catch (IloException &e)
 	{
 		std::cout << "Concert Exception: " << e << std::endl;
 	}
-	catch (const char * e)
+	catch (const char *e)
 	{
 		std::cout << e << std::endl;
 	}
-	catch (const std::string& e)
+	catch (const std::string &e)
 	{
 		std::cout << e << std::endl;
 	}
-	catch(...)
+	catch (...)
 	{
 		std::cout << "Unknown failure occurred. Possible memory corruption" << std::endl;
 	}

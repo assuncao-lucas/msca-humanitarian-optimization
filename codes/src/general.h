@@ -62,6 +62,10 @@ const bool FIXED_FLIP_BASIS = true;
 const double K_APLHA_DECREMENT_PRECISION = 0.005;
 const bool K_FEASIBILITY_PUMP_ADD_CUTS = false;
 
+// Kernel Search parameters
+const bool K_KERNEL_SEARCH_ADD_CUTS = false;
+const int K_KS_MAX_SIZE_BUCKET = 5;
+
 // Local Branching parameters
 const int K_LOCAL_BRANCHING_K = 30;
 const bool K_LOCAL_BRANCHING_ADD_CUTS = false;

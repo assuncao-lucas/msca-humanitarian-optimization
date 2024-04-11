@@ -1,6 +1,6 @@
 #include <cmath>
 #include <algorithm>
-#include "src/feasibility_pump.h"
+#include "src/feasibility_pump/feasibility_pump.h"
 #include "src/graph_algorithms.h"
 #include "src/formulations.h"
 #include "src/general.h"
@@ -41,7 +41,7 @@ void FeasibilityPump::Init(Instance &instance)
 	int num_arcs = graph->num_arcs();
 	int num_routes = instance.num_vehicles();
 	int budget = curr_instance_->uncertainty_budget();
-	solution_.Reset(num_vertices, num_arcs, instance.num_vehicles());
+	solution_.Reset(num_vertices, num_arcs, num_routes);
 
 	curr_alpha_ = 0.0;
 
@@ -592,6 +592,8 @@ void FeasibilityPump::Run()
 			if ((cplex_.getCplexStatus() == IloCplex::Infeasible) || (cplex_.getCplexStatus() == IloCplex::InfOrUnbd))
 				(solution_).is_infeasible_ = true;
 			(solution_).time_stage1_ = timer->CurrentElapsedTime(ti);
+			delete (ti);
+			ti = nullptr;
 			return;
 		}
 	}
@@ -634,6 +636,9 @@ void FeasibilityPump::Run()
 				(solution_).num_iterations_stage1_ = stage_1_iter + stage_0_iter;
 				(solution_).num_perturbations_stage1_ = num_perturbations_stage1;
 				(solution_).num_restarts_stage1_ = num_restarts_stage1;
+
+				delete (ti);
+				ti = nullptr;
 				return;
 			}
 			// update y values
@@ -753,6 +758,8 @@ void FeasibilityPump::Run()
 				(solution_).num_iterations_stage2_ = stage_2_iter;
 				(solution_).num_perturbations_stage2_ = num_perturbations_stage2;
 				(solution_).num_restarts_stage2_ = num_restarts_stage2;
+				delete (ti);
+				ti = nullptr;
 				return;
 			}
 			// update x values
@@ -860,6 +867,9 @@ void FeasibilityPump::Run()
 
 	if (found_int_x_)
 		BuildHeuristicSolution();
+
+	delete (ti);
+	ti = nullptr;
 	// std::cout << "iterations: " << stage_0_iter + stage_1_iter + stage_2_iter << std::endl;
 	// if(found_int_y_) std::cout << " * Y INTEIRA!" << "   iterations: " << stage_0_iter + stage_1_iter + stage_2_iter << std::endl;
 	// if(found_int_x_) std::cout << " * X INTEIRA!" << "   iterations: " << stage_0_iter + stage_1_iter + stage_2_iter << std::endl;
@@ -885,8 +895,6 @@ void FeasibilityPump::BuildModel(double *R0, double *Rn)
 	//   (*CALLBACKS_SELECTION)[K_TYPE_CLIQUE_CONFLICT_CUT] = true;
 	//   (*CALLBACKS_SELECTION)[K_TYPE_INITIAL_ARC_VERTEX_INFERENCE_CUT] = true;
 	// }
-
-	cplex_.extract(model_);
 
 	PopulateByRowCompactSingleCommodity(cplex_, env_, model_, master_vars_, f_, *curr_instance_, R0, Rn, false, false);
 

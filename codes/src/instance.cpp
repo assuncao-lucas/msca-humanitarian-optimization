@@ -431,7 +431,7 @@ void Instance::ResetConflictsCliques()
     }
 }
 
-std::tuple<double, double> Instance::ComputeRouteCostsRecIter(Route &route, const std::list<int>::reverse_iterator &it_vertex, int budget, VertexBudgetHash *cache)
+std::tuple<double, double> Instance::ComputeRouteCostsRecIter(Route &route, const std::list<int>::reverse_iterator &it_vertex, int budget, VertexBudgetHash *cache) const
 {
     if (it_vertex == route.vertices_.rend())
         return {0.0, 0.0};
@@ -508,7 +508,7 @@ std::tuple<double, double> Instance::ComputeRouteCostsRecIter(Route &route, cons
     return {profits_sum_up_to_vertex, route_duration_up_to_vertex};
 }
 
-std::tuple<double, double> Instance::ComputeRouteCostsRec(Route &route, bool memoization)
+std::tuple<double, double> Instance::ComputeRouteCostsRec(Route &route, bool memoization) const
 {
     if (route.vertices_.empty())
         return {0.0, 0.0};
@@ -529,7 +529,7 @@ std::tuple<double, double> Instance::ComputeRouteCostsRec(Route &route, bool mem
     return {profits_sum, route_duration};
 }
 
-std::tuple<double, double> Instance::ComputeRouteCosts(Route &route)
+std::tuple<double, double> Instance::ComputeRouteCosts(Route &route) const
 {
     // return ComputeRouteMaxDuration(route, route.vertices_.rbegin(), uncertainty_budget_);
     if (route.vertices_.empty())

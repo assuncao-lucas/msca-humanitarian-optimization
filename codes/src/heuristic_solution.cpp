@@ -1285,7 +1285,7 @@ bool HeuristicSolution::CheckCorrectness(Instance &instance)
 	return true;
 }
 
-void HeuristicSolution::BuildBitset(Instance &instance)
+void HeuristicSolution::BuildBitset(const Instance &instance)
 {
 	this->bitset_arcs_ = boost::dynamic_bitset<>(this->dimension2_, 0);
 	this->bitset_vertices_ = boost::dynamic_bitset<>(this->dimension_, 0);

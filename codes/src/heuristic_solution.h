@@ -67,7 +67,7 @@ public:
 	std::vector<double> x_values_;
 	std::vector<double> y_values_;
 	double dual_bound_ = 0.0;
-	void BuildBitset(Instance &);
+	void BuildBitset(const Instance &);
 };
 
 class FPHeuristicSolution : public HeuristicSolution

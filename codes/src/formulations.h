@@ -81,15 +81,15 @@ static UserCut *GenerateCliqueConflictCuts(Instance &instance, std::vector<bool>
                                            boost::dynamic_bitset<> clique_is_active);
 static bool ConflictIsActive(std::list<int> &curr_conflict, std::vector<double> &nodes_sum, double &curr_conflict_nodes_sum);
 
-static void PopulateByRowCommon(IloEnv &env, IloModel &model, MasterVariables &master_vars, Instance &instance, bool force_use_all_vehicles);
-static void PopulateByRowCompactBaselineContinuousSpace(IloEnv &env, IloModel &model, IloNumVarArray &x, IloNumVarArray &y, IloNumVarArray &a, std::optional<std::reference_wrapper<IloNumArray>> x_values, std::optional<std::reference_wrapper<IloNumArray>> y_values, Instance &instance);
+static void PopulateByRowCommon(IloEnv &env, IloModel &model, MasterVariables &master_vars, const Instance &instance, bool force_use_all_vehicles);
+static void PopulateByRowCompactBaselineContinuousSpace(IloEnv &env, IloModel &model, IloNumVarArray &x, IloNumVarArray &y, IloNumVarArray &a, std::optional<std::reference_wrapper<IloNumArray>> x_values, std::optional<std::reference_wrapper<IloNumArray>> y_values, const Instance &instance);
 static void PopulateByRowCompactBaseline(IloCplex &cplex, IloEnv &env, IloModel &model, MasterVariables &master_vars, IloNumVarArray &a, Instance &instance, double *R0, double *Rn, bool force_use_all_vehicles, bool export_model);
 
-static void PopulateByRowCompactSingleCommodityContinuousSpace(IloEnv &env, IloModel &model, IloNumVarArray &x, IloNumVarArray &y, IloNumVarArray &f, std::optional<std::reference_wrapper<IloNumArray>> x_values, std::optional<std::reference_wrapper<IloNumArray>> y_values, double *R0, double *Rn, Instance &instance);
-void PopulateByRowCompactSingleCommodity(IloCplex &cplex, IloEnv &env, IloModel &model, MasterVariables &master_vars, IloNumVarArray &f, Instance &instance, double *R0, double *Rn, bool force_use_all_vehicles, bool export_model);
+static void PopulateByRowCompactSingleCommodityContinuousSpace(IloEnv &env, IloModel &model, IloNumVarArray &x, IloNumVarArray &y, IloNumVarArray &f, std::optional<std::reference_wrapper<IloNumArray>> x_values, std::optional<std::reference_wrapper<IloNumArray>> y_values, double *R0, double *Rn, const Instance &instance);
+void PopulateByRowCompactSingleCommodity(IloCplex &cplex, IloEnv &env, IloModel &model, MasterVariables &master_vars, IloNumVarArray &f, const Instance &instance, double *R0, double *Rn, bool force_use_all_vehicles, bool export_model);
 
 static void AllocateMasterVariablesBaseline(IloEnv &env, MasterVariables &master_vars, Instance &instance, bool force_use_all_vehicles, bool solve_relax);
-void AllocateMasterVariablesSingleCommodity(IloEnv &env, MasterVariables &master_vars, Instance &instance, bool force_use_all_vehicles, bool solve_relax);
+void AllocateMasterVariablesSingleCommodity(IloEnv &env, MasterVariables &master_vars, const Instance &instance, bool force_use_all_vehicles, bool solve_relax, bool disable_all_binary_vars = false);
 
 void Benders(Instance &inst, BendersFormulation formumlation, double *R0, double *Rn, double time_limit, bool apply_benders_generic_callback, bool combine_feas_op_cuts, bool separate_benders_cuts_relaxation, bool solve_relax, bool use_valid_inequalities, bool find_root_cuts, std::list<UserCutGeneral *> *initial_cuts, HeuristicSolution *initial_sol, bool force_use_all_vehicles, bool export_model, std::list<UserCutGeneral *> *root_cuts, Solution<double> &);
 

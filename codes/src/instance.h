@@ -85,8 +85,8 @@ public:
 	const std::vector<std::list<int>> &conflicts_list() const { return conflicts_list_; }
 	void set_graph(Graph *graph);
 	const Graph *graph() const { return graph_; }
-	std::tuple<double, double> ComputeRouteCostsRecIter(Route &route, const std::list<int>::reverse_iterator &it_vertex, int budget, VertexBudgetHash *cache);
-	std::tuple<double, double> ComputeRouteCostsRec(Route &route, bool memoization);
-	std::tuple<double, double> ComputeRouteCosts(Route &route);
+	std::tuple<double, double> ComputeRouteCostsRecIter(Route &route, const std::list<int>::reverse_iterator &it_vertex, int budget, VertexBudgetHash *cache) const;
+	std::tuple<double, double> ComputeRouteCostsRec(Route &route, bool memoization) const;
+	std::tuple<double, double> ComputeRouteCosts(Route &route) const;
 	friend std::ostream &operator<<(std::ostream &out, const Instance &instance);
 };
