@@ -6,13 +6,14 @@ CPLEXLIBDIR   = $(CPLEXDIR)/cplex/lib/$(SYSTEM)/$(LIBFORMAT)
 CONCERTLIBDIR = $(CONCERTDIR)/lib/$(SYSTEM)/$(LIBFORMAT)
 CLNFLAGS  = -L$(CPLEXLIBDIR) -L$(CONCERTLIBDIR) -lilocplex -lconcert -lcplex -m64 -lm -lpthread
 
-COPT  = -m64 -O2 -fPIC -fexceptions -DNDEBUG -DIL_STD -DLONG_MAX=0x7FFFFFFFL
+CC_DEBUG = -DDEBUG -g
+CC_RELEASE = -DNDEBUG
+COPT  = -m64 -O2 -fPIC -fexceptions $(CC_RELEASE) -DIL_STD -DLONG_MAX=0x7FFFFFFFL
 GENERALINCDIR   = -I ./codes
 CPLEXINCDIR   = -I $(CPLEXDIR)/cplex/include -I $(CPLEXDIR)/concert/include
 CFLAGS = $(COPT) $(GENERALINCDIR) -std=c++17
 CFLAGS2  = $(COPT) $(CPLEXINCDIR)
 
-CC_DEBUG = -DDEBUG -g
 CC_VALGRIND=-g -O0
 CC=g++ -std=c++17
 

@@ -65,6 +65,9 @@ const bool K_FEASIBILITY_PUMP_ADD_CUTS = false;
 // Kernel Search parameters
 const bool K_KERNEL_SEARCH_ADD_CUTS = false;
 const int K_KS_MAX_SIZE_BUCKET = 5;
+const double K_KS_MAX_TIME_LIMIT = 20;
+const double K_KS_MIN_TIME_LIMIT = 5;
+const double K_KS_DECAY_FACTOR_TIME_LIMIT = 0.95;
 
 // Local Branching parameters
 const int K_LOCAL_BRANCHING_K = 30;

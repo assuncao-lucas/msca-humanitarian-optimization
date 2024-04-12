@@ -664,11 +664,12 @@ int main()
 	// GenerateAlgorithmsLatexTable(3600);
 	// return 0;
 	int time_limit = -1;
-	int num_routes = 2;
-	int uncertainty_budget = 10;
+	int num_routes = 4;
+	int uncertainty_budget = 5;
+	auto dev = 0.1;
 	int seed = 1000;
 	std::string instance_name = "test.txt";
-	Instance inst("/home/lucas/Documentos/Research/msca-humanitarian-optimization/instances/R-STOP-DP/", instance_name, num_routes, 0.1, uncertainty_budget, false);
+	Instance inst("/home/lucas/Documentos/Research/msca-humanitarian-optimization/instances/R-STOP-DP/", instance_name, num_routes, dev, uncertainty_budget, false);
 
 	// FeasibilityPump fp;
 	// fp.Init(inst);

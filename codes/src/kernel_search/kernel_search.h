@@ -26,11 +26,11 @@ private:
 
     IloNumArray curr_x_values_;
     IloNumArray curr_y_values_;
+    IloNumVarArray curr_mip_start_vars_;
+    IloNumArray curr_mip_start_vals_;
 
     boost::dynamic_bitset<> curr_int_y_;
-    boost::dynamic_bitset<> previous_int_y_;
     boost::dynamic_bitset<> curr_int_x_;
-    boost::dynamic_bitset<> previous_int_x_;
     double curr_best_solution_value_ = -1;
 
     double *R0_ = nullptr;

@@ -57,11 +57,21 @@ void KernelSearch::BuildModel(bool linearly_relaxed, bool disable_all_binary_var
     int num_arcs = graph->num_arcs();
     int num_routes = instance_.num_vehicles();
     int budget = instance_.uncertainty_budget();
+    const auto num_vertices = graph->num_vertices();
 
     AllocateMasterVariablesSingleCommodity(env_, master_vars_, instance_, false, linearly_relaxed, disable_all_binary_vars);
     // budget + 1 to consider level 0 of budget! 0,..., budget
     f_ = IloNumVarArray(env_, num_arcs * (budget + 1), 0, IloInfinity, ILOFLOAT);
     slack_ = IloNumVar(env_, 0, num_routes, ILOFLOAT);
+
+    curr_mip_start_vars_ = IloNumVarArray(env_, num_vertices + num_arcs);
+    curr_mip_start_vals_ = IloNumArray(env_, num_vertices + num_arcs);
+
+    for (IloInt i = 0; i < num_vertices; ++i)
+        curr_mip_start_vars_[i] = master_vars_.y[i];
+
+    for (IloInt i = 0; i < num_arcs; ++i)
+        curr_mip_start_vars_[i + num_vertices] = master_vars_.x[i];
 
     PopulateByRowCompactSingleCommodity(cplex_, env_, model_, master_vars_, f_, instance_, R0_, Rn_, false, export_model);
 }
@@ -74,20 +84,16 @@ void KernelSearch::RetrieveSolutionArcVertexValues()
     int num_vertices = graph->num_vertices(), num_arcs = graph->num_arcs();
     int v1 = 0;
 
-    std::list<int> q;
-    q.push_front(0);
-
-    std::cout << curr_y_values_ << std::endl;
+    // std::cout << curr_y_values_ << std::endl;
     int curr_pos = 0;
 
-    previous_int_x_ = curr_int_x_;
     curr_int_x_.reset();
-    previous_int_y_ = curr_int_y_;
     curr_int_y_.reset();
 
     // we don't have to check every arc: due to the flow conservation constraints, only perform depth first search.
     // since the solution is necessarily connected and all routes depart from origin, just add origin as starting point.
-    q.push_back(0);
+    std::list<int> q;
+    q.push_front(0);
     do
     {
         v1 = q.front();
@@ -113,6 +119,13 @@ void KernelSearch::RetrieveSolutionArcVertexValues()
             curr_int_y_[v1] = 1;
         }
     } while (!q.empty());
+
+    // fill current MIP start.
+    for (IloInt i = 0; i < num_vertices; ++i)
+        curr_mip_start_vals_[i] = curr_y_values_[i];
+
+    for (IloInt i = 0; i < num_arcs; ++i)
+        curr_mip_start_vals_[i + num_vertices] = curr_x_values_[i];
 }
 
 void KernelSearch::BuildHeuristicSolution()
@@ -247,13 +260,13 @@ void KernelSearch::CreateKernelAndBuckets()
     for (int i = 0; i < num_vertices; ++i)
         vertex_value_red_cost.push_back(VertexValueReducedCost{.vertex = i, .value = y_values[i], .reduced_cost = y_reduced_costs[i]});
 
-    std::cout << "Before sorting" << std::endl;
-    for (auto &item : vertex_value_red_cost)
-    {
-        std::cout << item.vertex << " " << item.value << " " << item.reduced_cost << std::endl;
-    }
+    // std::cout << "Before sorting" << std::endl;
+    // for (auto &item : vertex_value_red_cost)
+    // {
+    //     std::cout << item.vertex << " " << item.value << " " << item.reduced_cost << std::endl;
+    // }
 
-    auto compare = [num_mandatory](const VertexValueReducedCost &a, const VertexValueReducedCost &b)
+    auto compare = [/*num_mandatory*/](const VertexValueReducedCost &a, const VertexValueReducedCost &b)
     {
         // if ((a.vertex <= num_mandatory) && (b.vertex > num_mandatory))
         //     return true;
@@ -286,9 +299,9 @@ void KernelSearch::CreateKernelAndBuckets()
     int vertices_added = size_kernel; // since already added some vertices to the kernel.
     for (int curr_bucket = 0; curr_bucket < num_buckets; ++curr_bucket)
     {
-        std::cout << "bucket " << curr_bucket << std::endl;
+        // std::cout << "bucket " << curr_bucket << std::endl;
         int num_elements_in_bucket = std::min(K_KS_MAX_SIZE_BUCKET, (int)vertex_value_red_cost.size() - size_kernel - curr_bucket * K_KS_MAX_SIZE_BUCKET);
-        std::cout << "num elements in bucket " << num_elements_in_bucket << std::endl;
+        // std::cout << "num elements in bucket " << num_elements_in_bucket << std::endl;
         for (int curr_element_in_bucket = 0; curr_element_in_bucket < num_elements_in_bucket; ++curr_element_in_bucket)
         {
             buckets_bitsets_[curr_bucket][vertex_value_red_cost[vertices_added].vertex] = 1;
@@ -324,17 +337,21 @@ void KernelSearch::Run()
     BuildModel(false, true, false); // initially, set all binary variables to zero.
 
     cplex_.setParam(IloCplex::Param::ClockType, 2);
-    cplex_.setParam(IloCplex::Param::TimeLimit, 10);
+    cplex_.setParam(IloCplex::Param::Emphasis::MIP, IloCplex::MIPEmphasisFeasibility);
+
+    double curr_time_limit_iteration = K_KS_MAX_TIME_LIMIT;
 
     int curr_bucket_index = -1; // starts from kernel.
     int total_num_buckets = buckets_bitsets_.size();
 
     auto curr_reference_kernel = curr_kernel_bitset_;
     auto curr_vertices_entering_kernel = curr_kernel_bitset_;
-    auto curr_vertices_leaving_kernel = boost::dynamic_bitset<>(num_vertices, 0);
+    auto curr_vertices_leaving_reference_kernel = boost::dynamic_bitset<>(num_vertices, 0);
 
     for (int curr_bucket_index = -1; curr_bucket_index < total_num_buckets; ++curr_bucket_index)
     {
+        cplex_.setParam(IloCplex::Param::TimeLimit, curr_time_limit_iteration);
+        std::cout << "curr_time_limit_iteration: " << curr_time_limit_iteration << std::endl;
         // update the reference kernel to the current kernel (+ current bucket, if not the first iteration).
         if (curr_bucket_index >= 0)
         {
@@ -343,18 +360,18 @@ void KernelSearch::Run()
         }
 
         std::cout << " bucket index " << curr_bucket_index << std::endl;
-        std::cout << " current bucket ";
-        curr_bucket_index >= 0 ? std::cout << buckets_bitsets_[curr_bucket_index] << std::endl : std::cout << " - " << std::endl;
-        std::cout << " kernel: " << curr_kernel_bitset_ << std::endl;
-        std::cout << " reference kernel: " << curr_reference_kernel << std::endl;
-        std::cout << " IN kernel: " << curr_vertices_entering_kernel << std::endl;
-        std::cout << " OUT kernel: " << curr_vertices_leaving_kernel << std::endl;
-        std::cout << " curr sol: " << curr_int_y_ << std::endl;
-        std::cout << " best cost: " << curr_best_solution_value_ << std::endl;
+        // std::cout << " current bucket ";
+        // curr_bucket_index >= 0 ? std::cout << buckets_bitsets_[curr_bucket_index] << std::endl : std::cout << " - " << std::endl;
+        // std::cout << " kernel: " << curr_kernel_bitset_ << std::endl;
+        // std::cout << " reference kernel: " << curr_reference_kernel << std::endl;
+        // std::cout << " IN kernel: " << curr_vertices_entering_kernel << std::endl;
+        // std::cout << " OUT ref kernel: " << curr_vertices_leaving_reference_kernel << std::endl;
+        // std::cout << " curr sol: " << curr_int_y_ << std::endl;
+        // std::cout << " best cost: " << curr_best_solution_value_ << std::endl;
         // cplex_.exportModel("model_before.lp");
         //  Enable in the model the variables that are active in the Kernel.
 
-        UpdateModelVarBounds(curr_vertices_entering_kernel, curr_vertices_leaving_kernel, curr_reference_kernel);
+        UpdateModelVarBounds(curr_vertices_entering_kernel, curr_vertices_leaving_reference_kernel, curr_reference_kernel);
 
         // cplex_.exportModel("model_updated.lp");
         // getchar();
@@ -363,9 +380,12 @@ void KernelSearch::Run()
         // if already found a feasible solution, use it as warm start of the next iteration.
         if (found_int_x_)
         {
-            cplex_.addMIPStart(master_vars_.x, curr_x_values_, IloCplex::MIPStartCheckFeas);
-            cplex_.addMIPStart(master_vars_.y, curr_y_values_, IloCplex::MIPStartCheckFeas);
+            cplex_.addMIPStart(curr_mip_start_vars_, curr_mip_start_vals_, IloCplex::MIPStartCheckFeas);
+
+            // std::cout << "added warm start" << std::endl;
         }
+
+        bool found_better_solution = false;
 
         if (cplex_.solve())
         {
@@ -376,6 +396,7 @@ void KernelSearch::Run()
             // only update Kernel if found a solution with strictly better objective function value!
             if (double_greater(solution_value, curr_best_solution_value_))
             {
+                found_better_solution = true;
                 curr_best_solution_value_ = solution_value;
                 RetrieveSolutionArcVertexValues();
 
@@ -383,14 +404,24 @@ void KernelSearch::Run()
                 curr_vertices_entering_kernel = curr_int_y_ - curr_kernel_bitset_;
                 curr_kernel_bitset_ |= curr_vertices_entering_kernel;
 
-                curr_vertices_leaving_kernel = curr_reference_kernel - curr_kernel_bitset_;
+                curr_vertices_leaving_reference_kernel = curr_reference_kernel - curr_kernel_bitset_;
             }
         }
+
+        // if hasn't found a batter solution, nothing changes in the kernel...we only remove from reference kernel the vertices added in this iteration.
+        if (!found_better_solution)
+        {
+            curr_vertices_leaving_reference_kernel = curr_reference_kernel - curr_kernel_bitset_;
+            curr_vertices_entering_kernel.reset();
+        }
         std::cout << "status " << cplex_.getStatus() << std::endl;
-        std::cout << "current sol: " << curr_int_y_ << std::endl;
+        // std::cout << "current sol: " << curr_int_y_ << std::endl;
+
+        curr_time_limit_iteration = std::max(curr_time_limit_iteration * K_KS_DECAY_FACTOR_TIME_LIMIT, K_KS_MIN_TIME_LIMIT);
     }
 
     std::cout << "Best solution found: " << curr_best_solution_value_ << " " << curr_int_y_ << std::endl;
+    std::cout << "Elapsed time: " << timer->CurrentElapsedTime(ti) << std::endl;
 
     (solution_).time_stage2_ = timer->CurrentElapsedTime(ti);
 
@@ -404,12 +435,11 @@ void KernelSearch::Run()
     ti = nullptr;
 }
 
-void KernelSearch::UpdateModelVarBounds(boost::dynamic_bitset<> &vars_entering_kernel, boost::dynamic_bitset<> &vars_leaving_kernel, boost::dynamic_bitset<> &curr_reference_kernel)
+void KernelSearch::UpdateModelVarBounds(boost::dynamic_bitset<> &vars_entering_kernel, boost::dynamic_bitset<> &vars_leaving_reference_kernel, boost::dynamic_bitset<> &curr_reference_kernel)
 {
     const Graph *graph = instance_.graph();
     // add new variables to kernel.
-    size_t vertex = vars_entering_kernel.find_first();
-    while (vertex != boost::dynamic_bitset<>::npos)
+    for (size_t vertex = vars_entering_kernel.find_first(); vertex != boost::dynamic_bitset<>::npos; vertex = vars_entering_kernel.find_next(vertex))
     {
         // activate vertex.
         master_vars_.y[vertex].setUB(1.0);
@@ -423,32 +453,21 @@ void KernelSearch::UpdateModelVarBounds(boost::dynamic_bitset<> &vars_entering_k
         for (auto &vertex_out : graph->AdjVerticesOut(vertex))
             if (curr_reference_kernel[vertex_out] == 1)
                 master_vars_.x[graph->pos(vertex, vertex_out)].setUB(1.0);
-
-        vertex = vars_entering_kernel.find_next(vertex);
     }
 
     // remove variables leaving kernel.
-    vertex = vars_leaving_kernel.find_first();
-    while (vertex != boost::dynamic_bitset<>::npos)
+    for (size_t vertex = vars_leaving_reference_kernel.find_first(); vertex != boost::dynamic_bitset<>::npos; vertex = vars_leaving_reference_kernel.find_next(vertex))
     {
-        // activate vertex.
+        // deactivate vertex.
         master_vars_.y[vertex].setUB(0.0);
 
-        // activate all arcs entering vertex that come from another active vertex.
+        // deactivate all arcs entering vertex.
         for (auto &vertex_in : graph->AdjVerticesIn(vertex))
-        {
-            assert(curr_reference_kernel[vertex_in] == 0);
             master_vars_.x[graph->pos(vertex_in, vertex)].setUB(0.0);
-        }
 
-        // activate all arcs leaving vertex that go to another active vertex.
+        // deactivate all arcs leaving vertex.
         for (auto &vertex_out : graph->AdjVerticesOut(vertex))
-        {
-            assert(curr_reference_kernel[vertex_out] == 0);
             master_vars_.x[graph->pos(vertex, vertex_out)].setUB(0.0);
-        }
-
-        vertex = vars_leaving_kernel.find_next(vertex);
     }
 }
 
