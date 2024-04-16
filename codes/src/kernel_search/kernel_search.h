@@ -13,12 +13,13 @@ class KernelSearch
 public:
     explicit KernelSearch(Instance &instance);
     virtual ~KernelSearch();
-    void Run();
+
+    KSHeuristicSolution *Run();
 
 private:
-    IloEnv env_;     // Cplex environment
-    IloCplex cplex_; // Cplex solver
-    IloModel model_; // Cplex model
+    IloEnv *env_;     // Cplex environment
+    IloCplex *cplex_; // Cplex solver
+    IloModel *model_; // Cplex model
 
     IloNumVarArray f_;
     IloNumVar slack_;
@@ -37,14 +38,13 @@ private:
     double *Rn_ = nullptr;
 
     const Instance &instance_;
-    FPHeuristicSolution solution_;
 
-    void CreateKernelAndBuckets();
+    void BuildKernelAndBuckets(KSHeuristicSolution *solution);
     void InitCplex();
     void ResetCplex();
     void BuildModel(bool linearly_relaxed, bool disable_all_binary_vars, bool export_model);
     void RetrieveSolutionArcVertexValues();
-    void BuildHeuristicSolution();
+    void BuildHeuristicSolution(KSHeuristicSolution *);
     void PrintKernelAndBuckets();
     void UpdateModelVarBounds(boost::dynamic_bitset<> &vars_entering_kernel, boost::dynamic_bitset<> &vars_leaving_kernel, boost::dynamic_bitset<> &curr_reference_kernel);
 

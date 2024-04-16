@@ -21,6 +21,7 @@
 #include "src/solution.hpp"
 #include "src/heuristic_solution.h"
 #include "src/feasibility_pump/feasibility_pump.h"
+#include "src/kernel_search/kernel_search.h"
 #include "src/ALNS.h"
 
 // Instance* GenerateFilesFromOPinstancesIter(std::string dir_path, std::string file_name, double mandatory_percentage)
@@ -2835,6 +2836,8 @@ static const struct option longOpts[] = {
 	{"benders-generic-callback", no_argument, NULL, 'p'},
 	{"combine-feas-opt-cuts", no_argument, NULL, 'q'},
 	{"separate-benders-cuts-relaxation", no_argument, NULL, 'r'},
+	{"warm-start", no_argument, NULL, 's'},
+	{"kernel-search", no_argument, NULL, 't'},
 	{NULL, no_argument, NULL, 0}};
 
 void ParseArgumentsAndRun(int argc, char *argv[])
@@ -2844,10 +2847,13 @@ void ParseArgumentsAndRun(int argc, char *argv[])
 	int num_vehicles = 0, uncertainty_budget = 0;
 	bool solve_compact = false, solve_cb = false, solve_bc = false, baseline = false, capacity_based = false, generate_convex_hull = false;
 	bool solve_relaxed = false, solve_benders = false, solve_generic_callback = false, combine_feas_opt_cuts = false;
-	double time_limit = 0.0, service_time_deviation = 0.0;
+	double time_limit = -1.0, service_time_deviation = 0.0;
 	bool force_use_all_vehicles = false;
 	bool export_model = false;
 	bool separate_benders_cuts_relaxation = false;
+	bool compute_initial_solution_heuristic = false;
+	bool solve_kernel_search = false;
+	HeuristicSolution *initial_sol = nullptr;
 
 	std::vector<bool> *CALLBACKS_SELECTION = GetCallbackSelection();
 
@@ -2914,16 +2920,21 @@ void ParseArgumentsAndRun(int argc, char *argv[])
 		case 'r':
 			separate_benders_cuts_relaxation = true;
 			break;
+		case 's':
+			compute_initial_solution_heuristic = true;
+			break;
+		case 't':
+			solve_kernel_search = true;
 		}
 	}
 
-	if ((solve_compact && solve_bc) || (solve_compact && solve_benders) || (solve_compact && solve_cb) ||
-		(solve_bc && solve_cb))
+	if ((solve_compact && solve_bc) || (solve_compact && solve_benders) ||
+		(solve_compact && solve_cb) || (solve_bc && solve_cb) ||
+		(solve_compact && solve_kernel_search) || (solve_cb && solve_kernel_search) ||
+		(solve_relaxed && solve_kernel_search) || (solve_benders && solve_kernel_search))
 		throw 2;
 	if (baseline && capacity_based)
 		throw 3;
-	if (baseline == capacity_based)
-		throw 4;
 
 	split_file_path(instance, folder, file_name);
 	std::cout << "* " << folder << " " << file_name << std::endl;
@@ -2933,6 +2944,13 @@ void ParseArgumentsAndRun(int argc, char *argv[])
 	const Graph *graph = inst.graph();
 	std::string instance_name = inst.GetInstanceName();
 	std::cout << instance_name << std::endl;
+
+	if (compute_initial_solution_heuristic)
+	{
+		KernelSearch ks(inst);
+		std::cout << KSHeuristicSolution::GenerateFileName() << std::endl;
+		initial_sol = ks.Run();
+	}
 
 	Solution<double> sol(graph->num_vertices());
 
@@ -2951,7 +2969,7 @@ void ParseArgumentsAndRun(int argc, char *argv[])
 			CompactBaseline(inst, R0, Rn, time_limit, true, use_valid_inequalities, find_root_cuts, nullptr, nullptr, force_use_all_vehicles, export_model, root_cuts, sol);
 
 			if (!solve_relaxed)
-				CompactBaseline(inst, R0, Rn, time_limit, false, use_valid_inequalities, find_root_cuts, nullptr, nullptr, force_use_all_vehicles, export_model, root_cuts, sol);
+				CompactBaseline(inst, R0, Rn, time_limit, false, use_valid_inequalities, find_root_cuts, nullptr, initial_sol, force_use_all_vehicles, export_model, root_cuts, sol);
 			std::string algo;
 			if (solve_relaxed)
 				algo += "relax_";
@@ -2970,7 +2988,7 @@ void ParseArgumentsAndRun(int argc, char *argv[])
 			CompactSingleCommodity(inst, R0, Rn, time_limit, true, use_valid_inequalities, find_root_cuts, nullptr, nullptr, force_use_all_vehicles, export_model, root_cuts, sol);
 
 			if (!solve_relaxed)
-				CompactSingleCommodity(inst, R0, Rn, time_limit, false, use_valid_inequalities, find_root_cuts, nullptr, nullptr, force_use_all_vehicles, export_model, root_cuts, sol);
+				CompactSingleCommodity(inst, R0, Rn, time_limit, false, use_valid_inequalities, find_root_cuts, nullptr, initial_sol, force_use_all_vehicles, export_model, root_cuts, sol);
 			std::string algo;
 			if (solve_relaxed)
 				algo += "relax_";
@@ -2997,7 +3015,7 @@ void ParseArgumentsAndRun(int argc, char *argv[])
 			use_valid_inequalities = true;
 			find_root_cuts = false;
 			if (!solve_relaxed)
-				CompactBaseline(inst, R0, Rn, time_limit, false, use_valid_inequalities, find_root_cuts, root_cuts, nullptr, force_use_all_vehicles, export_model, nullptr, sol);
+				CompactBaseline(inst, R0, Rn, time_limit, false, use_valid_inequalities, find_root_cuts, root_cuts, initial_sol, force_use_all_vehicles, export_model, nullptr, sol);
 
 			std::string algo;
 			if (solve_relaxed)
@@ -3021,7 +3039,7 @@ void ParseArgumentsAndRun(int argc, char *argv[])
 			use_valid_inequalities = true;
 			find_root_cuts = false;
 			if (!solve_relaxed)
-				CompactSingleCommodity(inst, R0, Rn, time_limit, false, use_valid_inequalities, find_root_cuts, root_cuts, nullptr, force_use_all_vehicles, export_model, nullptr, sol);
+				CompactSingleCommodity(inst, R0, Rn, time_limit, false, use_valid_inequalities, find_root_cuts, root_cuts, initial_sol, force_use_all_vehicles, export_model, nullptr, sol);
 
 			std::string algo;
 			if (solve_relaxed)
@@ -3079,7 +3097,7 @@ void ParseArgumentsAndRun(int argc, char *argv[])
 		}
 
 		if (!solve_relaxed)
-			Benders(inst, formulation, R0, Rn, time_limit, solve_generic_callback, combine_feas_opt_cuts, separate_benders_cuts_relaxation, false, use_valid_inequalities, find_root_cuts, root_cuts, nullptr, force_use_all_vehicles, export_model, nullptr, sol);
+			Benders(inst, formulation, R0, Rn, time_limit, solve_generic_callback, combine_feas_opt_cuts, separate_benders_cuts_relaxation, false, use_valid_inequalities, find_root_cuts, root_cuts, initial_sol, force_use_all_vehicles, export_model, nullptr, sol);
 
 		// std::cout << "# opt cuts: " << sol.num_benders_opt_cuts_ << std::endl;
 		// std::cout << "# feas cuts: " << sol.num_benders_feas_cuts_ << std::endl;
@@ -3116,26 +3134,49 @@ void ParseArgumentsAndRun(int argc, char *argv[])
 		}
 	}
 
-	if (solve_relaxed)
+	if (solve_kernel_search)
 	{
-		std::cout << " LP: " << sol.lp_ << std::endl;
+		KernelSearch ks(inst);
+		std::cout << KSHeuristicSolution::GenerateFileName() << std::endl;
+		const auto *kernel_search_sol = ks.Run();
+		kernel_search_sol->WriteToFile(inst, KSHeuristicSolution::GenerateFileName(), "//", instance_name);
+		if (kernel_search_sol->is_feasible_)
+			std::cout << " lb: " << kernel_search_sol->profits_sum_ << std::endl;
+		if (kernel_search_sol->is_infeasible_)
+			std::cout << " infeasible " << std::endl;
+
+		delete kernel_search_sol;
+		kernel_search_sol = nullptr;
 	}
-	else
+
+	if (!solve_kernel_search)
 	{
-		sol.is_optimal_ ? std::cout << " optimal: " << sol.lb_ << std::endl
-						: std::cout << " non optimal: [" << sol.lb_ << ", " << sol.ub_ << "]" << std::endl;
+		if (solve_relaxed)
+		{
+			std::cout << " LP: " << sol.lp_ << std::endl;
+		}
+		else
+		{
+			sol.is_optimal_ ? std::cout << " optimal: " << sol.lb_ << std::endl
+							: std::cout << " non optimal: [" << sol.lb_ << ", " << sol.ub_ << "]" << std::endl;
+		}
+		std::cout << "num cuts: " << sol.num_cuts_found_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << "/" << sol.num_cuts_added_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << std::endl;
+
+		std::cout << "# opt cuts: " << sol.num_benders_opt_cuts_ << std::endl;
+		std::cout << "# feas cuts: " << sol.num_benders_feas_cuts_ << std::endl
+				  << std::endl;
 	}
-	std::cout << "num cuts: " << sol.num_cuts_found_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << "/" << sol.num_cuts_added_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << std::endl;
-
-	std::cout << "# opt cuts: " << sol.num_benders_opt_cuts_ << std::endl;
-	std::cout << "# feas cuts: " << sol.num_benders_feas_cuts_ << std::endl
-			  << std::endl;
-
 	delete[] R0;
 	R0 = nullptr;
 
 	delete[] Rn;
 	Rn = nullptr;
+
+	if (initial_sol)
+	{
+		delete initial_sol;
+		initial_sol = nullptr;
+	}
 }
 
 int main(int argc, char *argv[])

@@ -680,9 +680,15 @@ int main()
 	// std::cout << fp.solution_.profits_sum_ << std::endl;
 
 	KernelSearch ks(inst);
-	ks.Run();
+	std::cout << KSHeuristicSolution::GenerateFileName() << std::endl;
+	auto ks_solution = ks.Run();
 
-	// std::cout << fp.solution_.profits_sum_ << std::endl;
+	ks_solution->WriteToFile(inst, KSHeuristicSolution::GenerateFileName(), "//", instance_name);
+
+	std::cout << ks_solution->profits_sum_ << std::endl;
+
+	delete ks_solution;
+	ks_solution = nullptr;
 
 	return 0;
 	// Route route;

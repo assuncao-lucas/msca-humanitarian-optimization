@@ -29,6 +29,7 @@ public:
 	bool is_feasible_;
 	bool is_optimal_;
 	double profits_sum_;
+	double total_time_spent_;
 	int dimension_;
 	int dimension2_;
 	int num_routes_;
@@ -58,15 +59,14 @@ public:
 
 	friend std::ostream &operator<<(std::ostream &out, HeuristicSolution &sol);
 	bool CheckCorrectness(Instance &instance);
-	virtual void WriteToFile(Instance &instance, std::string algo, std::string folder, std::string file_name);
+	virtual void WriteToFile(Instance &instance, std::string algo, std::string folder, std::string file_name) const;
 	virtual void ReadFromFile(Instance &inst, std::string algo, std::string folder, std::string file_name);
 
 	boost::dynamic_bitset<> bitset_arcs_;
 	boost::dynamic_bitset<> bitset_vertices_;
 
-	std::vector<double> x_values_;
-	std::vector<double> y_values_;
-	double dual_bound_ = 0.0;
+	// std::vector<double> x_values_;
+	// std::vector<double> y_values_;
 	void BuildBitset(const Instance &);
 };
 
@@ -89,7 +89,21 @@ public:
 
 	virtual void Reset(int dimension, int dimension2, int num_routes);
 	static std::string GenerateFileName();
-	void WriteToFile(Instance &instance, std::string algo, std::string folder, std::string file_name);
+	void WriteToFile(Instance &instance, std::string algo, std::string folder, std::string file_name) const;
+};
+
+class KSHeuristicSolution : public HeuristicSolution
+{
+public:
+	KSHeuristicSolution();
+	KSHeuristicSolution(int dimension, int dimension2, int num_routes);
+	~KSHeuristicSolution();
+	double time_spent_building_kernel_buckets_ = 0.0;
+	bool found_x_integer_ = false;
+
+	virtual void Reset(int dimension, int dimension2, int num_routes);
+	static std::string GenerateFileName();
+	void WriteToFile(Instance &instance, std::string algo, std::string folder, std::string file_name) const;
 };
 
 class LBHeuristicSolution : public HeuristicSolution
@@ -99,11 +113,10 @@ public:
 	LBHeuristicSolution(int dimension, int dimension2, int num_routes);
 	~LBHeuristicSolution();
 	int num_iterations_;
-	double time_;
 
 	virtual void Reset(int dimension, int dimension2, int num_routes);
 	static std::string GenerateFileName();
-	void WriteToFile(Instance &instance, std::string algo, std::string folder, std::string file_name);
+	void WriteToFile(Instance &instance, std::string algo, std::string folder, std::string file_name) const;
 };
 
 class ALNSHeuristicSolution : public HeuristicSolution
@@ -116,10 +129,9 @@ public:
 	int num_iterations_;
 	int initial_solution_profits_sum_;
 	int last_improve_iteration_;
-	double elapsed_time_;
 
 	virtual void Reset(int dimension, int dimension2, int num_routes);
-	void WriteToFile(Instance &instance, std::string algo, std::string folder, std::string file_name);
+	void WriteToFile(Instance &instance, std::string algo, std::string folder, std::string file_name) const;
 	void ReadFromFile(Instance &inst, std::string algo, std::string folder, std::string file_name);
 	static std::string GenerateFileName();
 };

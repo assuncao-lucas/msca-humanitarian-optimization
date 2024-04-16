@@ -35,20 +35,36 @@ KernelSearch::~KernelSearch()
 
 void KernelSearch::ResetCplex()
 {
-    cplex_.end();
-    model_.end();
-    env_.end();
+    if (cplex_)
+    {
+        cplex_->end();
+        delete cplex_;
+    }
+
+    if (model_)
+    {
+        model_->end();
+        delete model_;
+    }
+
+    if (env_)
+    {
+        env_->end();
+        delete env_;
+    }
 }
 
 void KernelSearch::InitCplex()
 {
-    env_ = IloEnv();
-    model_ = IloModel(env_);
-    cplex_ = IloCplex(env_);
-    curr_x_values_ = IloNumArray(env_);
-    curr_y_values_ = IloNumArray(env_);
-    cplex_.setOut(env_.getNullStream());
-    cplex_.extract(model_);
+    env_ = new IloEnv();
+    model_ = new IloModel(*env_);
+    cplex_ = new IloCplex(*env_);
+    curr_x_values_ = IloNumArray(*env_);
+    curr_y_values_ = IloNumArray(*env_);
+    cplex_->setOut(env_->getNullStream());
+    cplex_->extract(*model_);
+    if (!K_MULTI_THREAD)
+        cplex_->setParam(IloCplex::Param::Threads, 1);
 }
 
 void KernelSearch::BuildModel(bool linearly_relaxed, bool disable_all_binary_vars, bool export_model)
@@ -59,13 +75,13 @@ void KernelSearch::BuildModel(bool linearly_relaxed, bool disable_all_binary_var
     int budget = instance_.uncertainty_budget();
     const auto num_vertices = graph->num_vertices();
 
-    AllocateMasterVariablesSingleCommodity(env_, master_vars_, instance_, false, linearly_relaxed, disable_all_binary_vars);
+    AllocateMasterVariablesSingleCommodity(*env_, master_vars_, instance_, false, linearly_relaxed, disable_all_binary_vars);
     // budget + 1 to consider level 0 of budget! 0,..., budget
-    f_ = IloNumVarArray(env_, num_arcs * (budget + 1), 0, IloInfinity, ILOFLOAT);
-    slack_ = IloNumVar(env_, 0, num_routes, ILOFLOAT);
+    f_ = IloNumVarArray(*env_, num_arcs * (budget + 1), 0, IloInfinity, ILOFLOAT);
+    slack_ = IloNumVar(*env_, 0, num_routes, ILOFLOAT);
 
-    curr_mip_start_vars_ = IloNumVarArray(env_, num_vertices + num_arcs);
-    curr_mip_start_vals_ = IloNumArray(env_, num_vertices + num_arcs);
+    curr_mip_start_vars_ = IloNumVarArray(*env_, num_vertices + num_arcs);
+    curr_mip_start_vals_ = IloNumArray(*env_, num_vertices + num_arcs);
 
     for (IloInt i = 0; i < num_vertices; ++i)
         curr_mip_start_vars_[i] = master_vars_.y[i];
@@ -73,13 +89,13 @@ void KernelSearch::BuildModel(bool linearly_relaxed, bool disable_all_binary_var
     for (IloInt i = 0; i < num_arcs; ++i)
         curr_mip_start_vars_[i + num_vertices] = master_vars_.x[i];
 
-    PopulateByRowCompactSingleCommodity(cplex_, env_, model_, master_vars_, f_, instance_, R0_, Rn_, false, export_model);
+    PopulateByRowCompactSingleCommodity(*cplex_, *env_, *model_, master_vars_, f_, instance_, R0_, Rn_, false, export_model);
 }
 
 void KernelSearch::RetrieveSolutionArcVertexValues()
 {
-    cplex_.getValues(curr_x_values_, master_vars_.x);
-    cplex_.getValues(curr_y_values_, master_vars_.y);
+    cplex_->getValues(curr_x_values_, master_vars_.x);
+    cplex_->getValues(curr_y_values_, master_vars_.y);
     const Graph *graph = instance_.graph();
     int num_vertices = graph->num_vertices(), num_arcs = graph->num_arcs();
     int v1 = 0;
@@ -128,20 +144,16 @@ void KernelSearch::RetrieveSolutionArcVertexValues()
         curr_mip_start_vals_[i + num_vertices] = curr_x_values_[i];
 }
 
-void KernelSearch::BuildHeuristicSolution()
+void KernelSearch::BuildHeuristicSolution(KSHeuristicSolution *solution)
 {
     const Graph *graph = instance_.graph();
-    int num_vertices = graph->num_vertices(), v1 = 0, curr_route_index = 0;
+    int v1 = 0, curr_route_index = 0;
     int last_vertex_added = 0;
     bool has_added_vertex_to_route = false;
     VertexStatus *status = nullptr;
     Route *curr_route = nullptr;
     GArc *curr_arc = nullptr;
     size_t cont = 0;
-    int num_arcs = graph->num_arcs();
-    int num_routes = instance_.num_vehicles();
-
-    solution_.Reset(num_vertices, num_arcs, num_routes);
 
     std::list<int> q;
     q.push_back(0);
@@ -154,7 +166,7 @@ void KernelSearch::BuildHeuristicSolution()
         // end current route
         if ((v1 == 0) && has_added_vertex_to_route)
         {
-            curr_route = &((solution_.routes_vec_)[curr_route_index]);
+            curr_route = &((solution->routes_vec_)[curr_route_index]);
             curr_arc = (*graph)[last_vertex_added][v1];
             if (curr_arc == nullptr)
                 throw "Inappropriate addition of vertex to route";
@@ -166,7 +178,7 @@ void KernelSearch::BuildHeuristicSolution()
             // compute route's profit sum and max duration.
             auto [route_sum_profits, route_max_duration] = instance_.ComputeRouteCostsRec(*curr_route, true);
             curr_route->time_ = route_max_duration;
-            solution_.profits_sum_ += route_sum_profits;
+            solution->profits_sum_ += route_sum_profits;
             curr_route->sum_profits_ = route_sum_profits;
 
             // std::cout << *curr_route << std::endl;
@@ -179,12 +191,12 @@ void KernelSearch::BuildHeuristicSolution()
         else if (v1 != 0)
         {
             // add vertex to current route
-            curr_route = &((solution_.routes_vec_)[curr_route_index]);
-            status = &((solution_.vertex_status_vec_)[v1]);
+            curr_route = &((solution->routes_vec_)[curr_route_index]);
+            status = &((solution->vertex_status_vec_)[v1]);
             has_added_vertex_to_route = true;
 
             // remove from list of unvisited_vertices
-            (solution_.unvisited_vertices_).erase(status->pos_);
+            (solution->unvisited_vertices_).erase(status->pos_);
 
             // adds vertex to route
             status->selected_ = true;
@@ -211,41 +223,35 @@ void KernelSearch::BuildHeuristicSolution()
     // if (((solution_).unvisited_vertices_).empty())
     // 	(solution_).is_optimal_ = true;
 
-    solution_.BuildBitset(instance_);
+    solution->BuildBitset(instance_);
+    // std::cout << solution->bitset_arcs_ << std::endl;
+    // std::cout << solution->bitset_vertices_ << std::endl;
     assert((cont == (curr_int_x_).count()));
 }
 
-void KernelSearch::CreateKernelAndBuckets()
+void KernelSearch::BuildKernelAndBuckets(KSHeuristicSolution *solution)
 {
-    Timestamp *ti = NewTimestamp();
-    Timer *timer = GetTimer();
-    timer->Clock(ti);
-
     InitCplex();
     BuildModel(true, false, false);
     curr_kernel_bitset_.reset();
 
-    cplex_.extract(model_);
+    cplex_->extract(*model_);
     // cplex_.exportModel("kernel_search_lp.lp");
     // getchar(); getchar();
-    if (!(cplex_.solve()))
+    if (!(cplex_->solve()))
     {
-        if ((cplex_.getCplexStatus() == IloCplex::Infeasible) || (cplex_.getCplexStatus() == IloCplex::InfOrUnbd))
-            (solution_).is_infeasible_ = true;
+        if ((cplex_->getCplexStatus() == IloCplex::Infeasible) || (cplex_->getCplexStatus() == IloCplex::InfOrUnbd))
+            solution->is_infeasible_ = true;
 
-        (solution_).time_stage1_ = timer->CurrentElapsedTime(ti);
-
-        delete ti;
-        ti = nullptr;
         return;
     }
 
     // Sort vertices in non-ascending order of y values. For vertices with y == 0, sort by reduced costs.
-    IloNumArray y_values(env_);
-    IloNumArray y_reduced_costs(env_);
+    IloNumArray y_values(*env_);
+    IloNumArray y_reduced_costs(*env_);
 
-    cplex_.getValues(y_values, master_vars_.y);
-    cplex_.getReducedCosts(y_reduced_costs, master_vars_.y);
+    cplex_->getValues(y_values, master_vars_.y);
+    cplex_->getReducedCosts(y_reduced_costs, master_vars_.y);
 
     struct VertexValueReducedCost
     {
@@ -310,129 +316,146 @@ void KernelSearch::CreateKernelAndBuckets()
     }
 
     assert(vertices_added == num_vertices);
-
-    delete ti;
-    ti = nullptr;
 }
 
-void KernelSearch::Run()
+KSHeuristicSolution *KernelSearch::Run()
 {
     Timestamp *ti = NewTimestamp();
     Timer *timer = GetTimer();
     timer->Clock(ti);
+
     std::cout << std::setprecision(2) << std::fixed;
-    int num_mandatory = instance_.num_mandatory();
+    const int num_mandatory = instance_.num_mandatory();
     const Graph *graph = instance_.graph();
-    int num_vertices = graph->num_vertices();
-    int num_arcs = graph->num_arcs();
+    const int num_vertices = graph->num_vertices();
+    const int num_arcs = graph->num_arcs();
+    const int num_routes = instance_.num_vehicles();
+
+    KSHeuristicSolution *solution = new KSHeuristicSolution(num_vertices, num_arcs, num_routes);
 
     // build Kernel by solving LP of given problem.
-    CreateKernelAndBuckets();
+    BuildKernelAndBuckets(solution);
+    solution->time_spent_building_kernel_buckets_ = timer->CurrentElapsedTime(ti);
 
-    PrintKernelAndBuckets();
-
-    // delete LP model and create the MILP model.
-    ResetCplex();
-    InitCplex();
-    BuildModel(false, true, false); // initially, set all binary variables to zero.
-
-    cplex_.setParam(IloCplex::Param::ClockType, 2);
-    cplex_.setParam(IloCplex::Param::Emphasis::MIP, IloCplex::MIPEmphasisFeasibility);
-
-    double curr_time_limit_iteration = K_KS_MAX_TIME_LIMIT;
-
-    int curr_bucket_index = -1; // starts from kernel.
-    int total_num_buckets = buckets_bitsets_.size();
-
-    auto curr_reference_kernel = curr_kernel_bitset_;
-    auto curr_vertices_entering_kernel = curr_kernel_bitset_;
-    auto curr_vertices_leaving_reference_kernel = boost::dynamic_bitset<>(num_vertices, 0);
-
-    for (int curr_bucket_index = -1; curr_bucket_index < total_num_buckets; ++curr_bucket_index)
+    if (!solution->is_infeasible_)
     {
-        cplex_.setParam(IloCplex::Param::TimeLimit, curr_time_limit_iteration);
-        std::cout << "curr_time_limit_iteration: " << curr_time_limit_iteration << std::endl;
-        // update the reference kernel to the current kernel (+ current bucket, if not the first iteration).
-        if (curr_bucket_index >= 0)
+        PrintKernelAndBuckets();
+
+        // delete LP model and create the MILP model.
+        ResetCplex();
+        InitCplex();
+
+        BuildModel(false, true, false); // initially, set all binary variables to zero.
+
+        cplex_->setParam(IloCplex::Param::ClockType, 2);
+        cplex_->setParam(IloCplex::Param::Emphasis::MIP, IloCplex::MIPEmphasisFeasibility);
+
+        double curr_time_limit_iteration = K_KS_MAX_TIME_LIMIT;
+
+        int curr_bucket_index = -1; // starts from kernel.
+        int total_num_buckets = buckets_bitsets_.size();
+
+        auto curr_reference_kernel = curr_kernel_bitset_;
+        auto curr_vertices_entering_kernel = curr_kernel_bitset_;
+        auto curr_vertices_leaving_reference_kernel = boost::dynamic_bitset<>(num_vertices, 0);
+
+        for (int curr_bucket_index = -1; curr_bucket_index < total_num_buckets; ++curr_bucket_index)
         {
-            curr_reference_kernel = curr_kernel_bitset_ | buckets_bitsets_[curr_bucket_index];
-            curr_vertices_entering_kernel |= buckets_bitsets_[curr_bucket_index];
-        }
-
-        std::cout << " bucket index " << curr_bucket_index << std::endl;
-        // std::cout << " current bucket ";
-        // curr_bucket_index >= 0 ? std::cout << buckets_bitsets_[curr_bucket_index] << std::endl : std::cout << " - " << std::endl;
-        // std::cout << " kernel: " << curr_kernel_bitset_ << std::endl;
-        // std::cout << " reference kernel: " << curr_reference_kernel << std::endl;
-        // std::cout << " IN kernel: " << curr_vertices_entering_kernel << std::endl;
-        // std::cout << " OUT ref kernel: " << curr_vertices_leaving_reference_kernel << std::endl;
-        // std::cout << " curr sol: " << curr_int_y_ << std::endl;
-        // std::cout << " best cost: " << curr_best_solution_value_ << std::endl;
-        // cplex_.exportModel("model_before.lp");
-        //  Enable in the model the variables that are active in the Kernel.
-
-        UpdateModelVarBounds(curr_vertices_entering_kernel, curr_vertices_leaving_reference_kernel, curr_reference_kernel);
-
-        // cplex_.exportModel("model_updated.lp");
-        // getchar();
-        // getchar();
-
-        // if already found a feasible solution, use it as warm start of the next iteration.
-        if (found_int_x_)
-        {
-            cplex_.addMIPStart(curr_mip_start_vars_, curr_mip_start_vals_, IloCplex::MIPStartCheckFeas);
-
-            // std::cout << "added warm start" << std::endl;
-        }
-
-        bool found_better_solution = false;
-
-        if (cplex_.solve())
-        {
-            found_int_x_ = true;
-            double solution_value = cplex_.getObjValue();
-            std::cout << "found feasible solution with cost " << solution_value << std::endl;
-
-            // only update Kernel if found a solution with strictly better objective function value!
-            if (double_greater(solution_value, curr_best_solution_value_))
+            cplex_->setParam(IloCplex::Param::TimeLimit, curr_time_limit_iteration);
+            std::cout << "curr_time_limit_iteration: " << curr_time_limit_iteration << std::endl;
+            // update the reference kernel to the current kernel (+ current bucket, if not the first iteration).
+            if (curr_bucket_index >= 0)
             {
-                found_better_solution = true;
-                curr_best_solution_value_ = solution_value;
-                RetrieveSolutionArcVertexValues();
-
-                // update kernel with the possibly new vertices used in the current solution found.
-                curr_vertices_entering_kernel = curr_int_y_ - curr_kernel_bitset_;
-                curr_kernel_bitset_ |= curr_vertices_entering_kernel;
-
-                curr_vertices_leaving_reference_kernel = curr_reference_kernel - curr_kernel_bitset_;
+                curr_reference_kernel = curr_kernel_bitset_ | buckets_bitsets_[curr_bucket_index];
+                curr_vertices_entering_kernel |= buckets_bitsets_[curr_bucket_index];
             }
-        }
 
-        // if hasn't found a batter solution, nothing changes in the kernel...we only remove from reference kernel the vertices added in this iteration.
-        if (!found_better_solution)
-        {
-            curr_vertices_leaving_reference_kernel = curr_reference_kernel - curr_kernel_bitset_;
-            curr_vertices_entering_kernel.reset();
-        }
-        std::cout << "status " << cplex_.getStatus() << std::endl;
-        // std::cout << "current sol: " << curr_int_y_ << std::endl;
+            std::cout << " bucket index " << curr_bucket_index << std::endl;
+            // std::cout << " current bucket ";
+            // curr_bucket_index >= 0 ? std::cout << buckets_bitsets_[curr_bucket_index] << std::endl : std::cout << " - " << std::endl;
+            // std::cout << " kernel: " << curr_kernel_bitset_ << std::endl;
+            // std::cout << " reference kernel: " << curr_reference_kernel << std::endl;
+            // std::cout << " IN kernel: " << curr_vertices_entering_kernel << std::endl;
+            // std::cout << " OUT ref kernel: " << curr_vertices_leaving_reference_kernel << std::endl;
+            // std::cout << " curr sol: " << curr_int_y_ << std::endl;
+            // std::cout << " best cost: " << curr_best_solution_value_ << std::endl;
+            // cplex_.exportModel("model_before.lp");
+            //  Enable in the model the variables that are active in the Kernel.
 
-        curr_time_limit_iteration = std::max(curr_time_limit_iteration * K_KS_DECAY_FACTOR_TIME_LIMIT, K_KS_MIN_TIME_LIMIT);
+            UpdateModelVarBounds(curr_vertices_entering_kernel, curr_vertices_leaving_reference_kernel, curr_reference_kernel);
+
+            // cplex_.exportModel("model_updated.lp");
+            // getchar();
+            // getchar();
+
+            // if already found a feasible solution, use it as warm start of the next iteration.
+            if (found_int_x_)
+            {
+                cplex_->addMIPStart(curr_mip_start_vars_, curr_mip_start_vals_, IloCplex::MIPStartSolveMIP);
+
+                // std::cout << "added warm start" << std::endl;
+            }
+
+            bool found_better_solution = false;
+
+            if (cplex_->solve())
+            {
+                found_int_x_ = true;
+                double solution_value = cplex_->getObjValue();
+                std::cout << "found feasible solution with cost " << solution_value << std::endl;
+
+                // only update Kernel if found a solution with strictly better objective function value!
+                if (double_greater(solution_value, curr_best_solution_value_))
+                {
+                    found_better_solution = true;
+                    curr_best_solution_value_ = solution_value;
+                    RetrieveSolutionArcVertexValues();
+
+                    // update kernel with the possibly new vertices used in the current solution found.
+                    curr_vertices_entering_kernel = curr_int_y_ - curr_kernel_bitset_;
+                    curr_kernel_bitset_ |= curr_vertices_entering_kernel;
+
+                    curr_vertices_leaving_reference_kernel = curr_reference_kernel - curr_kernel_bitset_;
+                }
+            }
+            else
+            {
+                if ((cplex_->getCplexStatus() == IloCplex::Infeasible) || (cplex_->getCplexStatus() == IloCplex::InfOrUnbd))
+                {
+                    solution->is_infeasible_ = true;
+                    assert(found_int_x_ == false);
+                    break;
+                }
+            }
+
+            // if hasn't found a batter solution, nothing changes in the kernel...we only remove from reference kernel the vertices added in this iteration.
+            if (!found_better_solution)
+            {
+                curr_vertices_leaving_reference_kernel = curr_reference_kernel - curr_kernel_bitset_;
+                curr_vertices_entering_kernel.reset();
+            }
+            std::cout << "status " << cplex_->getStatus() << std::endl;
+            // std::cout << "current sol: " << curr_int_y_ << std::endl;
+
+            curr_time_limit_iteration = std::max(curr_time_limit_iteration * K_KS_DECAY_FACTOR_TIME_LIMIT, 1.0 * K_KS_MIN_TIME_LIMIT);
+        }
+    }
+
+    if (found_int_x_)
+    {
+        solution->is_feasible_ = solution->found_x_integer_ = true;
+        BuildHeuristicSolution(solution);
     }
 
     std::cout << "Best solution found: " << curr_best_solution_value_ << " " << curr_int_y_ << std::endl;
     std::cout << "Elapsed time: " << timer->CurrentElapsedTime(ti) << std::endl;
 
-    (solution_).time_stage2_ = timer->CurrentElapsedTime(ti);
-
-    if (found_int_x_)
-    {
-        (solution_).is_feasible_ = (solution_).found_y_integer_ = (solution_).found_x_integer_ = true;
-        BuildHeuristicSolution();
-    }
+    solution->total_time_spent_ = timer->CurrentElapsedTime(ti);
 
     delete (ti);
     ti = nullptr;
+
+    return solution;
 }
 
 void KernelSearch::UpdateModelVarBounds(boost::dynamic_bitset<> &vars_entering_kernel, boost::dynamic_bitset<> &vars_leaving_reference_kernel, boost::dynamic_bitset<> &curr_reference_kernel)

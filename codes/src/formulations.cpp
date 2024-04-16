@@ -719,8 +719,8 @@ void optimize(IloCplex &cplex, IloEnv &env, IloModel &model, std::optional<Bende
   BendersGenericCallbackI *generic_callback = nullptr;
   CallbackArguments arguments{.R0 = R0, .Rn = Rn, .instance = &instance};
 
-  cplex.setParam(IloCplex::Param::WorkMem, 7000);
-  std::cout << "limit of memory 7000MB" << std::endl;
+  cplex.setParam(IloCplex::Param::WorkMem, 50000);
+  std::cout << "limit of memory 50000MB" << std::endl;
   cplex.setParam(IloCplex::IloCplex::Param::MIP::Strategy::File, 3);
   cplex.setOut(env.getNullStream());
 
@@ -824,63 +824,72 @@ void optimize(IloCplex &cplex, IloEnv &env, IloModel &model, std::optional<Bende
     }
   }
 
-  if (initial_sol != nullptr)
-  {
-    IloEnv worker_env = worker->worker_cplex().getEnv();
-    IloModel worker_model = worker->worker_cplex().getModel();
-
-    // Update the objective function in the worker LP.
-    worker_model.remove(worker->worker_obj());
-    IloExpr obj_expr = worker->worker_obj().getExpr();
-    obj_expr.clear();
-
-    IloNumArray y_values(env, num_vertices);
-    for (int i = 0; i < num_vertices; ++i)
-      y_values[i] = initial_sol->y_values_[i];
-
-    IloNumArray x_values(env, num_arcs);
-    for (int i = 0; i < num_arcs; ++i)
-      x_values[i] = initial_sol->x_values_[i];
-
-    FillObjectiveExpressionDualCompactSingleCommodityContinuousSpace(obj_expr, *static_cast<DualVariablesSingleCommodity *>(worker->worker_vars()), x_values, y_values, std::nullopt, R0, Rn, instance, combine_feas_op_cuts);
-    worker->worker_obj().setExpr(obj_expr);
-    worker_model.add(worker->worker_obj());
-    obj_expr.end();
-
-    optimizeLP(worker->worker_cplex(), worker_env, model, instance, -1, R0, Rn, solution);
-
-    initial_sol->dual_bound_ = worker->worker_cplex().getObjValue();
-  }
-
-  // if((initial_sol != nullptr)&&(initial_sol->is_feasible_))
+  // if (initial_sol != nullptr)
   // {
-  //   //std::cout << "antes" << std::endl;
-  //   IloNumVarArray startVar(env,num_vertices + num_arcs);
-  //   IloNumArray startVal(env,num_vertices + num_arcs);
+  //   IloEnv worker_env = worker->worker_cplex().getEnv();
+  //   IloModel worker_model = worker->worker_cplex().getModel();
 
-  //   for(int i = 0; i < num_vertices; ++i)
-  //   {
-  //     startVar[i] = master_vars.y[i];
-  //     startVal[i] = initial_sol->y_values_[i];
-  //   }
+  //   // Update the objective function in the worker LP.
+  //   worker_model.remove(worker->worker_obj());
+  //   IloExpr obj_expr = worker->worker_obj().getExpr();
+  //   obj_expr.clear();
 
-  //   for(int i = num_vertices; i < num_vertices + num_arcs; ++i)
-  //   {
-  //     startVar[i] = master_vars.x[i - num_vertices];
-  //     startVal[i] = initial_sol->x_values_[i];
-  //   }
+  //   IloNumArray y_values(env, num_vertices);
+  //   for (int i = 0; i < num_vertices; ++i)
+  //     y_values[i] = initial_sol->y_values_[i];
 
-  //   std::cout << "antes de colocar solucao" << std::endl;
-  //   cplex.addMIPStart(startVar, startVal,IloCplex::MIPStartRepair);
-  //   startVar.end();
-  //   startVal.end();
-  //   //cplex.setParam(IloCplex::Param::MIP::Tolerances::LowerCutoff, 1.0*(initial_sol->profits_sum_));
-  //   std::cout << "colocou solucao" << std::endl;
+  //   IloNumArray x_values(env, num_arcs);
+  //   for (int i = 0; i < num_arcs; ++i)
+  //     x_values[i] = initial_sol->x_values_[i];
 
-  //   //cplex.setParam(IloCplex::Param::Advance,2);
-  //   //std::cout << "colocou presolve" << std::endl;
-  //   //std::cout << "depois" << std::endl;
+  //   FillObjectiveExpressionDualCompactSingleCommodityContinuousSpace(obj_expr, *static_cast<DualVariablesSingleCommodity *>(worker->worker_vars()), x_values, y_values, std::nullopt, R0, Rn, instance, combine_feas_op_cuts);
+  //   worker->worker_obj().setExpr(obj_expr);
+  //   worker_model.add(worker->worker_obj());
+  //   obj_expr.end();
+
+  //   optimizeLP(worker->worker_cplex(), worker_env, model, instance, -1, R0, Rn, solution);
+
+  //   initial_sol->dual_bound_ = worker->worker_cplex().getObjValue();
   // }
+
+  if ((initial_sol != nullptr) && (initial_sol->is_feasible_))
+  {
+    // std::cout << "antes" << std::endl;
+    IloNumVarArray start_vars(env, num_vertices + num_arcs);
+    IloNumArray start_values(env, num_vertices + num_arcs);
+
+    for (int i = 0; i < num_vertices; ++i)
+    {
+      start_vars[i] = master_vars.y[i];
+      start_values[i] = initial_sol->bitset_vertices_[i];
+    }
+
+    for (int i = 0; i < num_arcs; ++i)
+    {
+      start_vars[i + num_vertices] = master_vars.x[i];
+      start_values[i + num_vertices] = initial_sol->bitset_arcs_[i];
+    }
+
+    // std::cout << initial_sol->bitset_vertices_ << std::endl;
+    // std::cout << initial_sol->bitset_arcs_ << std::endl;
+    // std::cout << start_values << std::endl;
+
+    std::cout << " *** antes de colocar solucao" << std::endl;
+    cplex.addMIPStart(start_vars, start_values, IloCplex::MIPStartSolveMIP);
+    start_vars.end();
+    start_values.end();
+    // cplex.setParam(IloCplex::Param::MIP::Tolerances::LowerCutoff, 1.0*(initial_sol->profits_sum_));
+    std::cout << "colocou solucao" << std::endl;
+
+    // cplex.setParam(IloCplex::Param::Advance,2);
+    // std::cout << "colocou presolve" << std::endl;
+    // std::cout << "depois" << std::endl;
+
+    if (!double_equals(total_time_limit, -1))
+      total_time_limit = std::max(0.0, total_time_limit - initial_sol->total_time_spent_);
+
+    solution.milp_time_ += initial_sol->total_time_spent_;
+  }
 
   // if applying lazy constraints, only possible to be single thread! (really? double check!)
   if ((!K_MULTI_THREAD) || (!solve_relax && apply_benders && !apply_benders_generic_callback))
@@ -1127,7 +1136,7 @@ void optimize(IloCplex &cplex, IloEnv &env, IloModel &model, std::optional<Bende
   else
     solution.milp_time_ += (timer->ElapsedTime(ti, tf) + instance.time_spent_in_preprocessing());
 
-  std::cout << "time spent: " << timer->ElapsedTime(ti, tf) << std::endl;
+  std::cout << "time spent: " << solution.milp_time_ << std::endl;
   SetSolutionStatus(cplex, solution, solve_relax);
 
   delete (ti);

@@ -8,21 +8,22 @@ CLNFLAGS  = -L$(CPLEXLIBDIR) -L$(CONCERTLIBDIR) -lilocplex -lconcert -lcplex -m6
 
 CC_DEBUG = -DDEBUG -g
 CC_RELEASE = -DNDEBUG
+CC_VALGRIND = -DNDEBUG -g -O0
+
 COPT  = -m64 -O2 -fPIC -fexceptions $(CC_RELEASE) -DIL_STD -DLONG_MAX=0x7FFFFFFFL
 GENERALINCDIR   = -I ./codes
 CPLEXINCDIR   = -I $(CPLEXDIR)/cplex/include -I $(CPLEXDIR)/concert/include
 CFLAGS = $(COPT) $(GENERALINCDIR) -std=c++17
 CFLAGS2  = $(COPT) $(CPLEXINCDIR)
 
-CC_VALGRIND=-g -O0
 CC=g++ -std=c++17
 
 PROG_DIR=codes/src
 PROG_BIN=codes/bin
 
-MAIN_EXACT_SRC=$(PROG_DIR)/exact/main2.cpp
+MAIN_EXACT_SRC=$(PROG_DIR)/exact/main.cpp
 
-MAIN_HEURISTIC_SRC=$(PROG_DIR)/heuristic/main.cpp
+MAIN_HEURISTIC_SRC=$(PROG_DIR)/heuristic/main2.cpp
 
 ARC_SRC=$(PROG_DIR)/arc.cpp
 ARC_H=$(PROG_DIR)/arc.h

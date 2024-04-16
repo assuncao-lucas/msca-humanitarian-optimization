@@ -7,8 +7,8 @@
 
 VertexStatus::VertexStatus()
 {
-	this->selected_ = false;
-	this->route_ = -1;
+	selected_ = false;
+	route_ = -1;
 }
 
 VertexStatus::~VertexStatus()
@@ -17,12 +17,12 @@ VertexStatus::~VertexStatus()
 
 HeuristicSolution::HeuristicSolution()
 {
-	this->profits_sum_ = 0;
-	this->dimension_ = 0;
-	this->dimension2_ = 0;
-	this->is_infeasible_ = false;
-	this->is_feasible_ = false;
-	this->is_optimal_ = false;
+	profits_sum_ = 0;
+	dimension_ = 0;
+	dimension2_ = 0;
+	is_infeasible_ = false;
+	is_feasible_ = false;
+	is_optimal_ = false;
 }
 
 HeuristicSolution::~HeuristicSolution()
@@ -36,33 +36,34 @@ HeuristicSolution::HeuristicSolution(int dimension, int dimension2, int num_rout
 
 void HeuristicSolution::Reset(int dimension, int dimension2, int num_routes)
 {
-	this->profits_sum_ = 0;
-	this->dimension_ = dimension;
-	this->dimension2_ = dimension2;
-	this->num_routes_ = num_routes;
-	this->routes_vec_ = std::vector<Route>(num_routes);
-	this->vertex_status_vec_ = std::vector<VertexStatus>(dimension);
-	this->is_infeasible_ = false;
-	this->is_feasible_ = false;
-	this->is_optimal_ = false;
-	(this->unvisited_vertices_).clear();
+	profits_sum_ = 0;
+	dimension_ = dimension;
+	dimension2_ = dimension2;
+	num_routes_ = num_routes;
+	routes_vec_ = std::vector<Route>(num_routes);
+	vertex_status_vec_ = std::vector<VertexStatus>(dimension);
+	is_infeasible_ = false;
+	is_feasible_ = false;
+	is_optimal_ = false;
+	(unvisited_vertices_).clear();
+	total_time_spent_ = 0.0;
 
-	this->bitset_arcs_ = boost::dynamic_bitset<>(dimension2, 0);
-	this->bitset_vertices_ = boost::dynamic_bitset<>(dimension, 0);
+	bitset_arcs_ = boost::dynamic_bitset<>(dimension2, 0);
+	bitset_vertices_ = boost::dynamic_bitset<>(dimension, 0);
 
 	for (int i = 1; i < dimension; ++i)
 	{
-		(this->unvisited_vertices_).push_front(i);
-		VertexStatus *status = &((this->vertex_status_vec_)[i]);
+		(unvisited_vertices_).push_front(i);
+		VertexStatus *status = &((vertex_status_vec_)[i]);
 		status->selected_ = false;
 		status->route_ = -1;
-		status->pos_ = (this->unvisited_vertices_).begin();
+		status->pos_ = (unvisited_vertices_).begin();
 	}
 }
 
 bool HeuristicSolution::Do2OptImprovement(const Graph *graph, const int &route)
 {
-	Route *curr_route = &((this->routes_vec_)[route]);
+	Route *curr_route = &((routes_vec_)[route]);
 	int size_route = (int)((curr_route->vertices_).size());
 
 	if (size_route < 2)
@@ -162,8 +163,8 @@ bool HeuristicSolution::Do2OptImprovement(const Graph *graph, const int &route)
 					*vk_it = temp;
 
 					// atualiza os iterators no PoleStatus
-					((this->vertex_status_vec_)[*vi_it]).pos_ = vi_it;
-					((this->vertex_status_vec_)[*vk_it]).pos_ = vk_it;
+					((vertex_status_vec_)[*vi_it]).pos_ = vi_it;
+					((vertex_status_vec_)[*vk_it]).pos_ = vk_it;
 
 					++vi_it;
 					--vk_it;
@@ -182,7 +183,7 @@ bool HeuristicSolution::Do2OptImprovement(const Graph *graph, const int &route)
 
 bool HeuristicSolution::Do3OptImprovement(const Graph *graph, const int &route)
 {
-	Route *curr_route = &((this->routes_vec_)[route]);
+	Route *curr_route = &((routes_vec_)[route]);
 	size_t size_route = ((curr_route->vertices_).size());
 
 	if (size_route < 4)
@@ -255,7 +256,7 @@ bool HeuristicSolution::Do3OptImprovement(const Graph *graph, const int &route)
 
 				if ((new_arc1 == nullptr) || (new_arc2 == nullptr) || (new_arc3 == nullptr))
 					invalid_swap = true;
-				// time_variation = ((*min_dists)[actual_pre_vi][actual_pos_vj] + (*min_dists)[actual_vk][actual_vi] + (*min_dists)[actual_vj][actual_pos_vk] - minus_variation)/((this->curr_instance_)->speed_vehicle());
+				// time_variation = ((*min_dists)[actual_pre_vi][actual_pos_vj] + (*min_dists)[actual_vk][actual_vi] + (*min_dists)[actual_vj][actual_pos_vk] - minus_variation)/((curr_instance_)->speed_vehicle());
 
 				if (!invalid_swap)
 				{
@@ -281,7 +282,7 @@ bool HeuristicSolution::Do3OptImprovement(const Graph *graph, const int &route)
 					{
 						*new_route_it = *temp_it;
 
-						((this->vertex_status_vec_)[*new_route_it]).pos_ = new_route_it;
+						((vertex_status_vec_)[*new_route_it]).pos_ = new_route_it;
 
 						new_route_it++;
 						temp_it++;
@@ -294,7 +295,7 @@ bool HeuristicSolution::Do3OptImprovement(const Graph *graph, const int &route)
 					{
 						*new_route_it = *temp_it;
 
-						((this->vertex_status_vec_)[*new_route_it]).pos_ = new_route_it;
+						((vertex_status_vec_)[*new_route_it]).pos_ = new_route_it;
 
 						new_route_it++;
 						temp_it++;
@@ -316,7 +317,7 @@ bool HeuristicSolution::Do3OptImprovement(const Graph *graph, const int &route)
 
 				if ((new_arc1 == nullptr) || (new_arc2 == nullptr) || (new_arc3 == nullptr))
 					invalid_swap = true;
-				// time_variation = ((*min_dists)[actual_pre_vi][actual_vj] + (*min_dists)[actual_vi][actual_vk] + (*min_dists)[actual_pos_vj][actual_pos_vk] - minus_variation)/((this->curr_instance_)->speed_vehicle());
+				// time_variation = ((*min_dists)[actual_pre_vi][actual_vj] + (*min_dists)[actual_vi][actual_vk] + (*min_dists)[actual_pos_vj][actual_pos_vk] - minus_variation)/((curr_instance_)->speed_vehicle());
 
 				if (!invalid_swap)
 				{
@@ -391,7 +392,7 @@ bool HeuristicSolution::Do3OptImprovement(const Graph *graph, const int &route)
 					{
 						*new_route_it = *temp_it;
 
-						((this->vertex_status_vec_)[*new_route_it]).pos_ = new_route_it;
+						((vertex_status_vec_)[*new_route_it]).pos_ = new_route_it;
 
 						new_route_it++;
 						temp_it--;
@@ -404,7 +405,7 @@ bool HeuristicSolution::Do3OptImprovement(const Graph *graph, const int &route)
 					{
 						*new_route_it = *temp_it;
 
-						((this->vertex_status_vec_)[*new_route_it]).pos_ = new_route_it;
+						((vertex_status_vec_)[*new_route_it]).pos_ = new_route_it;
 
 						new_route_it++;
 						temp_it--;
@@ -426,7 +427,7 @@ bool HeuristicSolution::Do3OptImprovement(const Graph *graph, const int &route)
 
 				if ((new_arc1 == nullptr) || (new_arc2 == nullptr) || (new_arc3 == nullptr))
 					invalid_swap = true;
-				// time_variation = ((*min_dists)[actual_pre_vi][actual_vk] + (*min_dists)[actual_pos_vj][actual_vi] + (*min_dists)[actual_vj][actual_pos_vk] - minus_variation)/((this->curr_instance_)->speed_vehicle());
+				// time_variation = ((*min_dists)[actual_pre_vi][actual_vk] + (*min_dists)[actual_pos_vj][actual_vi] + (*min_dists)[actual_vj][actual_pos_vk] - minus_variation)/((curr_instance_)->speed_vehicle());
 
 				if (!invalid_swap)
 				{
@@ -475,7 +476,7 @@ bool HeuristicSolution::Do3OptImprovement(const Graph *graph, const int &route)
 					{
 						*new_route_it = *temp_it;
 
-						((this->vertex_status_vec_)[*new_route_it]).pos_ = new_route_it;
+						((vertex_status_vec_)[*new_route_it]).pos_ = new_route_it;
 
 						new_route_it++;
 						temp_it--;
@@ -488,7 +489,7 @@ bool HeuristicSolution::Do3OptImprovement(const Graph *graph, const int &route)
 					{
 						*new_route_it = *temp_it;
 
-						((this->vertex_status_vec_)[*new_route_it]).pos_ = new_route_it;
+						((vertex_status_vec_)[*new_route_it]).pos_ = new_route_it;
 
 						new_route_it++;
 						temp_it++;
@@ -510,7 +511,7 @@ bool HeuristicSolution::Do3OptImprovement(const Graph *graph, const int &route)
 
 				if ((new_arc1 == nullptr) || (new_arc2 == nullptr) || (new_arc3 == nullptr))
 					invalid_swap = true;
-				// time_variation = ((*min_dists)[actual_pre_vi][actual_pos_vj] + (*min_dists)[actual_vk][actual_vj] + (*min_dists)[actual_vi][actual_pos_vk] - minus_variation)/((this->curr_instance_)->speed_vehicle());
+				// time_variation = ((*min_dists)[actual_pre_vi][actual_pos_vj] + (*min_dists)[actual_vk][actual_vj] + (*min_dists)[actual_vi][actual_pos_vk] - minus_variation)/((curr_instance_)->speed_vehicle());
 
 				if (!invalid_swap)
 				{
@@ -559,7 +560,7 @@ bool HeuristicSolution::Do3OptImprovement(const Graph *graph, const int &route)
 					{
 						*new_route_it = *temp_it;
 
-						((this->vertex_status_vec_)[*new_route_it]).pos_ = new_route_it;
+						((vertex_status_vec_)[*new_route_it]).pos_ = new_route_it;
 
 						new_route_it++;
 						temp_it++;
@@ -572,7 +573,7 @@ bool HeuristicSolution::Do3OptImprovement(const Graph *graph, const int &route)
 					{
 						*new_route_it = *temp_it;
 
-						((this->vertex_status_vec_)[*new_route_it]).pos_ = new_route_it;
+						((vertex_status_vec_)[*new_route_it]).pos_ = new_route_it;
 
 						new_route_it++;
 						temp_it--;
@@ -597,13 +598,13 @@ bool HeuristicSolution::Do3OptImprovement(const Graph *graph, const int &route)
 
 void HeuristicSolution::AddVertex(int vertex, int route, std::list<int>::iterator it, int profit_variation, double time_variation)
 {
-	VertexStatus *status = &((this->vertex_status_vec_)[vertex]);
+	VertexStatus *status = &((vertex_status_vec_)[vertex]);
 
 	// remove from list of unvisited_vertices
-	this->unvisited_vertices_.erase(status->pos_);
+	unvisited_vertices_.erase(status->pos_);
 
 	// add to route
-	Route *curr_route = &((this->routes_vec_)[route]);
+	Route *curr_route = &((routes_vec_)[route]);
 	int max_pos = (int)((curr_route->vertices_).size());
 	// std::list<int>::iterator it = (curr_route->vertices_).begin();
 	// if((pos == -1)||(pos > max_pos)) pos = max_pos;
@@ -616,26 +617,26 @@ void HeuristicSolution::AddVertex(int vertex, int route, std::list<int>::iterato
 	(curr_route->time_) += time_variation;
 	(curr_route->sum_profits_) += profit_variation;
 
-	(this->profits_sum_) += profit_variation;
+	(profits_sum_) += profit_variation;
 }
 
 void HeuristicSolution::InterRouteSwap(int r1, int r2, std::list<int>::iterator it_i1, std::list<int>::iterator it_f1,
 									   int profit_variation1, double time_variation1, std::list<int>::iterator it_i2, std::list<int>::iterator it_f2, int profit_variation2, double time_variation2)
 {
-	Route *route1 = &((this->routes_vec_)[r1]), *route2 = &((this->routes_vec_)[r2]);
+	Route *route1 = &((routes_vec_)[r1]), *route2 = &((routes_vec_)[r2]);
 
 	// change the routes of the status of the vertices moved!!!!!!!!!!
 	std::list<int>::iterator it = it_i1;
 	do
 	{
-		((this->vertex_status_vec_)[*it]).route_ = r2;
+		((vertex_status_vec_)[*it]).route_ = r2;
 		++it;
 	} while (it != it_f1);
 
 	it = it_i2;
 	do
 	{
-		((this->vertex_status_vec_)[*it]).route_ = r1;
+		((vertex_status_vec_)[*it]).route_ = r1;
 		++it;
 	} while (it != it_f2);
 
@@ -651,29 +652,29 @@ void HeuristicSolution::InterRouteSwap(int r1, int r2, std::list<int>::iterator 
 
 void HeuristicSolution::InterRouteSwapUnrouted(int r1, std::list<int>::iterator it_i1, std::list<int>::iterator it_f1, int profit_variation1, double time_variation1, std::list<int>::iterator it_i2)
 {
-	Route *route1 = &((this->routes_vec_)[r1]);
+	Route *route1 = &((routes_vec_)[r1]);
 
 	// change the routes of the status of the vertices moved!!!!!!!!!!
 	std::list<int>::iterator it = it_i1;
 	do
 	{
-		((this->vertex_status_vec_)[*it]).route_ = -1;
-		((this->vertex_status_vec_)[*it]).selected_ = false;
-		//(this->unvisited_vertices_).push_front(*it);
-		//((this->vertex_status_vec_)[*it]).pos_ = (this->unvisited_vertices_).begin();
+		((vertex_status_vec_)[*it]).route_ = -1;
+		((vertex_status_vec_)[*it]).selected_ = false;
+		//(unvisited_vertices_).push_front(*it);
+		//((vertex_status_vec_)[*it]).pos_ = (unvisited_vertices_).begin();
 		++it;
 	} while (it != it_f1);
 
-	((this->vertex_status_vec_)[*it_i2]).route_ = r1;
-	((this->vertex_status_vec_)[*it_i2]).selected_ = true;
+	((vertex_status_vec_)[*it_i2]).route_ = r1;
+	((vertex_status_vec_)[*it_i2]).selected_ = true;
 
-	(route1->vertices_).splice(it_i1, this->unvisited_vertices_, it_i2);
-	(this->unvisited_vertices_).splice((this->unvisited_vertices_).begin(), route1->vertices_, it_i1, it_f1);
+	(route1->vertices_).splice(it_i1, unvisited_vertices_, it_i2);
+	(unvisited_vertices_).splice((unvisited_vertices_).begin(), route1->vertices_, it_i1, it_f1);
 
 	(route1->time_) += time_variation1;
 	(route1->sum_profits_) += profit_variation1;
 
-	(this->profits_sum_) += profit_variation1;
+	(profits_sum_) += profit_variation1;
 
 	//(route2->time_) += time_variation2;
 	//(route2->sum_profits_) += profit_variation2;
@@ -686,7 +687,7 @@ bool HeuristicSolution::PreviewInterRouteSwap(Instance &inst, int r1, int pos_i1
 	profit_variation1 = profit_variation2 = 0;
 	time_variation1 = time_variation2 = 0.0;
 	int pre_vertex1 = 0, pos_vertex1 = 0, pre_vertex2 = 0, pos_vertex2 = 0;
-	Route *route1 = &((this->routes_vec_)[r1]), *route2 = &((this->routes_vec_)[r2]);
+	Route *route1 = &((routes_vec_)[r1]), *route2 = &((routes_vec_)[r2]);
 	int max_pos1 = (int)((route1->vertices_).size()) - 1, max_pos2 = (int)((route2->vertices_).size()) - 1;
 	GArc *new_pre_arc = nullptr, *new_pos_arc = nullptr;
 	int begin_segment_vertex1, end_segment_vertex1, begin_segment_vertex2, end_segment_vertex2;
@@ -827,7 +828,7 @@ bool HeuristicSolution::PreviewInterRouteSwapUnrouted(Instance &inst, int r1, in
 	profit_variation1 = profit_variation2 = 0;
 	time_variation1 = 0.0;
 	int pre_vertex1 = 0, pos_vertex1 = 0;
-	Route *route1 = &((this->routes_vec_)[r1]);
+	Route *route1 = &((routes_vec_)[r1]);
 	int max_pos1 = (int)((route1->vertices_).size()) - 1;
 	GArc *new_pre_arc = nullptr, *new_pos_arc = nullptr;
 	int begin_segment_vertex1, end_segment_vertex1;
@@ -916,7 +917,7 @@ bool HeuristicSolution::PreviewAddVertexWithinMinimumDistanceIncrease(Instance &
 	std::list<int>::iterator curr_it;
 	bool can_add = false;
 
-	for (int curr_route = 0; curr_route < this->num_routes_; ++curr_route)
+	for (int curr_route = 0; curr_route < num_routes_; ++curr_route)
 	{
 		if (PreviewAddVertexToRouteWithinMinimumDistanceIncrease(inst, vertex, curr_route, curr_it, curr_profit_variation, curr_time_variation))
 		{
@@ -941,9 +942,9 @@ bool HeuristicSolution::PreviewAddVertexToRouteWithinMinimumDistanceIncrease(Ins
 	time_variation = std::numeric_limits<double>::infinity();
 	double curr_time_variation = 0.0;
 	int pre_vertex = 0, pos_vertex = 0;
-	Route *curr_route = &((this->routes_vec_)[route]);
+	Route *curr_route = &((routes_vec_)[route]);
 	size_t max_pos = (int)((curr_route->vertices_).size());
-	VertexStatus *status = &((this->vertex_status_vec_)[vertex]);
+	VertexStatus *status = &((vertex_status_vec_)[vertex]);
 	int num_vertices = graph->num_vertices();
 	bool can_add = false;
 
@@ -994,9 +995,9 @@ bool HeuristicSolution::PreviewAddVertex(Instance &inst, int vertex, int route, 
 	profit_variation = 0;
 	time_variation = 0.0;
 	int pre_vertex = 0, pos_vertex = 0;
-	Route *curr_route = &((this->routes_vec_)[route]);
+	Route *curr_route = &((routes_vec_)[route]);
 	int max_pos = (int)((curr_route->vertices_).size());
-	VertexStatus *status = &((this->vertex_status_vec_)[vertex]);
+	VertexStatus *status = &((vertex_status_vec_)[vertex]);
 	int num_vertices = graph->num_vertices();
 
 	if ((pos == -1) || (pos > max_pos))
@@ -1060,22 +1061,22 @@ bool HeuristicSolution::PreviewAddVertex(Instance &inst, int vertex, int route, 
 
 void HeuristicSolution::RemoveVertex(int vertex, int profit_variation, double time_variation)
 {
-	VertexStatus *status = &((this->vertex_status_vec_)[vertex]);
+	VertexStatus *status = &((vertex_status_vec_)[vertex]);
 	// std::cout << "removing from route " << status->route_ << std::endl;
 	//  remove from route
-	Route *curr_route = &((this->routes_vec_)[status->route_]);
+	Route *curr_route = &((routes_vec_)[status->route_]);
 	// std::cout << *curr_route << std::endl;
 	(curr_route->vertices_).erase(status->pos_);
 	(curr_route->time_) += time_variation;
 	(curr_route->sum_profits_) += profit_variation;
 
 	// add to list of unvisited_vertices_
-	(this->unvisited_vertices_).push_front(vertex);
+	(unvisited_vertices_).push_front(vertex);
 	status->selected_ = false;
 	status->route_ = -1;
-	status->pos_ = (this->unvisited_vertices_).begin();
+	status->pos_ = (unvisited_vertices_).begin();
 
-	(this->profits_sum_) += profit_variation;
+	(profits_sum_) += profit_variation;
 }
 
 bool HeuristicSolution::PreviewRemoveVertex(Instance &inst, int vertex, int &profit_variation, double &time_variation, bool allow_infeasible_routes)
@@ -1083,13 +1084,13 @@ bool HeuristicSolution::PreviewRemoveVertex(Instance &inst, int vertex, int &pro
 	const Graph *graph = inst.graph();
 	profit_variation = 0;
 	time_variation = 0.0;
-	VertexStatus *status = &((this->vertex_status_vec_)[vertex]);
+	VertexStatus *status = &((vertex_status_vec_)[vertex]);
 	if (!(status->selected_))
 		return false;
 
 	int num_vertices = graph->num_vertices();
 	int pre_vertex = 0, pos_vertex = 0;
-	Route *curr_route = &((this->routes_vec_)[status->route_]);
+	Route *curr_route = &((routes_vec_)[status->route_]);
 	std::list<int>::iterator pos = status->pos_;
 	int max_pos = (int)((curr_route->vertices_).size());
 
@@ -1140,7 +1141,7 @@ bool HeuristicSolution::PreviewInterRouteMoveVertex(Instance &inst, int vertex, 
 	bool can_move = false;
 	profit_variation1 = profit_variation2 = 0;
 	time_variation1 = time_variation2 = 0.0;
-	VertexStatus *status = &((this->vertex_status_vec_)[vertex]);
+	VertexStatus *status = &((vertex_status_vec_)[vertex]);
 	if (status->route_ != r2)
 	{
 		if (PreviewRemoveVertex(inst, vertex, profit_variation1, time_variation1))
@@ -1159,15 +1160,15 @@ bool HeuristicSolution::PreviewInterRouteMoveVertex(Instance &inst, int vertex, 
 
 void HeuristicSolution::InterRouteMoveVertex(int vertex, int r2, std::list<int>::iterator it, int profit_variation1, double time_variation1, int profit_variation2, double time_variation2)
 {
-	VertexStatus *status = &((this->vertex_status_vec_)[vertex]);
+	VertexStatus *status = &((vertex_status_vec_)[vertex]);
 	// remove from route r1
-	Route *curr_route = &((this->routes_vec_)[status->route_]);
+	Route *curr_route = &((routes_vec_)[status->route_]);
 	(curr_route->vertices_).erase(status->pos_);
 	(curr_route->time_) += time_variation1;
 	(curr_route->sum_profits_) += profit_variation1;
 
 	// add to route r2
-	curr_route = &((this->routes_vec_)[r2]);
+	curr_route = &((routes_vec_)[r2]);
 	int max_pos = (int)((curr_route->vertices_).size());
 	// std::list<int>::iterator it = (curr_route->vertices_).begin();
 	// if((pos == -1)||(pos > max_pos)) pos = max_pos;
@@ -1196,15 +1197,15 @@ bool HeuristicSolution::CheckCorrectness(Instance &instance)
 
 	visited_vertices[0] = visited_vertices[num_vertices - 1] = 1;
 
-	if (this->num_routes_ != num_vehicles)
+	if (num_routes_ != num_vehicles)
 		throw "Invalid solution 1";
 
-	if (this->is_infeasible_)
+	if (is_infeasible_)
 		return true;
 
 	for (int i = 0; i < num_vehicles; i++)
 	{
-		curr_route = &((this->routes_vec_)[i]);
+		curr_route = &((routes_vec_)[i]);
 		curr_profits = v1 = 0;
 		curr_time = 0.0;
 		if (!((curr_route->vertices_).empty()))
@@ -1218,7 +1219,7 @@ bool HeuristicSolution::CheckCorrectness(Instance &instance)
 
 				if ((v2 > 0) && (v2 <= num_mandatory))
 					++count_mandatory;
-				curr_status = &((this->vertex_status_vec_)[v2]);
+				curr_status = &((vertex_status_vec_)[v2]);
 				if ((!(curr_status->selected_)) || (it != curr_status->pos_) || (curr_status->route_ != i))
 					throw "Invalid solution 3";
 				if (v2 > num_mandatory)
@@ -1262,15 +1263,15 @@ bool HeuristicSolution::CheckCorrectness(Instance &instance)
 			throw "Invalid solution 8";
 	}
 
-	if (total_profits != this->profits_sum_)
+	if (total_profits != profits_sum_)
 		throw "Invalid solution 9";
 
-	if (visited_vertices.count() != ((size_t)num_vertices - (this->unvisited_vertices_).size()))
+	if (visited_vertices.count() != ((size_t)num_vertices - (unvisited_vertices_).size()))
 		throw "Invalid solution 10";
 
-	for (auto it = (this->unvisited_vertices_).begin(); it != (this->unvisited_vertices_).end(); ++it)
+	for (auto it = (unvisited_vertices_).begin(); it != (unvisited_vertices_).end(); ++it)
 	{
-		curr_status = &((this->vertex_status_vec_)[*it]);
+		curr_status = &((vertex_status_vec_)[*it]);
 		if ((curr_status->selected_) || (curr_status->pos_ != it) || (curr_status->route_ != -1) || visited_vertices[*it])
 			throw "Invalid solution 11";
 	}
@@ -1278,51 +1279,51 @@ bool HeuristicSolution::CheckCorrectness(Instance &instance)
 	if (count_mandatory != num_mandatory)
 		throw "invalid solution 12";
 
-	if (visited_arcs != this->bitset_arcs_)
+	if (visited_arcs != bitset_arcs_)
 		throw "Invalid solution 13";
-	if (visited_vertices != this->bitset_vertices_)
+	if (visited_vertices != bitset_vertices_)
 		throw "Invalid solution 14";
 	return true;
 }
 
 void HeuristicSolution::BuildBitset(const Instance &instance)
 {
-	this->bitset_arcs_ = boost::dynamic_bitset<>(this->dimension2_, 0);
-	this->bitset_vertices_ = boost::dynamic_bitset<>(this->dimension_, 0);
+	bitset_arcs_ = boost::dynamic_bitset<>(dimension2_, 0);
+	bitset_vertices_ = boost::dynamic_bitset<>(dimension_, 0);
 	const Graph *graph = instance.graph();
 	int num_vertices = graph->num_vertices(), num_vehicles = instance.num_vehicles();
 	Route *curr_route = nullptr;
 	int v1 = 0, v2 = 0;
 
-	if (this->is_infeasible_)
+	if (is_infeasible_)
 		return;
 
-	(this->bitset_vertices_)[0] = 1;
+	(bitset_vertices_)[0] = 1;
 
 	for (int i = 0; i < num_vehicles; i++)
 	{
 		v1 = 0;
-		curr_route = &((this->routes_vec_)[i]);
+		curr_route = &((routes_vec_)[i]);
 		if (!((curr_route->vertices_).empty()))
 		{
 			for (auto it = (curr_route->vertices_).begin(); it != (curr_route->vertices_).end(); ++it)
 			{
 				v2 = *it;
-				(this->bitset_vertices_)[v2] = 1;
+				(bitset_vertices_)[v2] = 1;
 
-				(this->bitset_arcs_)[graph->pos(v1, v2)] = 1;
+				(bitset_arcs_)[graph->pos(v1, v2)] = 1;
 				v1 = v2;
 			}
 
 			v2 = 0;
-			(this->bitset_arcs_)[graph->pos(v1, v2)] = 1;
+			(bitset_arcs_)[graph->pos(v1, v2)] = 1;
 		}
 	}
 }
 
 bool HeuristicSolution::operator==(HeuristicSolution &other)
 {
-	return (this->bitset_arcs_ == other.bitset_arcs_);
+	return (bitset_arcs_ == other.bitset_arcs_);
 }
 
 std::ostream &operator<<(std::ostream &out, HeuristicSolution &sol)
@@ -1341,9 +1342,8 @@ std::ostream &operator<<(std::ostream &out, HeuristicSolution &sol)
 	return out;
 }
 
-void HeuristicSolution::WriteToFile(Instance &instance, std::string algo, std::string folder, std::string file_name)
+void HeuristicSolution::WriteToFile(Instance &instance, std::string algo, std::string folder, std::string file_name) const
 {
-	Route *curr_route = nullptr;
 	std::fstream file;
 	std::string path = ".//solutions";
 	path.append(folder);
@@ -1360,25 +1360,25 @@ void HeuristicSolution::WriteToFile(Instance &instance, std::string algo, std::s
 	file << std::setprecision(5) << std::fixed;
 
 	file << K_FILE_DELIMITER << std::endl
-		 << "Total profit sum: " << this->profits_sum_ << std::endl
+		 << "Total profit sum: " << profits_sum_ << std::endl
 		 << "Num routes: ";
-	if ((this->is_infeasible_) || (!(this->is_feasible_)))
+	if ((is_infeasible_) || (!(is_feasible_)))
 		file << "0" << std::endl;
 	else
 	{
-		file << this->num_routes_ << std::endl;
+		file << num_routes_ << std::endl;
 
-		for (int i = 0; i < this->num_routes_; i++)
+		for (int i = 0; i < num_routes_; i++)
 		{
-			curr_route = &((this->routes_vec_)[i]);
-			file << curr_route->sum_profits_ << " " << curr_route->time_ << " ";
+			const Route &curr_route = (routes_vec_)[i];
+			file << curr_route.sum_profits_ << " " << curr_route.time_ << " ";
 
-			for (auto it = (curr_route->vertices_).begin(); it != (curr_route->vertices_).end(); ++it)
+			for (auto it = (curr_route.vertices_).begin(); it != (curr_route.vertices_).end(); ++it)
 			{
 				file << instance.getOriginalVertexPosition(*it) << " ";
 			}
 
-			// file << this->dimension_ - 1;
+			// file << dimension_ - 1;
 			file << std::endl;
 		}
 	}
@@ -1391,7 +1391,7 @@ void HeuristicSolution::ReadFromFile(Instance &inst, std::string algo, std::stri
 	const Graph *graph = inst.graph();
 	int num_vertices = graph->num_vertices(), num_arcs = graph->num_arcs();
 
-	this->Reset(num_vertices, num_arcs, inst.num_vehicles());
+	Reset(num_vertices, num_arcs, inst.num_vehicles());
 	Route *curr_route = nullptr;
 	int num_routes = 0;
 	std::fstream input;
@@ -1420,24 +1420,24 @@ void HeuristicSolution::ReadFromFile(Instance &inst, std::string algo, std::stri
 			getline(input, line);
 			size_t pos = line.find_first_of(":");
 			s_profits_sum << line.substr(pos + 2);
-			s_profits_sum >> this->profits_sum_;
-			// std::cout << this->profits_sum_ << std::endl;
+			s_profits_sum >> profits_sum_;
+			// std::cout << profits_sum_ << std::endl;
 
 			getline(input, line);
 			pos = line.find_first_of(":");
 			s_num_routes << line.substr(pos + 2);
 			s_num_routes >> num_routes;
 
-			if ((num_routes == 0) || (num_routes != this->num_routes_))
-				this->is_feasible_ = false;
+			if ((num_routes == 0) || (num_routes != num_routes_))
+				is_feasible_ = false;
 			else
 			{
-				this->is_feasible_ = true;
+				is_feasible_ = true;
 				int pre_vertex = 0, curr_vertex = 0;
 				VertexStatus *status = nullptr;
 				for (int i = 0; i < num_routes; i++)
 				{
-					curr_route = &((this->routes_vec_)[i]);
+					curr_route = &((routes_vec_)[i]);
 					getline(input, line);
 					std::stringstream s_route(line);
 					// std::cout << s_route.str() << std::endl;
@@ -1446,47 +1446,45 @@ void HeuristicSolution::ReadFromFile(Instance &inst, std::string algo, std::stri
 					curr_vertex = pre_vertex = 0;
 					while (s_route >> curr_vertex)
 					{
-						status = &((this->vertex_status_vec_)[curr_vertex]);
+						status = &((vertex_status_vec_)[curr_vertex]);
 
 						// remove from list of unvisited_vertices
-						(this->unvisited_vertices_).erase(status->pos_);
+						(unvisited_vertices_).erase(status->pos_);
 
 						// adds vertex to route
 						status->selected_ = true;
 						status->route_ = i;
 						status->pos_ = (curr_route->vertices_).insert((curr_route->vertices_).end(), curr_vertex);
 
-						//(this->bitset_arcs_)[graph->pos(pre_vertex,curr_vertex)] = 1;
+						//(bitset_arcs_)[graph->pos(pre_vertex,curr_vertex)] = 1;
 						pre_vertex = curr_vertex;
 					}
 
 					curr_vertex = num_vertices - 1;
-					//(this->bitset_arcs_)[graph->pos(pre_vertex,curr_vertex)] = 1;
+					//(bitset_arcs_)[graph->pos(pre_vertex,curr_vertex)] = 1;
 				}
 			}
 			break;
 		}
 	}
 
-	if (!(this->is_infeasible_) && (this->is_feasible_) && (this->unvisited_vertices_).empty())
-		this->is_optimal_ = true;
+	if (!(is_infeasible_) && (is_feasible_) && (unvisited_vertices_).empty())
+		is_optimal_ = true;
 
 	input.close();
 }
 
 ALNSHeuristicSolution::ALNSHeuristicSolution() : HeuristicSolution()
 {
-	this->initial_solution_profits_sum_ = 0;
-	this->num_iterations_ = 0;
-	this->elapsed_time_ = 0.0;
+	initial_solution_profits_sum_ = 0;
+	num_iterations_ = 0;
 }
 
 ALNSHeuristicSolution::ALNSHeuristicSolution(int dimension, int dimension2, int num_routes) : HeuristicSolution(dimension, dimension2, num_routes)
 {
-	this->initial_solution_profits_sum_ = 0;
-	this->num_iterations_ = 0;
-	this->last_improve_iteration_ = 0;
-	this->elapsed_time_ = 0.0;
+	initial_solution_profits_sum_ = 0;
+	num_iterations_ = 0;
+	last_improve_iteration_ = 0;
 }
 
 ALNSHeuristicSolution::ALNSHeuristicSolution(ALNSHeuristicSolution *sol)
@@ -1496,15 +1494,15 @@ ALNSHeuristicSolution::ALNSHeuristicSolution(ALNSHeuristicSolution *sol)
 	VertexStatus *status = nullptr;
 	Route *curr_route = nullptr;
 
-	for (int i = 0; i < this->num_routes_; ++i)
+	for (int i = 0; i < num_routes_; ++i)
 	{
-		curr_route = &((this->routes_vec_)[i]);
+		curr_route = &((routes_vec_)[i]);
 		for (auto it = (curr_route->vertices_).begin(); it != (curr_route->vertices_).end(); ++it)
-			((this->vertex_status_vec_)[*it]).pos_ = it;
+			((vertex_status_vec_)[*it]).pos_ = it;
 	}
 
-	for (auto it = (this->unvisited_vertices_).begin(); it != (this->unvisited_vertices_).end(); ++it)
-		((this->vertex_status_vec_)[*it]).pos_ = it;
+	for (auto it = (unvisited_vertices_).begin(); it != (unvisited_vertices_).end(); ++it)
+		((vertex_status_vec_)[*it]).pos_ = it;
 }
 
 ALNSHeuristicSolution::~ALNSHeuristicSolution()
@@ -1515,13 +1513,12 @@ void ALNSHeuristicSolution::Reset(int dimension, int dimension2, int num_routes)
 {
 	HeuristicSolution::Reset(dimension, dimension2, num_routes);
 
-	this->initial_solution_profits_sum_ = 0;
-	this->num_iterations_ = 0;
-	this->last_improve_iteration_ = 0;
-	this->elapsed_time_ = 0.0;
+	initial_solution_profits_sum_ = 0;
+	num_iterations_ = 0;
+	last_improve_iteration_ = 0;
 }
 
-void ALNSHeuristicSolution::WriteToFile(Instance &instance, std::string algo, std::string folder, std::string file_name)
+void ALNSHeuristicSolution::WriteToFile(Instance &instance, std::string algo, std::string folder, std::string file_name) const
 {
 	std::fstream file;
 	std::string path = ".//solutions";
@@ -1538,19 +1535,19 @@ void ALNSHeuristicSolution::WriteToFile(Instance &instance, std::string algo, st
 
 	file << std::setprecision(5) << std::fixed;
 
-	if (this->is_infeasible_)
+	if (is_infeasible_)
 		file << "STATUS: INFEASIBLE" << std::endl;
-	else if (this->is_optimal_)
+	else if (is_optimal_)
 		file << "STATUS: OPTIMAL" << std::endl;
-	else if (this->is_feasible_)
+	else if (is_feasible_)
 		file << "STATUS: FEASIBLE" << std::endl;
 	else
 		file << "STATUS: POSSIBLY FEASIBLE" << std::endl;
-	file << "profits sum: " << this->profits_sum_ << std::endl;
-	file << "initial profits sum: " << this->initial_solution_profits_sum_ << std::endl;
-	file << "# iterations: " << this->num_iterations_ << std::endl;
-	file << "time(s): " << this->elapsed_time_ << std::endl;
-	file << "last iteration of improvement: " << this->last_improve_iteration_ << std::endl;
+	file << "profits sum: " << profits_sum_ << std::endl;
+	file << "initial profits sum: " << initial_solution_profits_sum_ << std::endl;
+	file << "# iterations: " << num_iterations_ << std::endl;
+	file << "time(s): " << total_time_spent_ << std::endl;
+	file << "last iteration of improvement: " << last_improve_iteration_ << std::endl;
 
 	file.close();
 
@@ -1580,11 +1577,11 @@ void ALNSHeuristicSolution::ReadFromFile(Instance &inst, std::string algo, std::
 	getline(input, line);
 
 	if (line == "STATUS: FOUND ARC INTEGER FEASIBLE")
-		this->is_feasible_ = true;
+		is_feasible_ = true;
 	if (line == "STATUS: INFEASIBLE")
 	{
-		this->is_infeasible_ = true;
-		this->is_feasible_ = false;
+		is_infeasible_ = true;
+		is_feasible_ = false;
 	}
 
 	input.close();
@@ -1609,30 +1606,30 @@ std::string ALNSHeuristicSolution::GenerateFileName()
 
 FPHeuristicSolution::FPHeuristicSolution(int dimension, int dimension2, int num_routes) : HeuristicSolution(dimension, dimension2, num_routes)
 {
-	this->num_iterations_stage1_ = 0;
-	this->num_iterations_stage2_ = 0;
-	this->num_perturbations_stage1_ = 0;
-	this->num_perturbations_stage2_ = 0;
-	this->num_restarts_stage1_ = 0;
-	this->num_restarts_stage2_ = 0;
-	this->found_y_integer_ = false;
-	this->found_x_integer_ = false;
-	this->time_stage1_ = 0.0;
-	this->time_stage2_ = 0.0;
+	num_iterations_stage1_ = 0;
+	num_iterations_stage2_ = 0;
+	num_perturbations_stage1_ = 0;
+	num_perturbations_stage2_ = 0;
+	num_restarts_stage1_ = 0;
+	num_restarts_stage2_ = 0;
+	found_y_integer_ = false;
+	found_x_integer_ = false;
+	time_stage1_ = 0.0;
+	time_stage2_ = 0.0;
 }
 
 FPHeuristicSolution::FPHeuristicSolution() : HeuristicSolution()
 {
-	this->num_iterations_stage1_ = 0;
-	this->num_iterations_stage2_ = 0;
-	this->num_perturbations_stage1_ = 0;
-	this->num_perturbations_stage2_ = 0;
-	this->num_restarts_stage1_ = 0;
-	this->num_restarts_stage2_ = 0;
-	this->found_y_integer_ = false;
-	this->found_x_integer_ = false;
-	this->time_stage1_ = 0.0;
-	this->time_stage2_ = 0.0;
+	num_iterations_stage1_ = 0;
+	num_iterations_stage2_ = 0;
+	num_perturbations_stage1_ = 0;
+	num_perturbations_stage2_ = 0;
+	num_restarts_stage1_ = 0;
+	num_restarts_stage2_ = 0;
+	found_y_integer_ = false;
+	found_x_integer_ = false;
+	time_stage1_ = 0.0;
+	time_stage2_ = 0.0;
 }
 
 FPHeuristicSolution::~FPHeuristicSolution()
@@ -1643,16 +1640,16 @@ void FPHeuristicSolution::Reset(int dimension, int dimension2, int num_routes)
 {
 	HeuristicSolution::Reset(dimension, dimension2, num_routes);
 
-	this->num_iterations_stage1_ = 0;
-	this->num_iterations_stage2_ = 0;
-	this->num_perturbations_stage1_ = 0;
-	this->num_perturbations_stage2_ = 0;
-	this->num_restarts_stage1_ = 0;
-	this->num_restarts_stage2_ = 0;
-	this->found_y_integer_ = false;
-	this->found_x_integer_ = false;
-	this->time_stage1_ = 0.0;
-	this->time_stage2_ = 0.0;
+	num_iterations_stage1_ = 0;
+	num_iterations_stage2_ = 0;
+	num_perturbations_stage1_ = 0;
+	num_perturbations_stage2_ = 0;
+	num_restarts_stage1_ = 0;
+	num_restarts_stage2_ = 0;
+	found_y_integer_ = false;
+	found_x_integer_ = false;
+	time_stage1_ = 0.0;
+	time_stage2_ = 0.0;
 }
 
 std::string FPHeuristicSolution::GenerateFileName()
@@ -1673,7 +1670,7 @@ std::string FPHeuristicSolution::GenerateFileName()
 	return file_name;
 }
 
-void FPHeuristicSolution::WriteToFile(Instance &instance, std::string algo, std::string folder, std::string file_name)
+void FPHeuristicSolution::WriteToFile(Instance &instance, std::string algo, std::string folder, std::string file_name) const
 {
 	std::fstream file;
 	std::string path = ".//solutions";
@@ -1690,25 +1687,90 @@ void FPHeuristicSolution::WriteToFile(Instance &instance, std::string algo, std:
 
 	file << std::setprecision(5) << std::fixed;
 
-	if (this->is_infeasible_)
+	if (is_infeasible_)
 		file << "STATUS: INFEASIBLE" << std::endl;
-	else if (this->found_x_integer_)
+	else if (found_x_integer_)
 		file << "STATUS: FOUND ARC INTEGER FEASIBLE" << std::endl;
-	else if (this->found_y_integer_)
+	else if (found_y_integer_)
 		file << "STATUS: FOUND VERTEX INTEGER FEASIBLE" << std::endl;
 	else
 		file << "STATUS: FAILED TO FIND A FEASIBLE SOLUTION" << std::endl;
-	file << "profit sum: " << this->profits_sum_ << std::endl;
+	file << "profit sum: " << profits_sum_ << std::endl;
 	file << "STAGE 1: " << std::endl;
-	file << "# iterations: " << this->num_iterations_stage1_ << std::endl;
-	file << "# perturbations: " << this->num_perturbations_stage1_ << std::endl;
-	file << "# restarts: " << this->num_restarts_stage1_ << std::endl;
-	file << "time(s): " << this->time_stage1_ << std::endl;
+	file << "# iterations: " << num_iterations_stage1_ << std::endl;
+	file << "# perturbations: " << num_perturbations_stage1_ << std::endl;
+	file << "# restarts: " << num_restarts_stage1_ << std::endl;
+	file << "time(s): " << time_stage1_ << std::endl;
 	file << "STAGE 2: " << std::endl;
-	file << "# iterations: " << this->num_iterations_stage2_ << std::endl;
-	file << "# perturbations: " << this->num_perturbations_stage2_ << std::endl;
-	file << "# restarts: " << this->num_restarts_stage2_ << std::endl;
-	file << "time(s): " << this->time_stage2_ << std::endl;
+	file << "# iterations: " << num_iterations_stage2_ << std::endl;
+	file << "# perturbations: " << num_perturbations_stage2_ << std::endl;
+	file << "# restarts: " << num_restarts_stage2_ << std::endl;
+	file << "time(s): " << time_stage2_ << std::endl;
+
+	file.close();
+
+	HeuristicSolution::WriteToFile(instance, algo, folder, file_name);
+}
+
+KSHeuristicSolution::KSHeuristicSolution(int dimension, int dimension2, int num_routes) : HeuristicSolution(dimension, dimension2, num_routes)
+{
+	found_x_integer_ = false;
+	time_spent_building_kernel_buckets_ = 0.0;
+}
+
+KSHeuristicSolution::KSHeuristicSolution() : HeuristicSolution()
+{
+	found_x_integer_ = false;
+	time_spent_building_kernel_buckets_ = 0.0;
+}
+
+KSHeuristicSolution::~KSHeuristicSolution()
+{
+}
+
+void KSHeuristicSolution::Reset(int dimension, int dimension2, int num_routes)
+{
+	HeuristicSolution::Reset(dimension, dimension2, num_routes);
+
+	found_x_integer_ = false;
+	time_spent_building_kernel_buckets_ = 0.0;
+}
+
+std::string KSHeuristicSolution::GenerateFileName()
+{
+	std::stringstream ss_decay_factor;
+	ss_decay_factor << std::fixed << std::setprecision(2) << K_KS_DECAY_FACTOR_TIME_LIMIT;
+	std::string file_name;
+	file_name += "ks_b" + std::to_string(K_KS_MAX_SIZE_BUCKET) + "_[" + std::to_string(K_KS_MAX_TIME_LIMIT) + "," + std::to_string(K_KS_MIN_TIME_LIMIT) + "]_d" + ss_decay_factor.str();
+	return file_name;
+}
+
+void KSHeuristicSolution::WriteToFile(Instance &instance, std::string algo, std::string folder, std::string file_name) const
+{
+	std::fstream file;
+	std::string path = "..//solutions";
+	path.append(folder);
+	// struct stat sb;
+	// if(stat(path.c_str(),&sb) != 0 || !S_ISDIR(sb.st_mode)) mkdir(path.c_str(),0777);
+	path.append("s_");
+	path.append(algo);
+	path.append("_");
+	path.append(file_name);
+	// std::cout << path << std::endl;
+
+	file.open(path.c_str(), std::fstream::out);
+
+	file << std::setprecision(5) << std::fixed;
+
+	if (is_infeasible_)
+		file << "STATUS: INFEASIBLE" << std::endl;
+	else if (found_x_integer_)
+		file << "STATUS: FOUND ARC INTEGER FEASIBLE" << std::endl;
+	else
+		file << "STATUS: FAILED TO FIND A FEASIBLE SOLUTION" << std::endl;
+
+	file << "time building kernel and buckets (s): " << time_spent_building_kernel_buckets_ << std::endl;
+	file << "total time (s): " << total_time_spent_ << std::endl;
 
 	file.close();
 
@@ -1717,14 +1779,12 @@ void FPHeuristicSolution::WriteToFile(Instance &instance, std::string algo, std:
 
 LBHeuristicSolution::LBHeuristicSolution(int dimension, int dimension2, int num_routes) : HeuristicSolution(dimension, dimension2, num_routes)
 {
-	this->num_iterations_ = 0;
-	this->time_ = 0.0;
+	num_iterations_ = 0;
 }
 
 LBHeuristicSolution::LBHeuristicSolution() : HeuristicSolution()
 {
-	this->num_iterations_ = 0;
-	this->time_ = 0.0;
+	num_iterations_ = 0;
 }
 
 LBHeuristicSolution::~LBHeuristicSolution()
@@ -1735,8 +1795,7 @@ void LBHeuristicSolution::Reset(int dimension, int dimension2, int num_routes)
 {
 	HeuristicSolution::Reset(dimension, dimension2, num_routes);
 
-	this->num_iterations_ = 0;
-	this->time_ = 0.0;
+	num_iterations_ = 0;
 }
 
 std::string LBHeuristicSolution::GenerateFileName()
@@ -1754,7 +1813,7 @@ std::string LBHeuristicSolution::GenerateFileName()
 	return "";
 }
 
-void LBHeuristicSolution::WriteToFile(Instance &instance, std::string algo, std::string folder, std::string file_name)
+void LBHeuristicSolution::WriteToFile(Instance &instance, std::string algo, std::string folder, std::string file_name) const
 { /*
 	 std::fstream file;
 	 std::string path = ".//solutions";
@@ -1771,21 +1830,21 @@ void LBHeuristicSolution::WriteToFile(Instance &instance, std::string algo, std:
 
 	 file << std::setprecision(5) << std::fixed;
 
-		 if(this->is_infeasible_) file << "STATUS: INFEASIBLE" << std::endl;
-	 else if(this->found_x_integer_) file << "STATUS: FOUND ARC INTEGER FEASIBLE" << std::endl;
-		 else if(this->found_y_integer_) file << "STATUS: FOUND VERTEX INTEGER FEASIBLE" << std::endl;
+		 if(is_infeasible_) file << "STATUS: INFEASIBLE" << std::endl;
+	 else if(found_x_integer_) file << "STATUS: FOUND ARC INTEGER FEASIBLE" << std::endl;
+		 else if(found_y_integer_) file << "STATUS: FOUND VERTEX INTEGER FEASIBLE" << std::endl;
 		 else file << "STATUS: FAILED TO FIND A FEASIBLE SOLUTION" << std::endl;
-		 file << "profit sum: " << this->profits_sum_ << std::endl;
+		 file << "profit sum: " << profits_sum_ << std::endl;
 	 file << "STAGE 1: " << std::endl;
-	 file << "# iterations: " << this->num_iterations_stage1_ << std::endl;
-	 file << "# perturbations: " << this->num_perturbations_stage1_ << std::endl;
-		 file << "# restarts: " << this->num_restarts_stage1_ << std::endl;
-	 file << "time(s): " << this->time_stage1_ << std::endl;
+	 file << "# iterations: " << num_iterations_stage1_ << std::endl;
+	 file << "# perturbations: " << num_perturbations_stage1_ << std::endl;
+		 file << "# restarts: " << num_restarts_stage1_ << std::endl;
+	 file << "time(s): " << time_stage1_ << std::endl;
 		 file << "STAGE 2: " << std::endl;
-	 file << "# iterations: " << this->num_iterations_stage2_ << std::endl;
-	 file << "# perturbations: " << this->num_perturbations_stage2_ << std::endl;
-		 file << "# restarts: " << this->num_restarts_stage2_ << std::endl;
-	 file << "time(s): " << this->time_stage2_ << std::endl;
+	 file << "# iterations: " << num_iterations_stage2_ << std::endl;
+	 file << "# perturbations: " << num_perturbations_stage2_ << std::endl;
+		 file << "# restarts: " << num_restarts_stage2_ << std::endl;
+	 file << "time(s): " << time_stage2_ << std::endl;
 
 		 file.close();
  */
