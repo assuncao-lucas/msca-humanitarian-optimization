@@ -348,7 +348,7 @@ KSHeuristicSolution *KernelSearch::Run()
         BuildModel(false, true, false); // initially, set all binary variables to zero.
 
         cplex_->setParam(IloCplex::Param::ClockType, 2);
-        cplex_->setParam(IloCplex::Param::Emphasis::MIP, IloCplex::MIPEmphasisFeasibility);
+        // cplex_->setParam(IloCplex::Param::Emphasis::MIP, IloCplex::MIPEmphasisFeasibility);
 
         double curr_time_limit_iteration = K_KS_MAX_TIME_LIMIT;
 
