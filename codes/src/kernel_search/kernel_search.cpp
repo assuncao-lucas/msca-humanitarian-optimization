@@ -158,7 +158,7 @@ void KernelSearch::BuildHeuristicSolution(KSHeuristicSolution *solution)
     std::list<int> q;
     q.push_back(0);
 
-    // solution->profits_sum_ = 0.0;
+    solution->profits_sum_ = 0.0;
 
     do
     {
