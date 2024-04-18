@@ -158,6 +158,8 @@ void KernelSearch::BuildHeuristicSolution(KSHeuristicSolution *solution)
     std::list<int> q;
     q.push_back(0);
 
+    // solution->profits_sum_ = 0.0;
+
     do
     {
         v1 = q.front();
@@ -227,6 +229,9 @@ void KernelSearch::BuildHeuristicSolution(KSHeuristicSolution *solution)
     // std::cout << solution->bitset_arcs_ << std::endl;
     // std::cout << solution->bitset_vertices_ << std::endl;
     assert((cont == (curr_int_x_).count()));
+    assert(double_equals(curr_best_solution_value_, solution->profits_sum_));
+    if (!double_equals(curr_best_solution_value_, solution->profits_sum_))
+        std::cout << "ooops" << std::endl;
 }
 
 void KernelSearch::BuildKernelAndBuckets(KSHeuristicSolution *solution)
