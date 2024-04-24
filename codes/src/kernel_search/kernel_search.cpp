@@ -62,6 +62,8 @@ void KernelSearch::InitCplex()
     curr_x_values_ = IloNumArray(*env_);
     curr_y_values_ = IloNumArray(*env_);
     cplex_->setOut(env_->getNullStream());
+    cplex_->setWarning(env_->getNullStream());
+    cplex_->setError(env_->getNullStream());
     cplex_->extract(*model_);
     if (!K_MULTI_THREAD)
         cplex_->setParam(IloCplex::Param::Threads, 1);
@@ -158,8 +160,6 @@ void KernelSearch::BuildHeuristicSolution(KSHeuristicSolution *solution)
     std::list<int> q;
     q.push_back(0);
 
-    solution->profits_sum_ = 0.0;
-
     do
     {
         v1 = q.front();
@@ -178,10 +178,19 @@ void KernelSearch::BuildHeuristicSolution(KSHeuristicSolution *solution)
             //   }
 
             // compute route's profit sum and max duration.
-            auto [route_sum_profits, route_max_duration] = instance_.ComputeRouteCostsRec(*curr_route, true);
+            auto [route_sum_profits, route_max_duration] = instance_.ComputeRouteCosts(*curr_route);
+
             curr_route->time_ = route_max_duration;
             solution->profits_sum_ += route_sum_profits;
             curr_route->sum_profits_ = route_sum_profits;
+
+            // auto [route_sum_profits2, route_max_duration2] = instance_.ComputeRouteCostsRec(*curr_route, true);
+
+            // if (!double_equals(route_sum_profits, route_sum_profits2))
+            //     std::cout << route_sum_profits << " x " << route_sum_profits2 << std::endl;
+
+            // if (!double_equals(route_max_duration, route_max_duration2))
+            //     std::cout << route_max_duration << " x " << route_max_duration2 << std::endl;
 
             // std::cout << *curr_route << std::endl;
 
@@ -230,11 +239,11 @@ void KernelSearch::BuildHeuristicSolution(KSHeuristicSolution *solution)
     // std::cout << solution->bitset_vertices_ << std::endl;
     assert((cont == (curr_int_x_).count()));
     assert(double_equals(curr_best_solution_value_, solution->profits_sum_));
-    if (!double_equals(curr_best_solution_value_, solution->profits_sum_))
-        std::cout << "ooops" << std::endl;
+    // if (!double_equals(curr_best_solution_value_, solution->profits_sum_))
+    //     std::cout << curr_best_solution_value_ << " != " << solution->profits_sum_ << std::endl;
 }
 
-void KernelSearch::BuildKernelAndBuckets(KSHeuristicSolution *solution)
+void KernelSearch::BuildKernelAndBuckets(KSHeuristicSolution *solution, int ks_max_size_bucket)
 {
     InitCplex();
     BuildModel(true, false, false);
@@ -292,26 +301,26 @@ void KernelSearch::BuildKernelAndBuckets(KSHeuristicSolution *solution)
     start += (num_mandatory + 1);
     std::sort(start, vertex_value_red_cost.end(), compare);
 
-    std::cout << "After sorting" << std::endl;
-    for (auto &item : vertex_value_red_cost)
-    {
-        std::cout << item.vertex << " " << item.value << " " << item.reduced_cost << std::endl;
-    }
+    // std::cout << "After sorting" << std::endl;
+    // for (auto &item : vertex_value_red_cost)
+    // {
+    //     std::cout << item.vertex << " " << item.value << " " << item.reduced_cost << std::endl;
+    // }
 
     // start by building kernel with at least all the mandatory vertices (+ origin).
-    int size_kernel = std::max(num_mandatory + 1, K_KS_MAX_SIZE_BUCKET);
+    int size_kernel = std::min(num_vertices, std::max(num_mandatory + 1, ks_max_size_bucket));
 
     for (int i = 0; i < size_kernel; ++i)
         curr_kernel_bitset_[vertex_value_red_cost[i].vertex] = 1;
 
-    int num_buckets = std::ceil(1.0 * ((vertex_value_red_cost.size() - size_kernel)) / K_KS_MAX_SIZE_BUCKET);
+    int num_buckets = std::ceil(1.0 * ((num_vertices - size_kernel)) / ks_max_size_bucket);
     buckets_bitsets_ = std::vector<boost::dynamic_bitset<>>(num_buckets, boost::dynamic_bitset<>(num_vertices, 0));
 
     int vertices_added = size_kernel; // since already added some vertices to the kernel.
     for (int curr_bucket = 0; curr_bucket < num_buckets; ++curr_bucket)
     {
         // std::cout << "bucket " << curr_bucket << std::endl;
-        int num_elements_in_bucket = std::min(K_KS_MAX_SIZE_BUCKET, (int)vertex_value_red_cost.size() - size_kernel - curr_bucket * K_KS_MAX_SIZE_BUCKET);
+        int num_elements_in_bucket = std::min(ks_max_size_bucket, num_vertices - size_kernel - curr_bucket * ks_max_size_bucket);
         // std::cout << "num elements in bucket " << num_elements_in_bucket << std::endl;
         for (int curr_element_in_bucket = 0; curr_element_in_bucket < num_elements_in_bucket; ++curr_element_in_bucket)
         {
@@ -323,7 +332,7 @@ void KernelSearch::BuildKernelAndBuckets(KSHeuristicSolution *solution)
     assert(vertices_added == num_vertices);
 }
 
-KSHeuristicSolution *KernelSearch::Run()
+KSHeuristicSolution *KernelSearch::Run(int ks_max_size_bucket, int ks_min_time_limit, int ks_max_time_limit, double ks_decay_factor)
 {
     Timestamp *ti = NewTimestamp();
     Timer *timer = GetTimer();
@@ -339,12 +348,12 @@ KSHeuristicSolution *KernelSearch::Run()
     KSHeuristicSolution *solution = new KSHeuristicSolution(num_vertices, num_arcs, num_routes);
 
     // build Kernel by solving LP of given problem.
-    BuildKernelAndBuckets(solution);
+    BuildKernelAndBuckets(solution, ks_max_size_bucket);
     solution->time_spent_building_kernel_buckets_ = timer->CurrentElapsedTime(ti);
 
     if (!solution->is_infeasible_)
     {
-        PrintKernelAndBuckets();
+        // PrintKernelAndBuckets();
 
         // delete LP model and create the MILP model.
         ResetCplex();
@@ -355,7 +364,7 @@ KSHeuristicSolution *KernelSearch::Run()
         cplex_->setParam(IloCplex::Param::ClockType, 2);
         cplex_->setParam(IloCplex::Param::Emphasis::MIP, IloCplex::MIPEmphasisFeasibility);
 
-        double curr_time_limit_iteration = K_KS_MAX_TIME_LIMIT;
+        double curr_time_limit_iteration = ks_max_time_limit;
 
         int curr_bucket_index = -1; // starts from kernel.
         int total_num_buckets = buckets_bitsets_.size();
@@ -367,7 +376,7 @@ KSHeuristicSolution *KernelSearch::Run()
         for (int curr_bucket_index = -1; curr_bucket_index < total_num_buckets; ++curr_bucket_index)
         {
             cplex_->setParam(IloCplex::Param::TimeLimit, curr_time_limit_iteration);
-            std::cout << "curr_time_limit_iteration: " << curr_time_limit_iteration << std::endl;
+            // std::cout << "curr_time_limit_iteration: " << curr_time_limit_iteration << std::endl;
             // update the reference kernel to the current kernel (+ current bucket, if not the first iteration).
             if (curr_bucket_index >= 0)
             {
@@ -375,7 +384,7 @@ KSHeuristicSolution *KernelSearch::Run()
                 curr_vertices_entering_kernel |= buckets_bitsets_[curr_bucket_index];
             }
 
-            std::cout << " bucket index " << curr_bucket_index << std::endl;
+            // std::cout << " bucket index " << curr_bucket_index << std::endl;
             // std::cout << " current bucket ";
             // curr_bucket_index >= 0 ? std::cout << buckets_bitsets_[curr_bucket_index] << std::endl : std::cout << " - " << std::endl;
             // std::cout << " kernel: " << curr_kernel_bitset_ << std::endl;
@@ -407,7 +416,7 @@ KSHeuristicSolution *KernelSearch::Run()
             {
                 found_int_x_ = true;
                 double solution_value = cplex_->getObjValue();
-                std::cout << "found feasible solution with cost " << solution_value << std::endl;
+                // std::cout << "found feasible solution with cost " << solution_value << std::endl;
 
                 // only update Kernel if found a solution with strictly better objective function value!
                 if (double_greater(solution_value, curr_best_solution_value_))
@@ -421,6 +430,12 @@ KSHeuristicSolution *KernelSearch::Run()
                     curr_kernel_bitset_ |= curr_vertices_entering_kernel;
 
                     curr_vertices_leaving_reference_kernel = curr_reference_kernel - curr_kernel_bitset_;
+
+                    // KSHeuristicSolution *new_solution = new KSHeuristicSolution(num_vertices, num_arcs, num_routes);
+                    // new_solution->is_feasible_ = new_solution->found_x_integer_ = true;
+                    // BuildHeuristicSolution(new_solution);
+                    // delete new_solution;
+                    // new_solution = nullptr;
                 }
             }
             else
@@ -439,10 +454,10 @@ KSHeuristicSolution *KernelSearch::Run()
                 curr_vertices_leaving_reference_kernel = curr_reference_kernel - curr_kernel_bitset_;
                 curr_vertices_entering_kernel.reset();
             }
-            std::cout << "status " << cplex_->getStatus() << std::endl;
+            // std::cout << "status " << cplex_->getStatus() << std::endl;
             // std::cout << "current sol: " << curr_int_y_ << std::endl;
 
-            curr_time_limit_iteration = std::max(curr_time_limit_iteration * K_KS_DECAY_FACTOR_TIME_LIMIT, 1.0 * K_KS_MIN_TIME_LIMIT);
+            curr_time_limit_iteration = std::max(curr_time_limit_iteration * ks_decay_factor, 1.0 * ks_min_time_limit);
         }
     }
 
@@ -452,10 +467,12 @@ KSHeuristicSolution *KernelSearch::Run()
         BuildHeuristicSolution(solution);
     }
 
-    std::cout << "Best solution found: " << curr_best_solution_value_ << " " << curr_int_y_ << std::endl;
-    std::cout << "Elapsed time: " << timer->CurrentElapsedTime(ti) << std::endl;
+    // std::cout << "Best solution found: " << curr_best_solution_value_ << " " << curr_int_y_ << std::endl;
+    // std::cout << "Elapsed time: " << timer->CurrentElapsedTime(ti) << std::endl;
 
     solution->total_time_spent_ = timer->CurrentElapsedTime(ti);
+
+    // std::cout << *solution << std::endl;
 
     delete (ti);
     ti = nullptr;

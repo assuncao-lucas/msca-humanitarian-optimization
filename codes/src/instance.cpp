@@ -181,7 +181,7 @@ std::string Instance::GetInstanceName() const
     size_t pos = raw_file_name_.find(".txt");
 
     std::string raw_file_name_without_txt = raw_file_name_.substr(0, pos);
-    std::cout << raw_file_name_without_txt << std::endl;
+    // std::cout << raw_file_name_without_txt << std::endl;
 
     return raw_file_name_without_txt + "_v" + std::to_string(num_vehicles_) + "_d" + stream.str() + "_b" + std::to_string(uncertainty_budget_) + ".txt";
 }
@@ -447,22 +447,24 @@ std::tuple<double, double> Instance::ComputeRouteCostsRecIter(Route &route, cons
     auto it_previous_vertex = it_vertex;
     it_previous_vertex++;
 
-    int previous_vertex = 0;
-    if (it_previous_vertex != route.vertices_.rend())
-        previous_vertex = *it_previous_vertex;
+    int previous_vertex = (it_previous_vertex == route.vertices_.rend()) ? 0 : previous_vertex = *it_previous_vertex;
 
     GArc *curr_arc = (*graph_)[previous_vertex][vertex];
+    auto vertex_info = (graph_->vertices_info())[vertex];
+    double route_duration_up_to_vertex = 0.0, profits_sum_up_to_vertex = 0.0;
     assert(curr_arc != nullptr);
 
     if (previous_vertex == 0)
     {
+        route_duration_up_to_vertex = curr_arc->distance();
+        // only add vertex's contribution to the f.o. if not mandatory nor origin.
+        profits_sum_up_to_vertex = (vertex > num_mandatory_) ? vertex_info.profit_ - route_duration_up_to_vertex * vertex_info.decay_ratio_ : 0;
         // std::cout << vertex << " " << budget << " " << curr_arc->distance() << std::endl;
         if (cache)
-            (*cache)[{vertex, budget}] = {0.0, curr_arc->distance()};
-        return {0.0, curr_arc->distance()};
+            (*cache)[{vertex, budget}] = {profits_sum_up_to_vertex, route_duration_up_to_vertex};
+        return {profits_sum_up_to_vertex, route_duration_up_to_vertex};
     }
 
-    double route_duration_up_to_vertex = 0.0, profits_sum_up_to_vertex = 0.0;
     auto previous_vertex_info = (graph_->vertices_info())[previous_vertex];
     double previous_vertex_service_time = previous_vertex_info.nominal_service_time_;
     double previous_vertex_service_time_dev = previous_vertex_info.dev_service_time_;
@@ -471,9 +473,6 @@ std::tuple<double, double> Instance::ComputeRouteCostsRecIter(Route &route, cons
         auto [previous_profits_sum, previous_route_duration] = ComputeRouteCostsRecIter(route, it_previous_vertex, budget, cache);
         route_duration_up_to_vertex = previous_route_duration + previous_vertex_service_time + curr_arc->distance();
         profits_sum_up_to_vertex = previous_profits_sum;
-        // only add previous vertex's contribution to f.o. if not mandatory.
-        if (previous_vertex > num_mandatory_)
-            profits_sum_up_to_vertex += (previous_vertex_info.profit_ - previous_vertex_info.decay_ratio_ * previous_route_duration);
 
         // std::cout << vertex << " " << budget << " " << route_duration_up_to_vertex << std::endl;
     }
@@ -486,20 +485,18 @@ std::tuple<double, double> Instance::ComputeRouteCostsRecIter(Route &route, cons
         auto route_duration_case_2 = previous_route_duration_case_2 + previous_vertex_service_time + previous_vertex_service_time_dev + curr_arc->distance();
 
         if (!double_less(route_duration_case_1, route_duration_case_2))
-        {
-            profits_sum_up_to_vertex = previous_profits_sum_case_1;
-            if (previous_vertex > num_mandatory_)
-                profits_sum_up_to_vertex += previous_vertex_info.profit_ - previous_vertex_info.decay_ratio_ * previous_route_duration_case_1;
             route_duration_up_to_vertex = route_duration_case_1;
-        }
         else
-        {
-            profits_sum_up_to_vertex = previous_profits_sum_case_2;
-            if (previous_vertex > num_mandatory_)
-                profits_sum_up_to_vertex += previous_vertex_info.profit_ - previous_vertex_info.decay_ratio_ * previous_route_duration_case_2;
             route_duration_up_to_vertex = route_duration_case_2;
-        }
+
+        // note: always consider the profits of last vertex in route when using up to budget, even qhen falls into case 2!
+        // this is because in the objective function, we use this value instead, as to simulate all worst-case scenarios for all vertices,
+        // regardless of which vertices are at their maximum at the max service time of the route when using up to budget.
+        profits_sum_up_to_vertex = previous_profits_sum_case_1;
     }
+    // only add vertex's contribution to the f.o. if not mandatory nor origin.
+    if (previous_vertex > num_mandatory_)
+        profits_sum_up_to_vertex += vertex_info.profit_ - vertex_info.decay_ratio_ * route_duration_up_to_vertex;
 
     // std::cout << vertex << " " << budget << " " << route_duration_up_to_vertex << std::endl;
 
@@ -539,7 +536,6 @@ std::tuple<double, double> Instance::ComputeRouteCosts(Route &route) const
     const size_t num_vertices_route = route.vertices_.size();
 
     Matrix<double> max_durations_vertex_budget(num_vertices_route + 1, uncertainty_budget_ + 1); // +1 stands for the zero node (depot) and the zero budget.
-    Matrix<double> profits_sum_vertex_budget(num_vertices_route + 1, uncertainty_budget_ + 1);   // +1 stands for the zero node (depot) and the zero budget.
 
     GArc *curr_arc = nullptr;
 
@@ -559,7 +555,6 @@ std::tuple<double, double> Instance::ComputeRouteCosts(Route &route) const
             if (previous_vertex == 0)
             {
                 max_durations_vertex_budget[vertex_index_route][curr_budget] = curr_arc->distance();
-                profits_sum_vertex_budget[vertex_index_route][curr_budget] = 0.0;
             }
             else
             {
@@ -569,9 +564,6 @@ std::tuple<double, double> Instance::ComputeRouteCosts(Route &route) const
                 if (curr_budget == 0)
                 {
                     max_durations_vertex_budget[vertex_index_route][curr_budget] = max_durations_vertex_budget[vertex_index_route - 1][curr_budget] + previous_vertex_service_time + curr_arc->distance();
-                    profits_sum_vertex_budget[vertex_index_route][curr_budget] = profits_sum_vertex_budget[vertex_index_route - 1][curr_budget];
-                    if (previous_vertex > num_mandatory_)
-                        profits_sum_vertex_budget[vertex_index_route][curr_budget] += (previous_vertex_info.profit_ - max_durations_vertex_budget[vertex_index_route - 1][curr_budget] * previous_vertex_info.decay_ratio_);
                 }
                 else
                 {
@@ -582,30 +574,24 @@ std::tuple<double, double> Instance::ComputeRouteCosts(Route &route) const
                     auto route_duration_case_2 = previous_route_duration_case_2 + previous_vertex_service_time + previous_vertex_service_time_dev + curr_arc->distance();
 
                     if (!double_less(route_duration_case_1, route_duration_case_2))
-                    {
                         max_durations_vertex_budget[vertex_index_route][curr_budget] = route_duration_case_1;
-                        auto profits_sum_up_to_vertex = profits_sum_vertex_budget[vertex_index_route - 1][curr_budget];
-                        if (previous_vertex > num_mandatory_)
-                            profits_sum_up_to_vertex += (previous_vertex_info.profit_ - previous_vertex_info.decay_ratio_ * previous_route_duration_case_1);
-                        profits_sum_vertex_budget[vertex_index_route][curr_budget] = profits_sum_up_to_vertex;
-                    }
                     else
-                    {
                         max_durations_vertex_budget[vertex_index_route][curr_budget] = route_duration_case_2;
-                        auto profits_sum_up_to_vertex = profits_sum_vertex_budget[vertex_index_route - 1][curr_budget - 1];
-                        if (previous_vertex > num_mandatory_)
-                            profits_sum_up_to_vertex += (previous_vertex_info.profit_ - previous_vertex_info.decay_ratio_ * previous_route_duration_case_2);
-                        profits_sum_vertex_budget[vertex_index_route][curr_budget] = profits_sum_up_to_vertex;
-                    }
                 }
             }
+
+            if ((curr_budget == uncertainty_budget_) && (curr_vertex > num_mandatory_))
+            {
+                auto curr_vertex_info = (graph_->vertices_info())[curr_vertex];
+                profits_sum += (curr_vertex_info.profit_ - max_durations_vertex_budget[vertex_index_route][curr_budget] * curr_vertex_info.decay_ratio_);
+            }
+
             previous_vertex = curr_vertex;
             ++it_vertex;
         }
     }
 
-    // std::cout << max_durations_vertex_budget << std::endl;
-    return {profits_sum_vertex_budget[num_vertices_route][uncertainty_budget_], max_durations_vertex_budget[num_vertices_route][uncertainty_budget_]}; // stands for the value of zero (depot) using at most all budget.
+    return {profits_sum, max_durations_vertex_budget[num_vertices_route][uncertainty_budget_]}; // stands for the value of zero (depot) using at most all budget.
 }
 
 std::ostream &

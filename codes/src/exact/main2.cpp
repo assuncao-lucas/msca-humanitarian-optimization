@@ -681,7 +681,7 @@ int main()
 
 	KernelSearch ks(inst);
 	std::cout << KSHeuristicSolution::GenerateFileName() << std::endl;
-	auto ks_solution = ks.Run();
+	auto ks_solution = ks.Run(K_KS_MAX_SIZE_BUCKET, K_KS_MIN_TIME_LIMIT, K_KS_MAX_TIME_LIMIT, K_KS_DECAY_FACTOR_TIME_LIMIT);
 
 	ks_solution->WriteToFile(inst, KSHeuristicSolution::GenerateFileName(), "//", instance_name);
 

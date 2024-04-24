@@ -1,2 +1,8 @@
 * link for setting up automatic authentication for local repo gihub:
 https://medium.com/clarusway/how-to-use-git-github-without-asking-for-authentication-always-passwordless-usage-of-private-git-8c32489bc2e9#:~:text=If%20you%20have%20already%20cloned,%3A%2F%2F%20and%20%40github.com%20.&text=After%20entering%20the%20token%20to,not%20ask%20for%20authentication%20anymore.
+
+
+Irace installed at: /usr/local/lib/R/site-library/irace/
+To check configuration of a scenario:
+go to folder of scenario, and run $irace --check
+run test: go to folder of scenario, and run $irace

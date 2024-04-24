@@ -2838,6 +2838,10 @@ static const struct option longOpts[] = {
 	{"separate-benders-cuts-relaxation", no_argument, NULL, 'r'},
 	{"warm-start", no_argument, NULL, 's'},
 	{"kernel-search", no_argument, NULL, 't'},
+	{"ks-max-size-bucket", required_argument, NULL, 'u'},
+	{"ks-min-time-limit", required_argument, NULL, 'v'},
+	{"ks-max-time-limit", required_argument, NULL, 'w'},
+	{"ks-decay-factor", required_argument, NULL, 'x'},
 	{NULL, no_argument, NULL, 0}};
 
 void ParseArgumentsAndRun(int argc, char *argv[])
@@ -2853,11 +2857,13 @@ void ParseArgumentsAndRun(int argc, char *argv[])
 	bool separate_benders_cuts_relaxation = false;
 	bool compute_initial_solution_heuristic = false;
 	bool solve_kernel_search = false;
+	int ks_max_size_bucket = K_KS_MAX_SIZE_BUCKET, ks_min_time_limit = K_KS_MIN_TIME_LIMIT, ks_max_time_limit = K_KS_MAX_TIME_LIMIT;
+	double ks_decay_factor = K_KS_DECAY_FACTOR_TIME_LIMIT;
 	HeuristicSolution *initial_sol = nullptr;
 
 	std::vector<bool> *CALLBACKS_SELECTION = GetCallbackSelection();
 
-	while ((c = getopt_long(argc, argv, "f:g:i:j:k:", longOpts, NULL)) != -1)
+	while ((c = getopt_long(argc, argv, "f:g:i:j:k:u:v:w:x:", longOpts, NULL)) != -1)
 	{
 		switch (c)
 		{
@@ -2925,6 +2931,19 @@ void ParseArgumentsAndRun(int argc, char *argv[])
 			break;
 		case 't':
 			solve_kernel_search = true;
+			break;
+		case 'u':
+			ks_max_size_bucket = std::atoi(optarg);
+			break;
+		case 'v':
+			ks_min_time_limit = std::atoi(optarg);
+			break;
+		case 'w':
+			ks_max_time_limit = std::atoi(optarg);
+			break;
+		case 'x':
+			ks_decay_factor = std::atof(optarg);
+			break;
 		}
 	}
 
@@ -2937,19 +2956,20 @@ void ParseArgumentsAndRun(int argc, char *argv[])
 		throw 3;
 
 	split_file_path(instance, folder, file_name);
-	std::cout << "* " << folder << " " << file_name << std::endl;
+	// std::cout << "* " << folder << " " << file_name << std::endl;
 
 	// std::cout << num_vehicles << " " << service_time_deviation << " " << uncertainty_budget << std::endl;
 	Instance inst(folder, file_name, num_vehicles, service_time_deviation, uncertainty_budget, false);
 	const Graph *graph = inst.graph();
 	std::string instance_name = inst.GetInstanceName();
-	std::cout << instance_name << std::endl;
+	// std::cout << instance_name << std::endl;
 
+	// std::cout << inst << std::endl;
 	if (compute_initial_solution_heuristic)
 	{
 		KernelSearch ks(inst);
 		std::cout << KSHeuristicSolution::GenerateFileName() << std::endl;
-		initial_sol = ks.Run();
+		initial_sol = ks.Run(ks_max_size_bucket, ks_min_time_limit, ks_max_time_limit, ks_decay_factor);
 	}
 
 	Solution<double> sol(graph->num_vertices());
@@ -3137,13 +3157,18 @@ void ParseArgumentsAndRun(int argc, char *argv[])
 	if (solve_kernel_search)
 	{
 		KernelSearch ks(inst);
-		std::cout << KSHeuristicSolution::GenerateFileName() << std::endl;
-		const auto *kernel_search_sol = ks.Run();
+		// std::cout << KSHeuristicSolution::GenerateFileName() << std::endl;
+		const auto *kernel_search_sol = ks.Run(ks_max_size_bucket, ks_min_time_limit, ks_max_time_limit, ks_decay_factor);
 		kernel_search_sol->WriteToFile(inst, KSHeuristicSolution::GenerateFileName(), "//", instance_name);
+		// if (kernel_search_sol->is_feasible_)
+		// 	std::cout << " lb: " << kernel_search_sol->profits_sum_ << std::endl;
+		// if (kernel_search_sol->is_infeasible_)
+		// 	std::cout << " infeasible " << std::endl;
+
 		if (kernel_search_sol->is_feasible_)
-			std::cout << " lb: " << kernel_search_sol->profits_sum_ << std::endl;
-		if (kernel_search_sol->is_infeasible_)
-			std::cout << " infeasible " << std::endl;
+			std::cout << -kernel_search_sol->profits_sum_ << std::endl;
+		else
+			std::cout << 0.0 << std::endl;
 
 		delete kernel_search_sol;
 		kernel_search_sol = nullptr;
@@ -3188,7 +3213,6 @@ int main(int argc, char *argv[])
 			ParseArgumentsAndRun(argc, argv);
 			DeleteTimer();
 			DeleteCallbackSelection();
-			return 0;
 		}
 	}
 	catch (const std::runtime_error &re)

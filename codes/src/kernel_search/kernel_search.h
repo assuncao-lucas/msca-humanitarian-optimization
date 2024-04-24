@@ -14,7 +14,7 @@ public:
     explicit KernelSearch(Instance &instance);
     virtual ~KernelSearch();
 
-    KSHeuristicSolution *Run();
+    KSHeuristicSolution *Run(int ks_max_size_bucket, int ks_min_time_limit, int ks_max_time_limit, double ks_decay_factor);
 
 private:
     IloEnv *env_;     // Cplex environment
@@ -39,7 +39,7 @@ private:
 
     const Instance &instance_;
 
-    void BuildKernelAndBuckets(KSHeuristicSolution *solution);
+    void BuildKernelAndBuckets(KSHeuristicSolution *solution, int ks_max_size_bucket);
     void InitCplex();
     void ResetCplex();
     void BuildModel(bool linearly_relaxed, bool disable_all_binary_vars, bool export_model);
