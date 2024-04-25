@@ -11,5 +11,5 @@
 ## parameter conditions (NA should be used for those parameters that
 ## are not enabled for a given configuration) and, if given, the
 ## constraints that describe forbidden configurations.
-ks_max_size_bucket  ks_min_time_limit ks_max_time_limit ks_decay_factor
-5   5   30  0.95
+ks_max_size_bucket  ks_min_time_limit ks_max_time_limit ks_decay_factor ks_feasibility_emphasis
+5   5   30  0.95 1

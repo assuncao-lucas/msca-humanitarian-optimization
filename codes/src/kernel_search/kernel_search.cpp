@@ -332,7 +332,7 @@ void KernelSearch::BuildKernelAndBuckets(KSHeuristicSolution *solution, int ks_m
     assert(vertices_added == num_vertices);
 }
 
-KSHeuristicSolution *KernelSearch::Run(int ks_max_size_bucket, int ks_min_time_limit, int ks_max_time_limit, double ks_decay_factor)
+KSHeuristicSolution *KernelSearch::Run(int ks_max_size_bucket, int ks_min_time_limit, int ks_max_time_limit, double ks_decay_factor, bool feasibility_emphasis)
 {
     Timestamp *ti = NewTimestamp();
     Timer *timer = GetTimer();
@@ -362,7 +362,11 @@ KSHeuristicSolution *KernelSearch::Run(int ks_max_size_bucket, int ks_min_time_l
         BuildModel(false, true, false); // initially, set all binary variables to zero.
 
         cplex_->setParam(IloCplex::Param::ClockType, 2);
-        cplex_->setParam(IloCplex::Param::Emphasis::MIP, IloCplex::MIPEmphasisFeasibility);
+        if (feasibility_emphasis)
+        {
+            // std::cout << "feasibility_emphasis" << std::endl;
+            cplex_->setParam(IloCplex::Param::Emphasis::MIP, IloCplex::MIPEmphasisFeasibility);
+        }
 
         double curr_time_limit_iteration = ks_max_time_limit;
 

@@ -15,7 +15,6 @@ instance="./instances/R-STOP-DP/R100_1.txt"
 # ./codes/bin/stop --solve-benders --benders-generic-callback --solve-relaxed --capacity-based --instance $instance --num-vehicles 2 --uncertainty-budget 2 --service-time-deviation 0.25
 # ./codes/bin/stop --solve-benders --combine-feas-opt-cuts --solve-relaxed --capacity-based --instance $instance --num-vehicles 2 --uncertainty-budget 2 --service-time-deviation 0.25
 
-
 time_limit=600
 
 ./bin/stop --kernel-search --capacity-based --instance "../instances/R-STOP-DP/test.txt" --num-vehicles 4 --uncertainty-budget 5 --service-time-deviation 0.1 --time-limit $time_limit
