@@ -34,7 +34,7 @@ CONFIG_PARAMS=$*
 # BINDIR=$(dirname "$(readlink -f "$(type -P $0 || echo $0)")")
 
 # EDIT THIS: Path to your executable
-EXE=/home/lucas/Documentos/Research/msca-humanitarian-optimization/codes/bin/stop
+EXE=/home/litis/Research/msca-humanitarian-optimization/codes/bin/stop
 # EDIT THIS: Specify how parameters are given to your executable
 # EXE_PARAMS="--time 5 -i $INSTANCE --seed ${SEED} ${CONFIG_PARAMS}"
 FIXED_PARAMS="--kernel-search --capacity-based"
