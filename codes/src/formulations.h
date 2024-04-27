@@ -17,12 +17,6 @@
 typedef lemon::ListDigraph LemonGraph;
 typedef int LimitValueType;
 
-enum class BendersFormulation
-{
-  baseline,
-  single_commodity
-};
-
 int a_var_to_index(int vertex, int budget, int num_vertices);
 int f_var_to_index(int arc_pos, int budget, int num_arcs);
 
@@ -83,15 +77,15 @@ static bool ConflictIsActive(std::list<int> &curr_conflict, std::vector<double> 
 
 static void PopulateByRowCommon(IloEnv &env, IloModel &model, MasterVariables &master_vars, const Instance &instance, bool force_use_all_vehicles);
 static void PopulateByRowCompactBaselineContinuousSpace(IloEnv &env, IloModel &model, IloNumVarArray &x, IloNumVarArray &y, IloNumVarArray &a, std::optional<std::reference_wrapper<IloNumArray>> x_values, std::optional<std::reference_wrapper<IloNumArray>> y_values, const Instance &instance);
-static void PopulateByRowCompactBaseline(IloCplex &cplex, IloEnv &env, IloModel &model, MasterVariables &master_vars, IloNumVarArray &a, Instance &instance, double *R0, double *Rn, bool force_use_all_vehicles, bool export_model);
+void PopulateByRowCompactBaseline(IloCplex &cplex, IloEnv &env, IloModel &model, MasterVariables &master_vars, IloNumVarArray &a, const Instance &instance, double *R0, double *Rn, bool force_use_all_vehicles, bool export_model);
 
 static void PopulateByRowCompactSingleCommodityContinuousSpace(IloEnv &env, IloModel &model, IloNumVarArray &x, IloNumVarArray &y, IloNumVarArray &f, std::optional<std::reference_wrapper<IloNumArray>> x_values, std::optional<std::reference_wrapper<IloNumArray>> y_values, double *R0, double *Rn, const Instance &instance);
 void PopulateByRowCompactSingleCommodity(IloCplex &cplex, IloEnv &env, IloModel &model, MasterVariables &master_vars, IloNumVarArray &f, const Instance &instance, double *R0, double *Rn, bool force_use_all_vehicles, bool export_model);
 
-static void AllocateMasterVariablesBaseline(IloEnv &env, MasterVariables &master_vars, Instance &instance, bool force_use_all_vehicles, bool solve_relax);
+void AllocateMasterVariablesBaseline(IloEnv &env, MasterVariables &master_vars, const Instance &instance, bool force_use_all_vehicles, bool solve_relax, bool disable_all_binary_vars = false);
 void AllocateMasterVariablesSingleCommodity(IloEnv &env, MasterVariables &master_vars, const Instance &instance, bool force_use_all_vehicles, bool solve_relax, bool disable_all_binary_vars = false);
 
-void Benders(Instance &inst, BendersFormulation formumlation, double *R0, double *Rn, double time_limit, bool apply_benders_generic_callback, bool combine_feas_op_cuts, bool separate_benders_cuts_relaxation, bool solve_relax, bool use_valid_inequalities, bool find_root_cuts, std::list<UserCutGeneral *> *initial_cuts, HeuristicSolution *initial_sol, bool force_use_all_vehicles, bool export_model, std::list<UserCutGeneral *> *root_cuts, Solution<double> &);
+void Benders(Instance &inst, Formulation formumlation, double *R0, double *Rn, double time_limit, bool apply_benders_generic_callback, bool combine_feas_op_cuts, bool separate_benders_cuts_relaxation, bool solve_relax, bool use_valid_inequalities, bool find_root_cuts, std::list<UserCutGeneral *> *initial_cuts, HeuristicSolution *initial_sol, bool force_use_all_vehicles, bool export_model, std::list<UserCutGeneral *> *root_cuts, Solution<double> &);
 
 void CompactBaseline(Instance &inst, double *R0, double *Rn, double time_limit, bool solve_relax, bool use_valid_inequalities, bool find_root_cuts, std::list<UserCutGeneral *> *initial_cuts, HeuristicSolution *initial_sol, bool force_use_all_vehicles, bool export_model, std::list<UserCutGeneral *> *root_cuts, Solution<double> &);
 void PrimalSubproblemCompactBaseline(Instance &inst, IloNumArray &x_values, IloNumArray &y_values, double *R0, double *Rn, double time_limit, bool export_model, Solution<double> &solution);
@@ -101,7 +95,7 @@ void CompactSingleCommodity(Instance &inst, double *R0, double *Rn, double time_
 void PrimalSubproblemCompactSingleCommodity(Instance &inst, IloNumArray &x_values, IloNumArray &y_values, double *R0, double *Rn, double time_limit, bool export_model, Solution<double> &);
 void DualSubproblemCompactSingleCommodity(Instance &inst, IloNumArray &x_values, IloNumArray &y_values, double *R0, double *Rn, double time_limit, bool export_model, Solution<double> &);
 
-void optimize(IloCplex &cplex, IloEnv &env, IloModel &model, std::optional<BendersFormulation> formulation, MasterVariables &master_vars, Instance &instance, double total_time_limit, bool solve_relax, bool apply_benders, bool apply_benders_generic_callback, bool combine_feas_op_cuts, bool separate_benders_cuts_relaxation, bool use_valid_inequalities, bool find_root_cuts, double *R0, double *Rn, std::list<UserCutGeneral *> *initial_cuts, HeuristicSolution *initial_sol, bool export_model, std::list<UserCutGeneral *> *root_cuts, Solution<double> &solution);
+void optimize(IloCplex &cplex, IloEnv &env, IloModel &model, std::optional<Formulation> formulation, MasterVariables &master_vars, Instance &instance, double total_time_limit, bool solve_relax, bool apply_benders, bool apply_benders_generic_callback, bool combine_feas_op_cuts, bool separate_benders_cuts_relaxation, bool use_valid_inequalities, bool find_root_cuts, double *R0, double *Rn, std::list<UserCutGeneral *> *initial_cuts, HeuristicSolution *initial_sol, bool export_model, std::list<UserCutGeneral *> *root_cuts, Solution<double> &solution);
 void optimizeLP(IloCplex &cplex, IloEnv &env, IloModel &model, Instance &instance, double total_time_limit, double *R0, double *Rn, Solution<double> &);
 
 #endif

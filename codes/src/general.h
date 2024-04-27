@@ -144,3 +144,9 @@ void Delete3Matrix(Matrix<T> **matrix, int k)
     }
     matrix = NULL;
 }
+
+enum class Formulation
+{
+    baseline,
+    single_commodity
+};

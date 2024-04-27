@@ -37,7 +37,7 @@ CONFIG_PARAMS=$*
 EXE=/home/litis/Research/msca-humanitarian-optimization/codes/bin/stop
 # EDIT THIS: Specify how parameters are given to your executable
 # EXE_PARAMS="--time 5 -i $INSTANCE --seed ${SEED} ${CONFIG_PARAMS}"
-FIXED_PARAMS="--kernel-search --capacity-based"
+FIXED_PARAMS="--kernel-search --baseline"
 EXE_PARAMS="${FIXED_PARAMS} --instance $INSTANCE ${CONFIG_PARAMS}"
 
 if [ ! -x "$(command -v ${EXE})" ]; then

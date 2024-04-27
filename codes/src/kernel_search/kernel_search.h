@@ -14,14 +14,13 @@ public:
     explicit KernelSearch(Instance &instance);
     virtual ~KernelSearch();
 
-    KSHeuristicSolution *Run(int ks_max_size_bucket, int ks_min_time_limit, int ks_max_time_limit, double ks_decay_factor, bool feasibility_emphasis);
+    KSHeuristicSolution *Run(Formulation formulation, int ks_max_size_bucket, int ks_min_time_limit, int ks_max_time_limit, double ks_decay_factor, bool feasibility_emphasis);
 
 private:
     IloEnv *env_;     // Cplex environment
     IloCplex *cplex_; // Cplex solver
     IloModel *model_; // Cplex model
 
-    IloNumVarArray f_;
     IloNumVar slack_;
     MasterVariables master_vars_;
 
@@ -39,10 +38,10 @@ private:
 
     const Instance &instance_;
 
-    void BuildKernelAndBuckets(KSHeuristicSolution *solution, int ks_max_size_bucket);
+    void BuildKernelAndBuckets(Formulation formulation, KSHeuristicSolution *solution, int ks_max_size_bucket);
     void InitCplex();
     void ResetCplex();
-    void BuildModel(bool linearly_relaxed, bool disable_all_binary_vars, bool export_model);
+    void BuildModel(Formulation formulation, bool linearly_relaxed, bool disable_all_binary_vars, bool export_model);
     void RetrieveSolutionArcVertexValues();
     void BuildHeuristicSolution(KSHeuristicSolution *);
     void PrintKernelAndBuckets();

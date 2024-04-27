@@ -702,7 +702,7 @@ void SetPriorityOrder(IloCplex &cplex, IloEnv &env, IloNumVarArray &x, Instance 
 cplex.setPriorities(x, pri_order);*/
 }
 
-void optimize(IloCplex &cplex, IloEnv &env, IloModel &model, std::optional<BendersFormulation> formulation, MasterVariables &master_vars, Instance &instance, double total_time_limit, bool solve_relax, bool apply_benders, bool apply_benders_generic_callback, bool combine_feas_op_cuts, bool separate_benders_cuts_relaxation, bool use_valid_inequalities, bool find_root_cuts, double *R0, double *Rn, std::list<UserCutGeneral *> *initial_cuts, HeuristicSolution *initial_sol, bool export_model, std::list<UserCutGeneral *> *root_cuts, Solution<double> &solution)
+void optimize(IloCplex &cplex, IloEnv &env, IloModel &model, std::optional<Formulation> formulation, MasterVariables &master_vars, Instance &instance, double total_time_limit, bool solve_relax, bool apply_benders, bool apply_benders_generic_callback, bool combine_feas_op_cuts, bool separate_benders_cuts_relaxation, bool use_valid_inequalities, bool find_root_cuts, double *R0, double *Rn, std::list<UserCutGeneral *> *initial_cuts, HeuristicSolution *initial_sol, bool export_model, std::list<UserCutGeneral *> *root_cuts, Solution<double> &solution)
 {
   const Graph *graph = instance.graph();
   int num_vertices = graph->num_vertices();
@@ -763,10 +763,10 @@ void optimize(IloCplex &cplex, IloEnv &env, IloModel &model, std::optional<Bende
     {
       switch (*formulation)
       {
-      case BendersFormulation::baseline:
+      case Formulation::baseline:
         worker = new WorkerBaseline(env, instance, master_vars, combine_feas_op_cuts, export_model);
         break;
-      case BendersFormulation::single_commodity:
+      case Formulation::single_commodity:
         worker = new WorkerSingleCommodity(env, instance, master_vars, R0, Rn, combine_feas_op_cuts, export_model);
         break;
       default:
@@ -785,10 +785,10 @@ void optimize(IloCplex &cplex, IloEnv &env, IloModel &model, std::optional<Bende
         //  Set up the callback to be used for separating Benders' cuts
         switch (*formulation)
         {
-        case BendersFormulation::baseline:
+        case Formulation::baseline:
           generic_callback = new BendersGenericCallbackBaseline(env, instance, master_vars, combine_feas_op_cuts, export_model, solution, num_threads);
           break;
-        case BendersFormulation::single_commodity:
+        case Formulation::single_commodity:
           generic_callback = new BendersGenericCallbackSingleCommodity(env, instance, master_vars, combine_feas_op_cuts, export_model, solution, R0, Rn, num_threads);
           break;
         default:
@@ -810,11 +810,11 @@ void optimize(IloCplex &cplex, IloEnv &env, IloModel &model, std::optional<Bende
 
         switch (*formulation)
         {
-        case BendersFormulation::baseline:
+        case Formulation::baseline:
           cplex.use(BendersLazyCallbackBaseline(env, worker->worker_cplex(), worker->worker_obj(), static_cast<DualVariablesBaseline *>(worker->worker_vars()), master_vars, instance, combine_feas_op_cuts, solution));
           // cplex.use(BendersUserCutCallback(env,*worker_cplex,*worker_obj,*worker_vars,y,x,dual_bound_opt->get(),instance));
           break;
-        case BendersFormulation::single_commodity:
+        case Formulation::single_commodity:
           cplex.use(BendersLazyCallbackSingleCommodity(env, worker->worker_cplex(), worker->worker_obj(), static_cast<DualVariablesSingleCommodity *>(worker->worker_vars()), master_vars, arguments, combine_feas_op_cuts, solution));
           break;
         default:
@@ -1033,10 +1033,10 @@ void optimize(IloCplex &cplex, IloEnv &env, IloModel &model, std::optional<Bende
         IloExpr cut_expr(env);
         switch (*formulation)
         {
-        case BendersFormulation::baseline:
+        case Formulation::baseline:
           sep_status = SeparateBendersCutBaseline(env, master_vars.x, master_vars.y, master_vars.dual_bound, x_values, y_values, dual_bound_value, worker->worker_cplex(), static_cast<DualVariablesBaseline *>(worker->worker_vars()), instance, worker->worker_obj(), cut_expr, combine_feas_op_cuts, solution);
           break;
-        case BendersFormulation::single_commodity:
+        case Formulation::single_commodity:
           sep_status = SeparateBendersCutSingleCommodity(env, master_vars.x, master_vars.y, master_vars.dual_bound, x_values, y_values, dual_bound_value, worker->worker_cplex(), static_cast<DualVariablesSingleCommodity *>(worker->worker_vars()), R0, Rn, instance, worker->worker_obj(), cut_expr, combine_feas_op_cuts, solution);
           break;
         default:
@@ -1102,7 +1102,7 @@ void optimize(IloCplex &cplex, IloEnv &env, IloModel &model, std::optional<Bende
   //   //   {
   //   //     const auto& vertex_info = vertices_info[i];
   //   //     obj_value += vertex_info.profit_ * y_solution[i];
-  //   //     // if (formulation == BendersFormulation::single_commodity)
+  //   //     // if (formulation == Formulation::single_commodity)
   //   //      obj_value -= vertex_info.decay_ratio_ * instance.limit() * y_solution[i];
   //   //   }
 
@@ -1117,7 +1117,7 @@ void optimize(IloCplex &cplex, IloEnv &env, IloModel &model, std::optional<Bende
   //   //   {
   //   //     const auto& vertex_info = vertices_info[i];
   //   //     obj_value += vertex_info.profit_ * y_solution[i];
-  //   //     // if (formulation == BendersFormulation::single_commodity)
+  //   //     // if (formulation == Formulation::single_commodity)
   //   //      obj_value -= vertex_info.decay_ratio_ * instance.limit() * y_solution[i];
   //   //   }
 
@@ -1212,7 +1212,7 @@ void optimizeLP(IloCplex &cplex, IloEnv &env, IloModel &model, Instance &instanc
   tf = nullptr;
 }
 
-void Benders(Instance &inst, BendersFormulation formulation, double *R0, double *Rn, double time_limit, bool apply_benders_generic_callback, bool combine_feas_op_cuts, bool separate_benders_cuts_relaxation, bool solve_relax, bool use_valid_inequalities, bool find_root_cuts, std::list<UserCutGeneral *> *initial_cuts, HeuristicSolution *initial_sol, bool force_use_all_vehicles, bool export_model, std::list<UserCutGeneral *> *root_cuts, Solution<double> &solution)
+void Benders(Instance &inst, Formulation formulation, double *R0, double *Rn, double time_limit, bool apply_benders_generic_callback, bool combine_feas_op_cuts, bool separate_benders_cuts_relaxation, bool solve_relax, bool use_valid_inequalities, bool find_root_cuts, std::list<UserCutGeneral *> *initial_cuts, HeuristicSolution *initial_sol, bool force_use_all_vehicles, bool export_model, std::list<UserCutGeneral *> *root_cuts, Solution<double> &solution)
 {
   const Graph *graph = inst.graph();
   const int num_vertices = graph->num_vertices();
@@ -1226,9 +1226,9 @@ void Benders(Instance &inst, BendersFormulation formulation, double *R0, double 
   cplex.extract(model);
   MasterVariables master_vars{};
 
-  if (formulation == BendersFormulation::baseline)
+  if (formulation == Formulation::baseline)
     AllocateMasterVariablesBaseline(env, master_vars, inst, force_use_all_vehicles, solve_relax);
-  if (formulation == BendersFormulation::single_commodity)
+  if (formulation == Formulation::single_commodity)
     AllocateMasterVariablesSingleCommodity(env, master_vars, inst, force_use_all_vehicles, solve_relax);
   PopulateByRowCommon(env, model, master_vars, inst, force_use_all_vehicles);
   const int num_mandatory = inst.num_mandatory();
@@ -1242,7 +1242,7 @@ void Benders(Instance &inst, BendersFormulation formulation, double *R0, double 
   {
     const auto &vertex_info = vertices_info[i];
     obj += operator*(vertex_info.profit_, master_vars.y[i]);
-    if (formulation == BendersFormulation::single_commodity)
+    if (formulation == Formulation::single_commodity)
       obj -= operator*(vertex_info.decay_ratio_ * route_limit, master_vars.y[i]);
   }
 
@@ -1489,25 +1489,27 @@ void PrimalSubproblemCompactSingleCommodity(Instance &inst, IloNumArray &x_value
   env.end();
 }
 
-static void AllocateMasterVariablesBaseline(IloEnv &env, MasterVariables &master_vars, Instance &instance, bool force_use_all_vehicles, bool solve_relax)
+void AllocateMasterVariablesBaseline(IloEnv &env, MasterVariables &master_vars, const Instance &instance, bool force_use_all_vehicles, bool solve_relax, bool disable_all_binary_vars)
 {
   const Graph *graph = instance.graph();
   const int num_vertices = graph->num_vertices();
   const int num_arcs = graph->num_arcs();
   const int num_routes = instance.num_vehicles();
 
+  const double binary_upper_bound = disable_all_binary_vars ? 0.0 : 1.0;
+
   master_vars.slack = IloNumVar(env, 0, force_use_all_vehicles ? 0 : num_routes, ILOFLOAT);
   master_vars.dual_bound = IloNumVar(env, -num_arcs * instance.limit(), 0, ILOFLOAT);
 
   if (solve_relax)
   {
-    master_vars.x = IloNumVarArray(env, num_arcs, 0.0, 1.0, ILOFLOAT);
-    master_vars.y = IloNumVarArray(env, num_vertices, 0.0, 1.0, ILOFLOAT);
+    master_vars.x = IloNumVarArray(env, num_arcs, 0.0, binary_upper_bound, ILOFLOAT);
+    master_vars.y = IloNumVarArray(env, num_vertices, 0.0, binary_upper_bound, ILOFLOAT);
   }
   else
   {
-    master_vars.x = IloNumVarArray(env, num_arcs, 0.0, 1.0, ILOINT);
-    master_vars.y = IloNumVarArray(env, num_vertices, 0.0, 1.0, ILOINT);
+    master_vars.x = IloNumVarArray(env, num_arcs, 0.0, binary_upper_bound, ILOINT);
+    master_vars.y = IloNumVarArray(env, num_vertices, 0.0, binary_upper_bound, ILOINT);
   }
 }
 
@@ -1936,7 +1938,7 @@ static void PopulateByRowCompactBaselineContinuousSpace(IloEnv &env, IloModel &m
   }
 }
 
-static void PopulateByRowCompactBaseline(IloCplex &cplex, IloEnv &env, IloModel &model, MasterVariables &master_vars, IloNumVarArray &a, Instance &instance, double *R0, double *Rn, bool force_use_all_vehicles, bool export_model)
+void PopulateByRowCompactBaseline(IloCplex &cplex, IloEnv &env, IloModel &model, MasterVariables &master_vars, IloNumVarArray &a, const Instance &instance, double *R0, double *Rn, bool force_use_all_vehicles, bool export_model)
 {
   int num_vertices = (instance.graph())->num_vertices();
   int num_mandatory = instance.num_mandatory();

@@ -2974,9 +2974,19 @@ void ParseArgumentsAndRun(int argc, char *argv[])
 	// std::cout << inst << std::endl;
 	if (compute_initial_solution_heuristic)
 	{
+		Formulation formulation;
+		if (baseline)
+		{
+			formulation = Formulation::baseline;
+		}
+		if (capacity_based)
+		{
+			formulation = Formulation::single_commodity;
+		}
+
 		KernelSearch ks(inst);
 		std::cout << KSHeuristicSolution::GenerateFileName() << std::endl;
-		initial_sol = ks.Run(ks_max_size_bucket, ks_min_time_limit, ks_max_time_limit, ks_decay_factor, ks_feasibility_emphasis);
+		initial_sol = ks.Run(formulation, ks_max_size_bucket, ks_min_time_limit, ks_max_time_limit, ks_decay_factor, ks_feasibility_emphasis);
 	}
 
 	Solution<double> sol(graph->num_vertices());
@@ -3088,17 +3098,17 @@ void ParseArgumentsAndRun(int argc, char *argv[])
 	{
 		auto root_cuts = new std::list<UserCutGeneral *>();
 
-		BendersFormulation formulation;
+		Formulation formulation;
 		std::string formulation_name;
 
 		if (baseline)
 		{
-			formulation = BendersFormulation::baseline;
+			formulation = Formulation::baseline;
 			formulation_name = "baseline";
 		}
 		if (capacity_based)
 		{
-			formulation = BendersFormulation::single_commodity;
+			formulation = Formulation::single_commodity;
 			formulation_name = "csc";
 		}
 
@@ -3163,9 +3173,19 @@ void ParseArgumentsAndRun(int argc, char *argv[])
 
 	if (solve_kernel_search)
 	{
+		Formulation formulation;
+		if (baseline)
+		{
+			formulation = Formulation::baseline;
+		}
+		if (capacity_based)
+		{
+			formulation = Formulation::single_commodity;
+		}
+
 		KernelSearch ks(inst);
 		// std::cout << KSHeuristicSolution::GenerateFileName() << std::endl;
-		const auto *kernel_search_sol = ks.Run(ks_max_size_bucket, ks_min_time_limit, ks_max_time_limit, ks_decay_factor, ks_feasibility_emphasis);
+		const auto *kernel_search_sol = ks.Run(formulation, ks_max_size_bucket, ks_min_time_limit, ks_max_time_limit, ks_decay_factor, ks_feasibility_emphasis);
 		// kernel_search_sol->WriteToFile(inst, KSHeuristicSolution::GenerateFileName(), "//", instance_name);
 		//  if (kernel_search_sol->is_feasible_)
 		//  	std::cout << " lb: " << kernel_search_sol->profits_sum_ << std::endl;
