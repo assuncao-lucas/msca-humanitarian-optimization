@@ -1,0 +1,22 @@
+# 2024-04-27 03:44:20 UTC: Stopped because there is not enough budget left to race more than the minimum (4)
+# You may either increase the budget or set 'minNbSurvival' to a lower value
+# Iteration: 5
+# nbIterations: 5
+# experimentsUsedSoFar: 394
+# timeUsed: 0
+# remainingBudget: 6
+# currentBudget: 6
+# number of elites: 4
+# nbConfigurations: 4
+# Total CPU user time: 1258228, CPU sys time: 4032.277, Wall-clock time: 147545.3
+# Best configurations (first number is the configuration ID; listed from best to worst according to the sum of ranks):
+   ks_max_size_bucket ks_min_time_limit ks_max_time_limit ks_decay_factor ks_feasibility_emphasis
+52                  1                27                77          0.8284                       0
+50                  3                25                72          0.8636                       0
+36                  1                28                73          0.8139                       0
+45                  3                29                78          0.8096                       0
+# Best configurations as commandlines (first number is the configuration ID; same order as above):
+52  --ks-max-size-bucket 1 --ks-min-time-limit 27 --ks-max-time-limit 77 --ks-decay-factor 0.8284 --ks-feasibility-emphasis 0
+50  --ks-max-size-bucket 3 --ks-min-time-limit 25 --ks-max-time-limit 72 --ks-decay-factor 0.8636 --ks-feasibility-emphasis 0
+36  --ks-max-size-bucket 1 --ks-min-time-limit 28 --ks-max-time-limit 73 --ks-decay-factor 0.8139 --ks-feasibility-emphasis 0
+45  --ks-max-size-bucket 3 --ks-min-time-limit 29 --ks-max-time-limit 78 --ks-decay-factor 0.8096 --ks-feasibility-emphasis 0

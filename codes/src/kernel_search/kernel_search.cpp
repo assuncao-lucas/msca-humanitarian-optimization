@@ -386,7 +386,7 @@ KSHeuristicSolution *KernelSearch::Run(Formulation formulation, int ks_max_size_
 
     if (!solution->is_infeasible_)
     {
-        PrintKernelAndBuckets();
+        // PrintKernelAndBuckets();
 
         // delete LP model and create the MILP model.
         ResetCplex();
@@ -413,7 +413,7 @@ KSHeuristicSolution *KernelSearch::Run(Formulation formulation, int ks_max_size_
         for (int curr_bucket_index = -1; curr_bucket_index < total_num_buckets; ++curr_bucket_index)
         {
             cplex_->setParam(IloCplex::Param::TimeLimit, curr_time_limit_iteration);
-            std::cout << "curr_time_limit_iteration: " << curr_time_limit_iteration << std::endl;
+            // std::cout << "curr_time_limit_iteration: " << curr_time_limit_iteration << std::endl;
             // update the reference kernel to the current kernel (+ current bucket, if not the first iteration).
             if (curr_bucket_index >= 0)
             {
@@ -421,7 +421,7 @@ KSHeuristicSolution *KernelSearch::Run(Formulation formulation, int ks_max_size_
                 curr_vertices_entering_kernel |= buckets_bitsets_[curr_bucket_index];
             }
 
-            std::cout << " bucket index " << curr_bucket_index << std::endl;
+            // std::cout << " bucket index " << curr_bucket_index << std::endl;
             // std::cout << " current bucket ";
             // curr_bucket_index >= 0 ? std::cout << buckets_bitsets_[curr_bucket_index] << std::endl : std::cout << " - " << std::endl;
             // std::cout << " kernel: " << curr_kernel_bitset_ << std::endl;
@@ -453,7 +453,7 @@ KSHeuristicSolution *KernelSearch::Run(Formulation formulation, int ks_max_size_
             {
                 found_int_x_ = true;
                 double solution_value = cplex_->getObjValue();
-                std::cout << "found feasible solution with cost " << solution_value << std::endl;
+                // std::cout << "found feasible solution with cost " << solution_value << std::endl;
 
                 // only update Kernel if found a solution with strictly better objective function value!
                 if (double_greater(solution_value, curr_best_solution_value_))
@@ -491,7 +491,7 @@ KSHeuristicSolution *KernelSearch::Run(Formulation formulation, int ks_max_size_
                 curr_vertices_leaving_reference_kernel = curr_reference_kernel - curr_kernel_bitset_;
                 curr_vertices_entering_kernel.reset();
             }
-            std::cout << "status " << cplex_->getStatus() << std::endl;
+            // std::cout << "status " << cplex_->getStatus() << std::endl;
             // std::cout << "current sol: " << curr_int_y_ << std::endl;
 
             curr_time_limit_iteration = std::max(curr_time_limit_iteration * ks_decay_factor, 1.0 * ks_min_time_limit);

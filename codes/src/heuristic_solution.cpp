@@ -3,7 +3,6 @@
 #include <iomanip>
 #include <boost/dynamic_bitset.hpp>
 #include "heuristic_solution.h"
-#include "general.h"
 
 VertexStatus::VertexStatus()
 {
@@ -1345,7 +1344,7 @@ std::ostream &operator<<(std::ostream &out, HeuristicSolution &sol)
 void HeuristicSolution::WriteToFile(Instance &instance, std::string algo, std::string folder, std::string file_name) const
 {
 	std::fstream file;
-	std::string path = ".//solutions";
+	std::string path = "..//solutions//";
 	path.append(folder);
 	// struct stat sb;
 	// if(stat(path.c_str(),&sb) != 0 || !S_ISDIR(sb.st_mode)) mkdir(path.c_str(),0777);
@@ -1736,19 +1735,34 @@ void KSHeuristicSolution::Reset(int dimension, int dimension2, int num_routes)
 	time_spent_building_kernel_buckets_ = 0.0;
 }
 
-std::string KSHeuristicSolution::GenerateFileName()
+std::string KSHeuristicSolution::GenerateFileName(Formulation formulation, int ks_max_size_bucket, int ks_min_time_limit, int ks_max_time_limit, double ks_decay_factor, bool feasibility_emphasis)
 {
+	std::string formulation_name;
+	switch (formulation)
+	{
+	case Formulation::baseline:
+		formulation_name = "baseline";
+		break;
+	case Formulation::single_commodity:
+		formulation_name = "csc";
+		break;
+	default:
+		throw "invalid formulation";
+	}
+
 	std::stringstream ss_decay_factor;
-	ss_decay_factor << std::fixed << std::setprecision(2) << K_KS_DECAY_FACTOR_TIME_LIMIT;
+	ss_decay_factor << std::fixed << std::setprecision(2) << ks_decay_factor;
 	std::string file_name;
-	file_name += "ks_b" + std::to_string(K_KS_MAX_SIZE_BUCKET) + "_[" + std::to_string(K_KS_MAX_TIME_LIMIT) + "," + std::to_string(K_KS_MIN_TIME_LIMIT) + "]_d" + ss_decay_factor.str();
+	file_name += formulation_name + "_ks_b" + std::to_string(ks_max_size_bucket) + "_[" + std::to_string(ks_max_time_limit) + "," + std::to_string(ks_min_time_limit) + "]_d" + ss_decay_factor.str();
+	if (feasibility_emphasis)
+		file_name += "_feas";
 	return file_name;
 }
 
 void KSHeuristicSolution::WriteToFile(Instance &instance, std::string algo, std::string folder, std::string file_name) const
 {
 	std::fstream file;
-	std::string path = "..//solutions";
+	std::string path = "..//solutions//";
 	path.append(folder);
 	// struct stat sb;
 	// if(stat(path.c_str(),&sb) != 0 || !S_ISDIR(sb.st_mode)) mkdir(path.c_str(),0777);

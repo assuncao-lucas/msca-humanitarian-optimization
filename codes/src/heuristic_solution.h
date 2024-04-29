@@ -7,6 +7,7 @@
 #include "route.h"
 #include "graph.h"
 #include "instance.h"
+#include "general.h"
 
 class VertexStatus
 {
@@ -102,7 +103,7 @@ public:
 	bool found_x_integer_ = false;
 
 	virtual void Reset(int dimension, int dimension2, int num_routes);
-	static std::string GenerateFileName();
+	static std::string GenerateFileName(Formulation formulation, int ks_max_size_bucket, int ks_min_time_limit, int ks_max_time_limit, double ks_decay_factor, bool feasibility_emphasis);
 	void WriteToFile(Instance &instance, std::string algo, std::string folder, std::string file_name) const;
 };
 
