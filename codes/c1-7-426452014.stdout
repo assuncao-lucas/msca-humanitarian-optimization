@@ -1,0 +1,25 @@
+Kernel: 0 1 2 3 4 5 6 7 8 9 10 
+Bucket 0: 45 53 70 87 88 
+Bucket 1: 31 39 54 62 95 
+Bucket 2: 13 52 74 83 89 
+Bucket 3: 21 40 68 69 81 
+Bucket 4: 20 22 38 67 94 
+Bucket 5: 12 24 30 58 64 
+Bucket 6: 27 34 50 77 100 
+Bucket 7: 18 35 36 51 84 
+Bucket 8: 17 44 57 73 91 
+Bucket 9: 26 55 78 79 97 
+Bucket 10: 19 29 41 85 96 
+Bucket 11: 11 46 56 65 98 
+Bucket 12: 28 37 75 90 99 
+Bucket 13: 16 23 42 66 76 
+Bucket 14: 49 61 71 82 86 
+Bucket 15: 15 33 48 60 72 
+Bucket 16: 14 32 43 47 63 
+Bucket 17: 25 59 80 92 93 
+curr_time_limit_iteration: 30.00
+ bucket index -1
+found feasible solution with cost 0.00
+status Optimal
+curr_time_limit_iteration: 28.50
+ bucket index 0
