@@ -719,9 +719,9 @@ void optimize(IloCplex &cplex, IloEnv &env, IloModel &model, std::optional<Formu
   BendersGenericCallbackI *generic_callback = nullptr;
   CallbackArguments arguments{.R0 = R0, .Rn = Rn, .instance = &instance};
 
-  cplex.setParam(IloCplex::Param::WorkMem, 50000);
-  std::cout << "limit of memory 50000MB" << std::endl;
-  cplex.setParam(IloCplex::IloCplex::Param::MIP::Strategy::File, 3);
+  // cplex.setParam(IloCplex::Param::WorkMem, 50000);
+  // std::cout << "limit of memory 50000MB" << std::endl;
+  // cplex.setParam(IloCplex::IloCplex::Param::MIP::Strategy::File, 3);
   cplex.setOut(env.getNullStream());
 
   std::vector<bool> *CALLBACKS_SELECTION = GetCallbackSelection();
@@ -874,12 +874,12 @@ void optimize(IloCplex &cplex, IloEnv &env, IloModel &model, std::optional<Formu
     // std::cout << initial_sol->bitset_arcs_ << std::endl;
     // std::cout << start_values << std::endl;
 
-    std::cout << " *** antes de colocar solucao" << std::endl;
+    // std::cout << " *** antes de colocar solucao" << std::endl;
     cplex.addMIPStart(start_vars, start_values, IloCplex::MIPStartSolveMIP);
     start_vars.end();
     start_values.end();
     // cplex.setParam(IloCplex::Param::MIP::Tolerances::LowerCutoff, 1.0*(initial_sol->profits_sum_));
-    std::cout << "colocou solucao" << std::endl;
+    // std::cout << "colocou solucao" << std::endl;
 
     // cplex.setParam(IloCplex::Param::Advance,2);
     // std::cout << "colocou presolve" << std::endl;
