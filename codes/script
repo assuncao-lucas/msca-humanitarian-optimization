@@ -102,7 +102,7 @@ files=()
 num_vehicles_vec=(2 4)
 service_time_deviation_vec=(0.5)
 uncertainty_budget_vec=(1 5)
-time_limit=-1
+time_limit=3600
 
 cont=0
 for file in $dir0/*.txt
