@@ -4,7 +4,7 @@
 
 # valgrind --leak-check=yes --track-origins=yes
 
-dir0="../instances/R-STOP-DP"
+dir0="../instances/R-STOP-DP-reduced"
 dir_solutions=$(date +%Y-%m-%d_%H:%M:%S)
 mkdir "../solutions/"$dir_solutions
 
