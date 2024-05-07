@@ -13,7 +13,7 @@
 #include "src/feasibility_pump/feasibility_pump.h"
 #include "src/kernel_search/kernel_search.h"
 
-void GenerateAlgorithmsLatexTablePerInstance(double total_time_limit)
+void GenerateAlgorithmsLatexTablePerInstance(std::string folder, double total_time_limit)
 {
 	std::string curr_file;
 	std::vector<std::string> algorithms;
@@ -29,15 +29,15 @@ void GenerateAlgorithmsLatexTablePerInstance(double total_time_limit)
 	// algorithms.push_back("baseline_benders_lazy_callback");
 	// algorithms.push_back("baseline_benders_combined_lazy_callback");
 	// algorithms.push_back("baseline_benders_generic_callback");
-	algorithms.push_back("baseline_benders_combined_generic_callback");
+	// algorithms.push_back("baseline_benders_combined_generic_callback");
 	// algorithms.push_back("baseline_benders_combined_cuts_relaxation_generic_callback");
 
 	algorithms.push_back("csc");
 	// algorithms.push_back("csc_benders_lazy_callback");
 	// algorithms.push_back("csc_benders_combined_lazy_callback");
 	// algorithms.push_back("csc_benders_generic_callback");
-	algorithms.push_back("csc_benders_combined_generic_callback");
-	algorithms.push_back("csc_benders_combined_cuts_relaxation_generic_callback");
+	// algorithms.push_back("csc_benders_combined_generic_callback");
+	// algorithms.push_back("csc_benders_combined_cuts_relaxation_generic_callback");
 
 	std::fstream output;
 	std::string output_name;
@@ -78,7 +78,7 @@ void GenerateAlgorithmsLatexTablePerInstance(double total_time_limit)
 		output << instance << ";";
 		for (size_t algo = 0; algo < algorithms.size(); ++algo)
 		{
-			curr_file = "..//solutions//";
+			curr_file = "..//solutions//" + folder + "//";
 			curr_file.append("s_");
 			curr_file.append(algorithms[algo]);
 			curr_file.append("_");
@@ -182,7 +182,7 @@ void GenerateAlgorithmsLatexTablePerInstance(double total_time_limit)
 	output.close();
 }
 
-void GenerateAlgorithmsLatexTable(double total_time_limit)
+void GenerateAlgorithmsLatexTable(std::string folder, double total_time_limit)
 {
 	std::string curr_file;
 	std::vector<std::string> algorithms;
@@ -203,7 +203,7 @@ void GenerateAlgorithmsLatexTable(double total_time_limit)
 
 	algorithms.push_back("baseline");
 	// algorithms.push_back("cb_baseline");
-	// algorithms.push_back("csc");
+	algorithms.push_back("csc");
 	// algorithms.push_back("cb_csc");
 
 	instance_types.push_back("C");
@@ -276,7 +276,7 @@ void GenerateAlgorithmsLatexTable(double total_time_limit)
 					double original_lp = 0.0;
 					for (size_t algo = 0; algo < algorithms.size(); ++algo)
 					{
-						curr_file = "..//solutions//";
+						curr_file = "..//solutions//" + folder + "//";
 						curr_file.append("s_");
 						curr_file.append(algorithms[algo]);
 						curr_file.append("_");
@@ -656,13 +656,14 @@ void GenerateLPImprovementsLatexTable()
 
 int main()
 {
+	std::string folder = "2024-05-01_13:23:07_compact_models_reduced";
 	// try
 	// {
 	// GenerateAlgorithmsLatexTablePerInstance(3600);
 	// return 1;
 	// GenerateLPImprovementsLatexTable();
-	// GenerateAlgorithmsLatexTable(3600);
-	// return 0;
+	GenerateAlgorithmsLatexTable(folder, 3600);
+	return 0;
 	int time_limit = -1;
 	int num_routes = 4;
 	int uncertainty_budget = 5;
@@ -680,10 +681,10 @@ int main()
 	// std::cout << fp.solution_.profits_sum_ << std::endl;
 
 	KernelSearch ks(inst);
-	std::cout << KSHeuristicSolution::GenerateFileName() << std::endl;
-	auto ks_solution = ks.Run(K_KS_MAX_SIZE_BUCKET, K_KS_MIN_TIME_LIMIT, K_KS_MAX_TIME_LIMIT, K_KS_DECAY_FACTOR_TIME_LIMIT);
+	std::cout << KSHeuristicSolution::GenerateFileName(Formulation::single_commodity, K_KS_MAX_SIZE_BUCKET, K_KS_MIN_TIME_LIMIT, K_KS_MAX_TIME_LIMIT, K_KS_DECAY_FACTOR_TIME_LIMIT, true) << std::endl;
+	auto ks_solution = ks.Run(Formulation::single_commodity, K_KS_MAX_SIZE_BUCKET, K_KS_MIN_TIME_LIMIT, K_KS_MAX_TIME_LIMIT, K_KS_DECAY_FACTOR_TIME_LIMIT, true);
 
-	ks_solution->WriteToFile(inst, KSHeuristicSolution::GenerateFileName(), "//", instance_name);
+	ks_solution->WriteToFile(inst, KSHeuristicSolution::GenerateFileName(Formulation::single_commodity, K_KS_MAX_SIZE_BUCKET, K_KS_MIN_TIME_LIMIT, K_KS_MAX_TIME_LIMIT, K_KS_DECAY_FACTOR_TIME_LIMIT, true), "//", instance_name);
 
 	std::cout << ks_solution->profits_sum_ << std::endl;
 
@@ -737,13 +738,13 @@ int main()
 	bool apply_benders_generic_callback = false;
 	auto root_cuts = new std::list<UserCutGeneral *>();
 	Solution<double> solution(graph->num_vertices());
-	BendersFormulation formulation = BendersFormulation::single_commodity;
+	Formulation formulation = Formulation::single_commodity;
 
 	if (combine_feas_op_cuts)
 		std::cout << "combine cuts" << std::endl;
 	else
 		std::cout << "classic cuts" << std::endl;
-	if (formulation == BendersFormulation::single_commodity)
+	if (formulation == Formulation::single_commodity)
 		std::cout << "single commodity " << std::endl;
 	else
 		std::cout << "baseline " << std::endl;
@@ -865,7 +866,7 @@ int main()
 	// std::cout << "num cuts: " << solution.num_cuts_found_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << "/" << solution.num_cuts_added_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << std::endl;
 	// solution.reset();
 
-	Benders(inst, BendersFormulation::baseline, R0, Rn, time_limit, false, false, false, solve_relaxed, use_valid_inequalities, false, nullptr, nullptr, force_use_all_vehicles, export_model, nullptr, solution);
+	Benders(inst, Formulation::baseline, R0, Rn, time_limit, false, false, false, solve_relaxed, use_valid_inequalities, false, nullptr, nullptr, force_use_all_vehicles, export_model, nullptr, solution);
 	if (solve_relaxed)
 	{
 		std::cout << " LP: " << solution.lp_ << std::endl;
@@ -881,7 +882,7 @@ int main()
 
 	solution.reset();
 
-	Benders(inst, BendersFormulation::single_commodity, R0, Rn, time_limit, true, true, false, solve_relaxed, use_valid_inequalities, false, nullptr, nullptr, force_use_all_vehicles, export_model, nullptr, solution);
+	Benders(inst, Formulation::single_commodity, R0, Rn, time_limit, true, true, false, solve_relaxed, use_valid_inequalities, false, nullptr, nullptr, force_use_all_vehicles, export_model, nullptr, solution);
 	if (solve_relaxed)
 	{
 		std::cout << " LP: " << solution.lp_ << std::endl;
