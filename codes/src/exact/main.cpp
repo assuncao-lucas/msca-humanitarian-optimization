@@ -2972,7 +2972,7 @@ void ParseArgumentsAndRun(int argc, char *argv[])
 	split_file_path(instance, folder, file_name);
 	// std::cout << "* " << folder << " " << file_name << std::endl;
 
-	// std::cout << num_vehicles << " " << service_time_deviation << " " << uncertainty_budget << std::endl;
+	std::cout << num_vehicles << " " << service_time_deviation << " " << uncertainty_budget << std::endl;
 	Instance inst(folder, file_name, num_vehicles, service_time_deviation, uncertainty_budget, false);
 	const Graph *graph = inst.graph();
 	std::string instance_name = inst.GetInstanceName();
