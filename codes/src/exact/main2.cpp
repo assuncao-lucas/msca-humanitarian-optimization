@@ -473,7 +473,7 @@ void GenerateKernelSearchLatexTable(std::string folder, double total_time_limit)
 	// algorithms.push_back("cb_csc");
 
 	algorithms.push_back("baseline_ks_b2_[84,19]_d0.96_feas");
-	algorithms.push_back("csc_ks_b3_[72,5]_d0.86");
+	algorithms.push_back("csc_ks_b3_[72,25]_d0.86");
 
 	instance_types.push_back("C");
 	instance_types.push_back("R");
@@ -541,7 +541,7 @@ void GenerateKernelSearchLatexTable(std::string folder, double total_time_limit)
 				for (auto instances_termination : instances_terminations)
 				{
 					std::string instance = instance_prefix + instances_termination;
-					// std::cout << instance << std::endl;
+					std::cout << instance << std::endl;
 					double best_lb = -1;
 					bool is_infeasible = false;
 					bool has_optimal_bound = false;
@@ -551,7 +551,7 @@ void GenerateKernelSearchLatexTable(std::string folder, double total_time_limit)
 					{
 						curr_file = "..//solutions//" + folder + "//";
 						curr_file.append("s_");
-						curr_file.append(algorithms[algo]);
+						curr_file.append(exact_algorithms[algo]);
 						curr_file.append("_");
 						curr_file.append(instance);
 
@@ -593,6 +593,8 @@ void GenerateKernelSearchLatexTable(std::string folder, double total_time_limit)
 						else
 							s_lb >> lb;
 
+						// std::cout << exact_algorithms[algo] << " " << lb << std::endl;
+
 						getline(input, line);
 						pos = line.find_first_of(":");
 						s_ub << line.substr(pos + 2);
@@ -632,6 +634,8 @@ void GenerateKernelSearchLatexTable(std::string folder, double total_time_limit)
 
 						input.close();
 					}
+
+					std::cout << best_lb << std::endl;
 
 					for (size_t algo = 0; algo < algorithms.size(); ++algo)
 					{
@@ -678,6 +682,7 @@ void GenerateKernelSearchLatexTable(std::string folder, double total_time_limit)
 							pos = line.find_first_of(":");
 							s_lb1 << line.substr(pos + 2);
 							s_lb1 >> heuristic_lb;
+							heuristic_lb = round_decimals(heuristic_lb, 2); // IMPORTANT because I saved heuristic solutions file without 2 decimal precision.
 						}
 
 						time_per_algo_inst_size[algo].push_back(heuristic_time);
@@ -705,7 +710,7 @@ void GenerateKernelSearchLatexTable(std::string folder, double total_time_limit)
 							}
 							else
 							{
-								improvement = (100 * (best_lb - heuristic_lb)) / best_lb;
+								improvement = (100 * (heuristic_lb - best_lb)) / best_lb;
 							}
 						}
 
@@ -713,7 +718,13 @@ void GenerateKernelSearchLatexTable(std::string folder, double total_time_limit)
 						gap_per_algo_quantile[algo].push_back(improvement);
 						total_gap_per_algo[algo].push_back(improvement);
 
+						avg_gap_quantile[algo] += improvement;
+						avg_gap_inst_size[algo] += improvement;
+						total_avg_gap[algo] += improvement;
+
 						input.close();
+
+						std::cout << algorithms[algo] << " " << heuristic_lb << " " << heuristic_time << " " << improvement << std::endl;
 					}
 
 					// getchar();getchar();
