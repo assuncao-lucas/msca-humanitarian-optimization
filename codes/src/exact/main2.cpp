@@ -477,8 +477,8 @@ void GenerateKernelSearchLatexTable(std::string folder, double total_time_limit,
 	algorithms.push_back("baseline_ks_b2_[84,19]_d0.96_feas");
 	algorithms.push_back("csc_ks_b3_[72,25]_d0.86");
 
-	// instance_types.push_back("C");
-	// instance_types.push_back("R");
+	instance_types.push_back("C");
+	instance_types.push_back("R");
 	instance_types.push_back("RC");
 
 	instance_sizes.push_back("25");
@@ -1232,7 +1232,7 @@ void GenerateLPImprovementsLatexTable()
 
 int main()
 {
-	std::string folder = "2024-05-13_07:54:26";
+	std::string folder = "2024-05-13_07:54:26_all_kernel_search";
 	// try
 	// {
 	// GenerateAlgorithmsLatexTablePerInstance(3600);
@@ -1257,18 +1257,18 @@ int main()
 
 	// std::cout << fp.solution_.profits_sum_ << std::endl;
 
-	KernelSearch ks(inst);
-	std::cout << KSHeuristicSolution::GenerateFileName(Formulation::single_commodity, K_KS_MAX_SIZE_BUCKET, K_KS_MIN_TIME_LIMIT, K_KS_MAX_TIME_LIMIT, K_KS_DECAY_FACTOR_TIME_LIMIT, true) << std::endl;
-	auto ks_solution = ks.Run(Formulation::single_commodity, K_KS_MAX_SIZE_BUCKET, K_KS_MIN_TIME_LIMIT, K_KS_MAX_TIME_LIMIT, K_KS_DECAY_FACTOR_TIME_LIMIT, true);
+	// KernelSearch ks(inst);
+	// std::cout << KSHeuristicSolution::GenerateFileName(Formulation::single_commodity, K_KS_MAX_SIZE_BUCKET, K_KS_MIN_TIME_LIMIT, K_KS_MAX_TIME_LIMIT, K_KS_DECAY_FACTOR_TIME_LIMIT, true) << std::endl;
+	// auto ks_solution = ks.Run(Formulation::single_commodity, K_KS_MAX_SIZE_BUCKET, K_KS_MIN_TIME_LIMIT, K_KS_MAX_TIME_LIMIT, K_KS_DECAY_FACTOR_TIME_LIMIT, true);
 
-	ks_solution->WriteToFile(inst, KSHeuristicSolution::GenerateFileName(Formulation::single_commodity, K_KS_MAX_SIZE_BUCKET, K_KS_MIN_TIME_LIMIT, K_KS_MAX_TIME_LIMIT, K_KS_DECAY_FACTOR_TIME_LIMIT, true), "//", instance_name);
+	// ks_solution->WriteToFile(inst, KSHeuristicSolution::GenerateFileName(Formulation::single_commodity, K_KS_MAX_SIZE_BUCKET, K_KS_MIN_TIME_LIMIT, K_KS_MAX_TIME_LIMIT, K_KS_DECAY_FACTOR_TIME_LIMIT, true), "//", instance_name);
 
-	std::cout << ks_solution->profits_sum_ << std::endl;
+	// std::cout << ks_solution->profits_sum_ << std::endl;
 
-	delete ks_solution;
-	ks_solution = nullptr;
+	// delete ks_solution;
+	// ks_solution = nullptr;
 
-	return 0;
+	// return 0;
 	// Route route;
 
 	// route.vertices_.push_back(1);
@@ -1290,7 +1290,7 @@ int main()
 	// return 0;
 
 	std::vector<bool> *CALLBACKS_SELECTION = GetCallbackSelection();
-	(*CALLBACKS_SELECTION)[K_TYPE_CLIQUE_CONFLICT_CUT] = true;
+	(*CALLBACKS_SELECTION)[K_TYPE_CLIQUE_CONFLICT_CUT] = false;
 	(*CALLBACKS_SELECTION)[K_TYPE_INITIAL_ARC_VERTEX_INFERENCE_CUT] = false;
 
 	// std::cout << inst << std::endl;
@@ -1307,9 +1307,9 @@ int main()
 	// }
 
 	// inst.WriteToFile("../","teste.txt");
-	bool force_use_all_vehicles = true;
+	bool force_use_all_vehicles = false;
 	bool export_model = false;
-	bool solve_relaxed = true;
+	bool solve_relaxed = false;
 	bool use_valid_inequalities = false;
 	bool combine_feas_op_cuts = false;
 	bool apply_benders_generic_callback = false;
@@ -1443,37 +1443,37 @@ int main()
 	// std::cout << "num cuts: " << solution.num_cuts_found_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << "/" << solution.num_cuts_added_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << std::endl;
 	// solution.reset();
 
-	Benders(inst, Formulation::baseline, R0, Rn, time_limit, false, false, false, solve_relaxed, use_valid_inequalities, false, nullptr, nullptr, force_use_all_vehicles, export_model, nullptr, solution);
-	if (solve_relaxed)
-	{
-		std::cout << " LP: " << solution.lp_ << std::endl;
-	}
-	else
-	{
-		solution.is_optimal_ ? std::cout << " optimal: " << solution.lb_ << std::endl
-							 : std::cout << " non optimal: [" << solution.lb_ << ", " << solution.ub_ << "]" << std::endl;
-	}
-	std::cout << "# opt cuts: " << solution.num_benders_opt_cuts_ << std::endl;
-	std::cout << "# feas cuts: " << solution.num_benders_feas_cuts_ << std::endl;
-	std::cout << "num cuts: " << solution.num_cuts_found_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << "/" << solution.num_cuts_added_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << std::endl;
+	// Benders(inst, Formulation::baseline, R0, Rn, time_limit, false, false, false, solve_relaxed, use_valid_inequalities, false, nullptr, nullptr, force_use_all_vehicles, export_model, nullptr, solution);
+	// if (solve_relaxed)
+	// {
+	// 	std::cout << " LP: " << solution.lp_ << std::endl;
+	// }
+	// else
+	// {
+	// 	solution.is_optimal_ ? std::cout << " optimal: " << solution.lb_ << std::endl
+	// 						 : std::cout << " non optimal: [" << solution.lb_ << ", " << solution.ub_ << "]" << std::endl;
+	// }
+	// std::cout << "# opt cuts: " << solution.num_benders_opt_cuts_ << std::endl;
+	// std::cout << "# feas cuts: " << solution.num_benders_feas_cuts_ << std::endl;
+	// std::cout << "num cuts: " << solution.num_cuts_found_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << "/" << solution.num_cuts_added_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << std::endl;
 
-	solution.reset();
+	// solution.reset();
 
-	Benders(inst, Formulation::single_commodity, R0, Rn, time_limit, true, true, false, solve_relaxed, use_valid_inequalities, false, nullptr, nullptr, force_use_all_vehicles, export_model, nullptr, solution);
-	if (solve_relaxed)
-	{
-		std::cout << " LP: " << solution.lp_ << std::endl;
-	}
-	else
-	{
-		solution.is_optimal_ ? std::cout << " optimal: " << solution.lb_ << std::endl
-							 : std::cout << " non optimal: [" << solution.lb_ << ", " << solution.ub_ << "]" << std::endl;
-	}
-	std::cout << "# opt cuts: " << solution.num_benders_opt_cuts_ << std::endl;
-	std::cout << "# feas cuts: " << solution.num_benders_feas_cuts_ << std::endl;
-	std::cout << "num cuts: " << solution.num_cuts_found_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << "/" << solution.num_cuts_added_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << std::endl;
+	// Benders(inst, Formulation::single_commodity, R0, Rn, time_limit, true, true, false, solve_relaxed, use_valid_inequalities, false, nullptr, nullptr, force_use_all_vehicles, export_model, nullptr, solution);
+	// if (solve_relaxed)
+	// {
+	// 	std::cout << " LP: " << solution.lp_ << std::endl;
+	// }
+	// else
+	// {
+	// 	solution.is_optimal_ ? std::cout << " optimal: " << solution.lb_ << std::endl
+	// 						 : std::cout << " non optimal: [" << solution.lb_ << ", " << solution.ub_ << "]" << std::endl;
+	// }
+	// std::cout << "# opt cuts: " << solution.num_benders_opt_cuts_ << std::endl;
+	// std::cout << "# feas cuts: " << solution.num_benders_feas_cuts_ << std::endl;
+	// std::cout << "num cuts: " << solution.num_cuts_found_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << "/" << solution.num_cuts_added_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << std::endl;
 
-	solution.reset();
+	// solution.reset();
 
 	// IloEnv env;
 	// IloNumArray y_values(env,inst.graph()->num_vertices());
