@@ -76,12 +76,12 @@ const bool K_LOCAL_BRANCHING_SOLVE_ALNS = true;
 
 // ALNS parameters
 const int K_SIZE_OF_ALNS_POOL = 20;
-const int K_NUM_ITERATIONS_ALNS = 100000;
+const int K_NUM_ITERATIONS_ALNS = 1000;
 const double K_ALNS_PERTURBATION_PERCENTAGE = 0.75;
 const bool K_ALNS_MULTI_THREAD = false;
 
 // Path Relinking parameters
-const bool K_PATH_RELINKING = true;
+const bool K_PATH_RELINKING = false;
 const int K_NON_IMPROVE_ITERATIONS_LIMIT = 100;
 const double K_SIMILARITY_THRESHOLD = 0.9;
 const bool K_STOP_AT_FIRST_PR_DETECTION = false;

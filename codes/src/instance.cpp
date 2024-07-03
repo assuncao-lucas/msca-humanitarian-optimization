@@ -6,7 +6,6 @@
 #include "src/general.h"
 #include "src/graph_algorithms.h"
 #include "src/timer.h"
-#include "src/route.h"
 
 void Instance::FillInstanceFromFile(std::string dir_path, std::string file_name, double service_time_deviation)
 {
@@ -431,9 +430,9 @@ void Instance::ResetConflictsCliques()
     }
 }
 
-std::tuple<double, double> Instance::ComputeRouteCostsRecIter(Route &route, const std::list<int>::reverse_iterator &it_vertex, int budget, VertexBudgetHash *cache) const
+std::tuple<double, double> Instance::ComputeRouteCostsRecIter(std::list<int> &route, const std::list<int>::reverse_iterator &it_vertex, int budget, VertexBudgetHash *cache) const
 {
-    if (it_vertex == route.vertices_.rend())
+    if (it_vertex == route.rend())
         return {0.0, 0.0};
 
     int vertex = *it_vertex;
@@ -447,7 +446,7 @@ std::tuple<double, double> Instance::ComputeRouteCostsRecIter(Route &route, cons
     auto it_previous_vertex = it_vertex;
     it_previous_vertex++;
 
-    int previous_vertex = (it_previous_vertex == route.vertices_.rend()) ? 0 : previous_vertex = *it_previous_vertex;
+    int previous_vertex = (it_previous_vertex == route.rend()) ? 0 : previous_vertex = *it_previous_vertex;
 
     GArc *curr_arc = (*graph_)[previous_vertex][vertex];
     auto vertex_info = (graph_->vertices_info())[vertex];
@@ -505,17 +504,17 @@ std::tuple<double, double> Instance::ComputeRouteCostsRecIter(Route &route, cons
     return {profits_sum_up_to_vertex, route_duration_up_to_vertex};
 }
 
-std::tuple<double, double> Instance::ComputeRouteCostsRec(Route &route, bool memoization) const
+std::tuple<double, double> Instance::ComputeRouteCostsRec(std::list<int> &route, bool memoization) const
 {
-    if (route.vertices_.empty())
+    if (route.empty())
         return {0.0, 0.0};
 
     VertexBudgetHash *cache = memoization ? new VertexBudgetHash : nullptr;
 
     // simulate artifical depot just to ease computation.
-    route.vertices_.push_back(0);
-    auto [profits_sum, route_duration] = ComputeRouteCostsRecIter(route, route.vertices_.rbegin(), uncertainty_budget_, cache);
-    route.vertices_.pop_back();
+    route.push_back(0);
+    auto [profits_sum, route_duration] = ComputeRouteCostsRecIter(route, route.rbegin(), uncertainty_budget_, cache);
+    route.pop_back();
 
     if (cache)
     {
@@ -526,14 +525,14 @@ std::tuple<double, double> Instance::ComputeRouteCostsRec(Route &route, bool mem
     return {profits_sum, route_duration};
 }
 
-std::tuple<double, double> Instance::ComputeRouteCosts(Route &route) const
+std::tuple<double, double> Instance::ComputeRouteCosts(std::list<int> &route) const
 {
     // return ComputeRouteMaxDuration(route, route.vertices_.rbegin(), uncertainty_budget_);
-    if (route.vertices_.empty())
+    if (route.empty())
         return {0.0, 0.0};
 
     double profits_sum = 0.0;
-    const size_t num_vertices_route = route.vertices_.size();
+    const size_t num_vertices_route = route.size();
 
     Matrix<double> max_durations_vertex_budget(num_vertices_route + 1, uncertainty_budget_ + 1); // +1 stands for the zero node (depot) and the zero budget.
 
@@ -543,7 +542,7 @@ std::tuple<double, double> Instance::ComputeRouteCosts(Route &route) const
     {
         int previous_vertex = 0;
         int curr_vertex = -1;
-        std::list<int>::iterator it_vertex = route.vertices_.begin();
+        std::list<int>::iterator it_vertex = route.begin();
         for (int vertex_index_route = 0; vertex_index_route <= num_vertices_route; ++vertex_index_route)
         {
             if (vertex_index_route == num_vertices_route)

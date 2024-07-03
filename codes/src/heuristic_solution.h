@@ -1,5 +1,4 @@
-#ifndef HEURISTIC_SOLUTION_H_
-#define HEURISTIC_SOLUTION_H_
+#pragma once
 
 #include <list>
 #include <vector>
@@ -8,6 +7,8 @@
 #include "graph.h"
 #include "instance.h"
 #include "general.h"
+
+class ALNSHeuristicSolution;
 
 class VertexStatus
 {
@@ -23,43 +24,43 @@ class HeuristicSolution
 {
 public:
 	HeuristicSolution();
-	HeuristicSolution(int dimension, int dimension2, int num_routes);
+	HeuristicSolution(int num_vertices, int num_arcs, int num_routes);
 	virtual ~HeuristicSolution();
-	virtual void Reset(int dimension, int dimension2, int num_routes);
+	virtual void Reset(int num_vertices, int num_arcs, int num_routes);
 	bool is_infeasible_;
 	bool is_feasible_;
 	bool is_optimal_;
 	double profits_sum_;
 	double total_time_spent_;
-	int dimension_;
-	int dimension2_;
+	int num_vertices_;
+	int num_arcs_;
 	int num_routes_;
 	std::vector<Route> routes_vec_;
 	std::vector<VertexStatus> vertex_status_vec_;
 	std::list<int> unvisited_vertices_;
-	bool PreviewAddVertex(Instance &, int vertex, int route, int pos, std::list<int>::iterator &it, int &profit_variation, double &time_variation);
-	void AddVertex(int vertex, int route, std::list<int>::iterator pos_it, int profit_variation, double time_variation);
-	bool PreviewRemoveVertex(Instance &, int vertex, int &profit_variation, double &time_variation, bool allow_infeasible_routes = false);
-	void RemoveVertex(int vertex, int profit_variation, double time_variation);
-	bool PreviewInterRouteMoveVertex(Instance &, int vertex, int r2, int pos, std::list<int>::iterator &it, int &profit_variation1, double &time_variation1, int &profit_variation2, double &time_variation2);
-	void InterRouteMoveVertex(int vertex, int r2, std::list<int>::iterator it, int profit_variation1, double time_variation1, int profit_variation2, double time_variation2);
+	bool PreviewAddVertex(Instance &, int vertex, int route, int pos, std::list<int>::iterator &it, double &profit_variation, double &time_variation);
+	void AddVertex(int vertex, int route, std::list<int>::iterator pos_it, double profit_variation, double time_variation);
+	bool PreviewRemoveVertex(Instance &, int vertex, double &profit_variation, double &time_variation, bool allow_infeasible_routes = false);
+	void RemoveVertex(int vertex, double profit_variation, double time_variation);
+	bool PreviewInterRouteMoveVertex(Instance &, int vertex, int r2, int pos, std::list<int>::iterator &it, double &profit_variation1, double &time_variation1, double &profit_variation2, double &time_variation2);
+	void InterRouteMoveVertex(int vertex, int r2, std::list<int>::iterator it, double profit_variation1, double time_variation1, double profit_variation2, double time_variation2);
 	bool PreviewInterRouteSwap(Instance &, int r1, int pos_i1, int pos_f1, int r2, int pos_i2, int pos_f2, std::list<int>::iterator &it_i1, std::list<int>::iterator &it_f1,
-							   int &profit_variation1, double &time_variation1, std::list<int>::iterator &it_i2, std::list<int>::iterator &it_f2, int &profit_variation2, double &time_variation2);
+							   double &profit_variation1, double &time_variation1, std::list<int>::iterator &it_i2, std::list<int>::iterator &it_f2, double &profit_variation2, double &time_variation2);
 	void InterRouteSwap(int r1, int r2, std::list<int>::iterator it_i1, std::list<int>::iterator it_f1,
-						int profit_variation1, double time_variation1, std::list<int>::iterator it_i2, std::list<int>::iterator it_f2, int profit_variation2, double time_variation2);
+						double profit_variation1, double time_variation1, std::list<int>::iterator it_i2, std::list<int>::iterator it_f2, double profit_variation2, double time_variation2);
 
-	bool PreviewInterRouteSwapUnrouted(Instance &inst, int r1, int pos_i1, int pos_f1, std::list<int>::iterator &it_i1, std::list<int>::iterator &it_f1, int &profit_variation1, double &time_variation1, std::list<int>::iterator it_i2, int &profit_variation2);
-	void InterRouteSwapUnrouted(int r1, std::list<int>::iterator it_i1, std::list<int>::iterator it_f1, int profit_variation1, double time_variation1, std::list<int>::iterator it_i2);
+	bool PreviewInterRouteSwapUnrouted(Instance &inst, int r1, int pos_i1, int pos_f1, std::list<int>::iterator &it_i1, std::list<int>::iterator &it_f1, double &profit_variation1, double &time_variation1, std::list<int>::iterator it_i2);
+	void InterRouteSwapUnrouted(int r1, std::list<int>::iterator it_i1, std::list<int>::iterator it_f1, double profit_variation1, double time_variation1, std::list<int>::iterator it_i2);
 
-	bool PreviewAddVertexToRouteWithinMinimumDistanceIncrease(Instance &, int vertex, int route, std::list<int>::iterator &it, int &profit_variation, double &time_variation, bool allow_infeasible_routes = false);
-	bool PreviewAddVertexWithinMinimumDistanceIncrease(Instance &, int vertex, int &route, std::list<int>::iterator &it, int &profit_variation, double &time_variation);
+	bool PreviewAddVertexToRouteWithinMaximumProfitIncrease(Instance &, int vertex, int route, std::list<int>::iterator &it, double &profit_variation, double &time_variation, bool allow_infeasible_routes = false);
+	bool PreviewAddVertexWithinMaximumProfitIncrease(Instance &, int vertex, int &route, std::list<int>::iterator &it, double &profit_variation, double &time_variation);
 
-	bool Do2OptImprovement(const Graph *graph, const int &route);
+	bool Do2OptImprovement(const Instance &inst, const int &route);
 	bool Do3OptImprovement(const Graph *graph, const int &route);
 	bool operator==(HeuristicSolution &);
 
 	friend std::ostream &operator<<(std::ostream &out, HeuristicSolution &sol);
-	bool CheckCorrectness(Instance &instance);
+	bool CheckCorrectness(const Instance &instance);
 	virtual void WriteToFile(Instance &instance, std::string algo, std::string folder, std::string file_name) const;
 	virtual void ReadFromFile(Instance &inst, std::string algo, std::string folder, std::string file_name);
 
@@ -136,5 +137,3 @@ public:
 	void ReadFromFile(Instance &inst, std::string algo, std::string folder, std::string file_name);
 	static std::string GenerateFileName();
 };
-
-#endif

@@ -1,17 +1,17 @@
 STATUS: FOUND ARC INTEGER FEASIBLE
-profit sum: 29.38380
+profit sum: 0
 STAGE 1: 
 # iterations: 0
 # perturbations: 0
 # restarts: 0
-time(s): 0.00452
+time(s): 0.17961
 STAGE 2: 
-# iterations: 2
-# perturbations: 0
+# iterations: 17
+# perturbations: 6
 # restarts: 0
-time(s): 0.00097
+time(s): 4.83846
 ***********************************
-Total profit sum: 29.38380
+Total profit sum: 0
 Num routes: 2
-29.38380 424.09000 6 2 1 
-0.00000 440.90000 3 4 5 
+0 0 
+0.00000 0.00000 

@@ -11,7 +11,6 @@
 #include "src/matrix.hpp"
 #include "src/graph.h"
 
-class Route; // forward declaration.
 class Instance
 {
 private:
@@ -85,8 +84,8 @@ public:
 	const std::vector<std::list<int>> &conflicts_list() const { return conflicts_list_; }
 	void set_graph(Graph *graph);
 	const Graph *graph() const { return graph_; }
-	std::tuple<double, double> ComputeRouteCostsRecIter(Route &route, const std::list<int>::reverse_iterator &it_vertex, int budget, VertexBudgetHash *cache) const;
-	std::tuple<double, double> ComputeRouteCostsRec(Route &route, bool memoization) const;
-	std::tuple<double, double> ComputeRouteCosts(Route &route) const;
+	std::tuple<double, double> ComputeRouteCostsRecIter(std::list<int> &route, const std::list<int>::reverse_iterator &it_vertex, int budget, VertexBudgetHash *cache) const;
+	std::tuple<double, double> ComputeRouteCostsRec(std::list<int> &route, bool memoization) const;
+	std::tuple<double, double> ComputeRouteCosts(std::list<int> &route) const;
 	friend std::ostream &operator<<(std::ostream &out, const Instance &instance);
 };

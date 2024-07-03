@@ -211,7 +211,7 @@ void KernelSearch::BuildHeuristicSolution(KSHeuristicSolution *solution)
             //   }
 
             // compute route's profit sum and max duration.
-            auto [route_sum_profits, route_max_duration] = instance_.ComputeRouteCosts(*curr_route);
+            auto [route_sum_profits, route_max_duration] = instance_.ComputeRouteCosts(curr_route->vertices_);
 
             curr_route->time_ = route_max_duration;
             solution->profits_sum_ += route_sum_profits;

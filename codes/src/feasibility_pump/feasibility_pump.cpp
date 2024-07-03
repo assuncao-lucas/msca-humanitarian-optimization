@@ -471,7 +471,8 @@ void FeasibilityPump::BuildHeuristicSolution()
 			last_vertex_added = 0;
 
 			// compute route's profit sum and max duration.
-			auto [route_sum_profits, route_max_duration] = curr_instance_->ComputeRouteCostsRec(*curr_route, true);
+			auto [route_sum_profits, route_max_duration] = curr_instance_->ComputeRouteCostsRec(curr_route->vertices_, true);
+			std::cout << "* " << route_sum_profits << " " << route_max_duration << std::endl;
 			curr_route->time_ = route_max_duration;
 			solution_.profits_sum_ += route_sum_profits;
 			curr_route->sum_profits_ = route_sum_profits;

@@ -11,6 +11,7 @@
 #include "src/graph_algorithms.h"
 #include "src/heuristic_solution.h"
 #include "src/feasibility_pump/feasibility_pump.h"
+#include "src/ALNS/ALNS.h"
 #include "src/kernel_search/kernel_search.h"
 
 void GenerateAlgorithmsLatexTablePerInstance(std::string folder, double total_time_limit)
@@ -1239,16 +1240,200 @@ int main()
 	// return 1;
 	// GenerateLPImprovementsLatexTable();
 	// GenerateAlgorithmsLatexTable(folder, 3600);
-	GenerateKernelSearchLatexTable(folder, 3600, false);
-	return 0;
+	// GenerateKernelSearchLatexTable(folder, 3600, false);
+	// return 0;
 	int time_limit = -1;
-	int num_routes = 4;
-	int uncertainty_budget = 5;
+	int num_routes = 5;
+	int uncertainty_budget = 10;
 	auto dev = 0.1;
 	int seed = 1000;
 	std::string instance_name = "test.txt";
 	Instance inst("/home/lucas/Documentos/Research/msca-humanitarian-optimization/instances/R-STOP-DP/", instance_name, num_routes, dev, uncertainty_budget, false);
 
+	// std::cout << inst << std::endl;
+	// std::list<int> x{1, 2};
+	// for (std::list<int>::iterator it = x.begin(); it != x.end(); ++it)
+	// 	std::cout << (*it) << " ";
+	// std::cout << std::endl;
+	// auto [new_route_sum_profits1, new_route_max_duration1] = inst.ComputeRouteCosts(x);
+	// std::cout << "new profit1 " << new_route_sum_profits1 << std::endl;
+	// std::cout << "new duration1 " << new_route_max_duration1 << std::endl;
+
+	// auto [new_route_sum_profits2, new_route_max_duration2] = inst.ComputeRouteCostsRec(x, true);
+	// std::cout << "new profit2 " << new_route_sum_profits2 << std::endl;
+	// std::cout << "new duration2 " << new_route_max_duration2 << std::endl;
+
+	// auto [new_route_sum_profits3, new_route_max_duration3] = inst.ComputeRouteCostsRec(x, false);
+	// std::cout << "new profit3 " << new_route_sum_profits3 << std::endl;
+	// std::cout << "new duration3 " << new_route_max_duration3 << std::endl;
+
+	// return 0;
+
+	auto graph = inst.graph();
+	// ALNSHeuristicSolution sol(graph->num_vertices(), graph->num_arcs(), num_routes);
+
+	// std::cout << inst << std::endl;
+	// double time_variation = 0.0;
+	// double profit_variation = 0.0;
+	// std::list<int>::iterator it;
+	// std::cout << "Add 1 to route 0" << std::endl;
+	// if (sol.PreviewAddVertex(inst, 1, 0, 0, it, profit_variation, time_variation))
+	// 	sol.AddVertex(1, 0, it, profit_variation, time_variation);
+
+	// std::cout << "Add 2 to route 0" << std::endl;
+	// if (sol.PreviewAddVertex(inst, 2, 0, 0, it, profit_variation, time_variation))
+	// 	sol.AddVertex(2, 0, it, profit_variation, time_variation);
+
+	// std::cout << "Add 4 to route 0" << std::endl;
+	// if (sol.PreviewAddVertex(inst, 4, 0, 2, it, profit_variation, time_variation))
+	// 	sol.AddVertex(4, 0, it, profit_variation, time_variation);
+
+	// std::cout << "Add 6 to route 0" << std::endl;
+	// if (sol.PreviewAddVertex(inst, 6, 0, 1, it, profit_variation, time_variation))
+	// 	sol.AddVertex(6, 0, it, profit_variation, time_variation);
+
+	// std::cout << "Add 3 to route 1" << std::endl;
+	// if (sol.PreviewAddVertex(inst, 3, 1, 0, it, profit_variation, time_variation))
+	// 	sol.AddVertex(3, 1, it, profit_variation, time_variation);
+
+	// std::cout << sol << std::endl;
+
+	// // std::cout << "Move 3 to route 0, pos 1" << std::endl;
+	// // double time_variation2 = 0;
+	// // int profit_variation2 = 0;
+	// // if (sol.PreviewInterRouteMoveVertex(inst, 3, 0, 1, it, profit_variation, time_variation, profit_variation2, time_variation2))
+	// // 	sol.InterRouteMoveVertex(3, 0, it, profit_variation, time_variation, profit_variation2, time_variation2);
+
+	// // std::cout << sol << std::endl;
+
+	// // std::cout << "Move 3 to route 1, pos 1" << std::endl;
+	// // if (sol.PreviewInterRouteMoveVertex(inst, 3, 1, 1, it, profit_variation, time_variation, profit_variation2, time_variation2))
+	// // 	sol.InterRouteMoveVertex(3, 1, it, profit_variation, time_variation, profit_variation2, time_variation2);
+
+	// // std::cout << sol << std::endl;
+
+	// // std::cout << "Move 2 to route 1, pos 0" << std::endl;
+	// // if (sol.PreviewInterRouteMoveVertex(inst, 2, 1, 0, it, profit_variation, time_variation, profit_variation2, time_variation2))
+	// // 	sol.InterRouteMoveVertex(2, 1, it, profit_variation, time_variation, profit_variation2, time_variation2);
+
+	// // std::cout << sol << std::endl;
+
+	// // std::cout << "Move 1 to route 1, pos 0" << std::endl;
+	// // if (sol.PreviewInterRouteMoveVertex(inst, 1, 1, 0, it, profit_variation, time_variation, profit_variation2, time_variation2))
+	// // 	sol.InterRouteMoveVertex(1, 1, it, profit_variation, time_variation, profit_variation2, time_variation2);
+
+	// // std::cout << time_variation2 << std::endl;
+
+	// std::list<int>::iterator it_i1, it_i2, it_f1, it_f2;
+
+	// double profit_variation1 = 0, profit_variation2 = 0;
+	// double time_variation1 = 0.0, time_variation2 = 0.0;
+	// int r1 = 0;
+	// int r2 = 1;
+	// int i1 = 0;
+	// int f1 = 3;
+	// int i2 = 0;
+	// int f2 = 0;
+
+	// if (sol.PreviewInterRouteSwap(inst, r1, i1, f1, r2, i2, f2, it_i1, it_f1, profit_variation1, time_variation1, it_i2, it_f2, profit_variation2, time_variation2))
+	// 	sol.InterRouteSwap(r1, r2, it_i1, it_f1, profit_variation1, time_variation1, it_i2, it_f2, profit_variation2, time_variation2);
+
+	// std::cout << sol << std::endl;
+
+	// return 0;
+
+	// r1 = 1;
+	// i1 = 2;
+	// f1 = 2;
+	// int unrouted = 10;
+	// it = ((sol.vertex_status_vec_)[unrouted]).pos_;
+	// if (sol.PreviewInterRouteSwapUnrouted(inst, r1, i1, f1, it_i1, it_f1, profit_variation1, time_variation1, it))
+	// 	sol.InterRouteSwapUnrouted(r1, it_i1, it_f1, profit_variation1, time_variation1, it);
+
+	// std::cout << sol << std::endl;
+
+	// auto vertex = 1;
+	// auto curr_route = 1;
+	// if (sol.PreviewAddVertexToRouteWithinMinimumDistanceIncrease(inst, vertex, curr_route, it, profit_variation, time_variation))
+	// {
+	// 	std::cout << "Add vertex " << vertex << " to route " << curr_route << " right before vertex " << *it << std::endl;
+	// 	sol.AddVertex(vertex, curr_route, it, profit_variation, time_variation);
+	// }
+	// std::cout << "Remove 2" << std::endl;
+	// if (sol.PreviewRemoveVertex(inst, 2, profit_variation, time_variation))
+	// 	sol.RemoveVertex(2, profit_variation, time_variation);
+
+	// std::cout << "Remove 1" << std::endl;
+	// if (sol.PreviewRemoveVertex(inst, 1, profit_variation, time_variation))
+	// 	sol.RemoveVertex(1, profit_variation, time_variation);
+
+	// std::cout << "Remove 3" << std::endl;
+	// if (sol.PreviewRemoveVertex(inst, 3, profit_variation, time_variation))
+	// 	sol.RemoveVertex(3, profit_variation, time_variation);
+
+	// std::cout << sol << std::endl;
+
+	// vertex = 5;
+	// if (sol.PreviewAddVertexWithinMinimumDistanceIncrease(inst, vertex, curr_route, it, profit_variation, time_variation))
+	// {
+	// 	std::cout << "Add vertex " << vertex << " to route " << curr_route << " right before vertex " << *it << std::endl;
+	// 	sol.AddVertex(vertex, curr_route, it, profit_variation, time_variation);
+	// }
+
+	// std::cout << sol << std::endl;
+
+	// std::cout << inst << std::endl;
+
+	FeasibilityPump fp;
+	// fp.Init(inst);
+	// std::cout << (fp.solution_).GenerateFileName() + "_seed_" + std::to_string(seed) << std::endl;
+	// fp.Run();
+	// (fp.solution_).WriteToFile(inst, (fp.solution_).GenerateFileName() + "_seed_" + std::to_string(seed), "//", instance_name);
+
+	// std::cout << fp.solution_.profits_sum_ << std::endl;
+
+	ALNS alns;
+	try
+	{
+		// seed = time(nullptr);
+		srand(time(nullptr));
+		alns.Init(inst, (fp.solution_).GenerateFileName() + "_seed_" + std::to_string(seed), "//", instance_name);
+
+		alns.Run();
+	}
+	catch (const std::runtime_error &re)
+	{
+		std::cout << "Runtime error: " << re.what() << std::endl;
+	}
+	catch (const std::exception &ex)
+	{
+		std::cout << "Error occurred: " << ex.what() << std::endl;
+	}
+	catch (const int &error)
+	{
+		std::cout << "Error occurred: " << error << std::endl;
+	}
+	catch (IloException &e)
+	{
+		std::cout << "Concert Exception: " << e << std::endl;
+	}
+	catch (const char *e)
+	{
+		std::cout << e << std::endl;
+	}
+	catch (const std::string &e)
+	{
+		std::cout << e << std::endl;
+	}
+	catch (...)
+	{
+		std::cout << "Unknown failure occurred. Possible memory corruption" << std::endl;
+	}
+	std::cout << ALNSHeuristicSolution::GenerateFileName() << "_seed_" << seed << std::endl;
+
+	std::cout << alns.best_solution()->profits_sum_ << std::endl;
+
+	return 0;
 	// FeasibilityPump fp;
 	// fp.Init(inst);
 	// std::cout << (fp.solution_).GenerateFileName() + "_seed_" + std::to_string(seed) << std::endl;
@@ -1294,7 +1479,6 @@ int main()
 	(*CALLBACKS_SELECTION)[K_TYPE_INITIAL_ARC_VERTEX_INFERENCE_CUT] = false;
 
 	// std::cout << inst << std::endl;
-	const Graph *graph = inst.graph();
 
 	// std::cout << *graph << std::endl;
 
