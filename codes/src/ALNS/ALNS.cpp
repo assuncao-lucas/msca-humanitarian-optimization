@@ -106,6 +106,38 @@ void ALNS::Init(Instance &instance, std::string algo, std::string folder, std::s
   // std::cout << *sol << std::endl;
 }
 
+void ALNS::Init(Instance &instance, HeuristicSolution *initial_sol)
+{
+  curr_instance_ = &instance;
+  const Graph *graph = instance.graph();
+  int num_vertices = graph->num_vertices(), num_arcs = graph->num_arcs(), num_mandatory = instance.num_mandatory();
+  int num_routes = instance.num_vehicles();
+
+  struct
+  {
+    bool operator()(const std::pair<int, int> &v1, const std::pair<int, int> &v2) const
+    {
+      return v1.second < v2.second;
+    }
+  } order_less;
+
+  ordered_profits_ = std::vector<std::pair<int, int>>(num_vertices - num_mandatory - 1); // -1 stands for the origin vertex. Last element of vector is: num_vertices - num_mandatory - 2!
+  const auto vertices_info = graph->vertices_info();
+  for (int i = num_mandatory + 1; i < num_vertices; ++i)
+    (ordered_profits_)[i - num_mandatory - 1] = std::pair<int, int>(i, vertices_info[i].profit_);
+  std::sort((ordered_profits_).begin(), (ordered_profits_).end(), order_less);
+
+  /*for(size_t i = 0; i < (ordered_profits_).size(); ++i)
+  {
+    std::cout << "(" << ((ordered_profits_)[i]).first << "," << ((ordered_profits_)[i]).second << ")[" << (graph->profits())[((ordered_profits_)[i]).first] << "]" << std::endl;
+  }*/
+
+  // std::cout << "read from file " << file_name << std::endl;
+  ALNSHeuristicSolution *sol = new ALNSHeuristicSolution(initial_sol);
+  AddSolutionToPool(sol, 0);
+  // std::cout << *sol << std::endl;
+}
+
 void ALNS::PrintPool()
 {
   (mutex_).lock();
@@ -1550,7 +1582,7 @@ void ALNS::RemoveVerticesFromSolution(ALNSHeuristicSolution *sol, double percent
   {
     switch (type)
     {
-    // remove aleatoriamente
+    // remove randomly
     case 0:
     {
       route = rand() % num_routes;
@@ -1577,7 +1609,7 @@ void ALNS::RemoveVerticesFromSolution(ALNSHeuristicSolution *sol, double percent
         curr_vertex = ((ordered_profits_)[sub_cont]).first;
         curr_status = &((sol->vertex_status_vec_)[curr_vertex]);
 
-        sub_cont++;
+        ++sub_cont;
       } while (!(curr_status->selected_));
 
       break;
@@ -1591,7 +1623,7 @@ void ALNS::RemoveVerticesFromSolution(ALNSHeuristicSolution *sol, double percent
         curr_vertex = ((ordered_profits_)[num_vertices - num_mandatory - 2 - sub_cont]).first;
         curr_status = &((sol->vertex_status_vec_)[curr_vertex]);
 
-        sub_cont++;
+        ++sub_cont;
       } while (!(curr_status->selected_));
 
       break;
@@ -1613,7 +1645,7 @@ void ALNS::RemoveVerticesFromSolution(ALNSHeuristicSolution *sol, double percent
     // std::cout << *sol << std::endl;
     // getchar(); getchar();
 
-    cont++;
+    ++cont;
   } while (cont < num_vertices_to_remove);
   // std::cout << "Restaram " << sol->num_visited_poles_ << std::endl;
 }

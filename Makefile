@@ -65,6 +65,10 @@ ALNS_SRC=$(PROG_DIR)/ALNS/ALNS.cpp
 ALNS_H=$(PROG_DIR)/ALNS/ALNS.h
 ALNS_OBJ=$(PROG_BIN)/ALNS.o
 
+INITIAL_SOL_SRC=$(PROG_DIR)/initial_solution/initial_solution.cpp
+INITIAL_SOL_H=$(PROG_DIR)/initial_solution/initial_solution.h
+INITIAL_SOL_OBJ=$(PROG_BIN)/initial_solution.o
+
 HEURISTIC_SOLUTION_SRC=$(PROG_DIR)/heuristic_solution.cpp
 HEURISTIC_SOLUTION_H=$(PROG_DIR)/heuristic_solution.h
 HEURISTIC_SOLUTION_OBJ=$(PROG_BIN)/heuristic_solution.o
@@ -121,6 +125,9 @@ LOCAL_BRANCHING_OBJ: $(LOCAL_BRANCHING_SRC) $(LOCAL_BRANCHING_H)
 alns: $(ALNS_SRC) $(ALNS_H)
 	$(CC) $(CFLAGS) $(CFLAGS2) -c $(ALNS_SRC) -o $(ALNS_OBJ)
 
+initial_solution: $(INITIAL_SOL_SRC) $(INITIAL_SOL_H)
+	$(CC) $(CFLAGS) $(CFLAGS2) -c $(INITIAL_SOL_SRC) -o $(INITIAL_SOL_OBJ)
+
 heuristic_solution: $(HEURISTIC_SOLUTION_SRC) $(HEURISTIC_SOLUTION_H)
 	$(CC) $(CFLAGS) -c $(HEURISTIC_SOLUTION_SRC) -o $(HEURISTIC_SOLUTION_OBJ)
 
@@ -142,8 +149,8 @@ formulations: $(FORM_SRC) $(FORM_H)
 benders_callback: $(BENDERS_CALLBACK_SRC) $(BENDERS_CALLBACK_H)
 	$(CC) $(CFLAGS) $(CFLAGS2) -c $(BENDERS_CALLBACK_SRC) -o $(BENDERS_CALLBACK_OBJ)
 
-stop: arc graph graph_algo general instance route matrix timer heuristic_solution solution benders_callback formulations feasibility_pump alns kernel_search
-	$(CC) $(CFLAGS) $(CFLAGS2) $(ARC_SRC) $(GRAPH_SRC) $(GRAPH_ALGO_SRC) $(GENERAL_SRC) $(USERCUT_SRC) $(ROUTE_SRC) $(MATRIX_HPP) $(INSTANCE_SRC) $(TIMER_SRC) $(HEURISTIC_SOLUTION_SRC) $(SOLUTION_HPP) $(BENDERS_CALLBACK_SRC) $(FORM_SRC) $(FEASIBILITY_PUMP_SRC) $(ALNS_SRC) $(KERNEL_SEARCH_SRC) $(MAIN_EXACT_SRC) -o $(PROG_BIN)/stop $(CLNFLAGS)
+stop: arc graph graph_algo general instance route matrix timer heuristic_solution solution benders_callback formulations feasibility_pump alns initial_solution kernel_search
+	$(CC) $(CFLAGS) $(CFLAGS2) $(ARC_SRC) $(GRAPH_SRC) $(GRAPH_ALGO_SRC) $(GENERAL_SRC) $(USERCUT_SRC) $(ROUTE_SRC) $(MATRIX_HPP) $(INSTANCE_SRC) $(TIMER_SRC) $(HEURISTIC_SOLUTION_SRC) $(SOLUTION_HPP) $(BENDERS_CALLBACK_SRC) $(FORM_SRC) $(FEASIBILITY_PUMP_SRC) $(INITIAL_SOL_SRC) $(ALNS_SRC) $(KERNEL_SEARCH_SRC) $(MAIN_EXACT_SRC) -o $(PROG_BIN)/stop $(CLNFLAGS)
 
 stop2: formulations feasibility_pump kernel_search
 	$(CC) $(CFLAGS) $(CFLAGS2) $(ARC_SRC) $(GRAPH_SRC) $(GRAPH_ALGO_SRC) $(GENERAL_SRC) $(USERCUT_SRC) $(ROUTE_SRC) $(MATRIX_HPP) $(INSTANCE_SRC) $(TIMER_SRC) $(SOLUTION_HPP) $(BENDERS_CALLBACK_SRC) $(FORM_SRC) $(FEASIBILITY_PUMP_SRC) $(KERNEL_SEARCH_SRC) $(MAIN_EXACT_SRC) -o $(PROG_BIN)/stop $(CLNFLAGS)

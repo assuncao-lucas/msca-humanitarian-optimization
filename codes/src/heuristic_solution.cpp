@@ -180,7 +180,7 @@ bool HeuristicSolution::Do2OptImprovement(const Instance &inst, const int &route
 				// std::cout << *curr_route << std::endl;
 				auto [new_route_sum_profits, new_route_max_duration] = inst.ComputeRouteCosts(curr_route->vertices_);
 
-				// auto [new_route_sum_profits12, new_route_max_duration12] = inst.ComputeRouteCostsRec(curr_route->vertices_, true);
+				// auto [new_route_sum_profits12, new_route_max_duration12] = inst.ComputeRouteCosts(curr_route->vertices_, true);
 
 				// if (!double_equals(new_route_sum_profits, new_route_sum_profits12) || !double_equals(new_route_max_duration, new_route_max_duration12))
 				// {
@@ -856,8 +856,8 @@ bool HeuristicSolution::PreviewInterRouteSwap(Instance &inst, int r1, int pos_i1
 	auto [new_route_sum_profits1, new_route_max_duration1] = inst.ComputeRouteCosts(route1->vertices_);
 	auto [new_route_sum_profits2, new_route_max_duration2] = inst.ComputeRouteCosts(route2->vertices_);
 
-	// auto [new_route_sum_profits12, new_route_max_duration12] = inst.ComputeRouteCostsRec(route1->vertices_, true);
-	// auto [new_route_sum_profits22, new_route_max_duration22] = inst.ComputeRouteCostsRec(route2->vertices_, true);
+	// auto [new_route_sum_profits12, new_route_max_duration12] = inst.ComputeRouteCosts(route1->vertices_, true);
+	// auto [new_route_sum_profits22, new_route_max_duration22] = inst.ComputeRouteCosts(route2->vertices_, true);
 
 	// if (!double_equals(new_route_sum_profits1, new_route_sum_profits12) || !double_equals(new_route_sum_profits2, new_route_sum_profits22) || !double_equals(new_route_max_duration1, new_route_max_duration12) || !double_equals(new_route_max_duration2, new_route_max_duration22))
 	// {
@@ -949,7 +949,7 @@ bool HeuristicSolution::PreviewInterRouteSwapUnrouted(Instance &inst, int r1, in
 	(unvisited_vertices_).splice(it_f2, route1->vertices_, it_i1, it_f1);
 
 	auto [new_route_sum_profits1, new_route_max_duration1] = inst.ComputeRouteCosts(route1->vertices_);
-	// auto [new_route_sum_profits12, new_route_max_duration12] = inst.ComputeRouteCostsRec(route1->vertices_, true);
+	// auto [new_route_sum_profits12, new_route_max_duration12] = inst.ComputeRouteCosts(route1->vertices_, true);
 
 	// if (!double_equals(new_route_sum_profits1, new_route_sum_profits12) || !double_equals(new_route_max_duration1, new_route_max_duration12))
 	// {
@@ -1033,7 +1033,7 @@ bool HeuristicSolution::PreviewAddVertexToRouteWithinMaximumProfitIncrease(Insta
 			auto inserted_vertex_it = curr_route->vertices_.insert(curr_it, vertex);
 			auto [new_route_sum_profits, new_route_max_duration] = inst.ComputeRouteCosts(curr_route->vertices_);
 
-			// auto [new_route_sum_profits12, new_route_max_duration12] = inst.ComputeRouteCostsRec(curr_route->vertices_, true);
+			// auto [new_route_sum_profits12, new_route_max_duration12] = inst.ComputeRouteCosts(curr_route->vertices_, true);
 
 			// if (!double_equals(new_route_sum_profits, new_route_sum_profits12) || !double_equals(new_route_max_duration, new_route_max_duration12))
 			// {
@@ -1111,7 +1111,7 @@ bool HeuristicSolution::PreviewAddVertex(Instance &inst, int vertex, int route, 
 		auto inserted_vertex_it = curr_route->vertices_.insert(it, vertex);
 		auto [new_route_sum_profits, new_route_max_duration] = inst.ComputeRouteCosts(curr_route->vertices_);
 
-		// auto [new_route_sum_profits12, new_route_max_duration12] = inst.ComputeRouteCostsRec(curr_route->vertices_, true);
+		// auto [new_route_sum_profits12, new_route_max_duration12] = inst.ComputeRouteCosts(curr_route->vertices_, true);
 
 		// if (!double_equals(new_route_sum_profits, new_route_sum_profits12) || !double_equals(new_route_max_duration, new_route_max_duration12))
 		// {
@@ -1201,7 +1201,7 @@ bool HeuristicSolution::PreviewRemoveVertex(Instance &inst, int vertex, double &
 
 		auto [new_route_sum_profits, new_route_max_duration] = inst.ComputeRouteCosts(curr_route->vertices_);
 
-		// auto [new_route_sum_profits12, new_route_max_duration12] = inst.ComputeRouteCostsRec(curr_route->vertices_, true);
+		// auto [new_route_sum_profits12, new_route_max_duration12] = inst.ComputeRouteCosts(curr_route->vertices_, true);
 
 		// if (!double_equals(new_route_sum_profits, new_route_sum_profits12) || !double_equals(new_route_max_duration, new_route_max_duration12))
 		// {
@@ -1275,6 +1275,27 @@ void HeuristicSolution::InterRouteMoveVertex(int vertex, int r2, std::list<int>:
 	(curr_route->sum_profits_) += profit_variation2;
 
 	profits_sum_ += (profit_variation1 + profit_variation2);
+}
+
+double HeuristicSolution::ComputeSolutionCost(Instance &instance) const
+{
+	double total_cost = 0.0;
+	for (auto route : routes_vec_)
+	{
+		auto [curr_cost, _] = instance.ComputeRouteCosts(route.vertices_);
+		total_cost += curr_cost;
+	}
+	return total_cost;
+}
+double HeuristicSolution::ComputeSolutionCostRec(Instance &instance, bool memoization) const
+{
+	double total_cost = 0.0;
+	for (auto route : routes_vec_)
+	{
+		auto [curr_cost, _] = instance.ComputeRouteCostsRec(route.vertices_, memoization);
+		total_cost += curr_cost;
+	}
+	return total_cost;
 }
 
 bool HeuristicSolution::CheckCorrectness(const Instance &instance)
@@ -1582,15 +1603,34 @@ void HeuristicSolution::ReadFromFile(Instance &inst, std::string algo, std::stri
 
 ALNSHeuristicSolution::ALNSHeuristicSolution() : HeuristicSolution()
 {
-	initial_solution_profits_sum_ = 0;
-	num_iterations_ = 0;
 }
 
 ALNSHeuristicSolution::ALNSHeuristicSolution(int num_vertices, int num_arcs, int num_routes) : HeuristicSolution(num_vertices, num_arcs, num_routes)
 {
-	initial_solution_profits_sum_ = 0;
-	num_iterations_ = 0;
-	last_improve_iteration_ = 0;
+}
+
+ALNSHeuristicSolution::ALNSHeuristicSolution(HeuristicSolution *sol) : HeuristicSolution(sol->num_vertices_, sol->num_arcs_, sol->num_routes_)
+{
+	is_infeasible_ = sol->is_infeasible_;
+	is_feasible_ = sol->is_feasible_;
+	is_optimal_ = sol->is_optimal_;
+	profits_sum_ = sol->profits_sum_;
+	total_time_spent_ = sol->total_time_spent_;
+	routes_vec_ = sol->routes_vec_;
+	vertex_status_vec_ = sol->vertex_status_vec_;
+	unvisited_vertices_ = sol->unvisited_vertices_;
+	VertexStatus *status = nullptr;
+	Route *curr_route = nullptr;
+
+	for (int i = 0; i < num_routes_; ++i)
+	{
+		curr_route = &((routes_vec_)[i]);
+		for (auto it = (curr_route->vertices_).begin(); it != (curr_route->vertices_).end(); ++it)
+			((vertex_status_vec_)[*it]).pos_ = it;
+	}
+
+	for (auto it = (unvisited_vertices_).begin(); it != (unvisited_vertices_).end(); ++it)
+		((vertex_status_vec_)[*it]).pos_ = it;
 }
 
 ALNSHeuristicSolution::ALNSHeuristicSolution(ALNSHeuristicSolution *sol)

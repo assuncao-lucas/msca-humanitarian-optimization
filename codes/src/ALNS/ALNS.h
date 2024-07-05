@@ -13,6 +13,7 @@ public:
 	ALNS();
 	~ALNS();
 	void Init(Instance &instance, std::string algo, std::string folder, std::string file_name);
+	void Init(Instance &instance, HeuristicSolution *initial_sol);
 	void Reset();
 	void Run();
 	void RunOneThread(int num_thread, int num_iterations);

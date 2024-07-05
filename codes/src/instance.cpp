@@ -488,16 +488,26 @@ std::tuple<double, double> Instance::ComputeRouteCostsRecIter(std::list<int> &ro
         else
             route_duration_up_to_vertex = route_duration_case_2;
 
-        // note: always consider the profits of last vertex in route when using up to budget, even qhen falls into case 2!
+        // note: always consider the profits of last vertex in route when using up to budget, even when falls into case 2!
         // this is because in the objective function, we use this value instead, as to simulate all worst-case scenarios for all vertices,
-        // regardless of which vertices are at their maximum at the max service time of the route when using up to budget.
+        // regardless of which vertices are at their maximum service times in the route when using up to budget.
         profits_sum_up_to_vertex = previous_profits_sum_case_1;
     }
+
+    auto vertex_deadline = (vertex <= num_mandatory_) ? limit_ : round_decimals(vertex_info.profit_ / vertex_info.decay_ratio_, 2);
+
     // only add vertex's contribution to the f.o. if not mandatory nor origin.
-    if (previous_vertex > num_mandatory_)
+    if (vertex > num_mandatory_)
         profits_sum_up_to_vertex += vertex_info.profit_ - vertex_info.decay_ratio_ * route_duration_up_to_vertex;
 
     // std::cout << vertex << " " << budget << " " << route_duration_up_to_vertex << std::endl;
+
+    // return solution with infinity route duration in case any vertex of the route is visited after its deadline (thus, the route is infeasible).
+    if (double_greater(route_duration_up_to_vertex, vertex_deadline))
+    {
+        profits_sum_up_to_vertex = 0.0;
+        route_duration_up_to_vertex = std::numeric_limits<double>::infinity();
+    }
 
     if (cache)
         (*cache)[{vertex, budget}] = {profits_sum_up_to_vertex, route_duration_up_to_vertex};
@@ -533,6 +543,7 @@ std::tuple<double, double> Instance::ComputeRouteCosts(std::list<int> &route) co
 
     double profits_sum = 0.0;
     const size_t num_vertices_route = route.size();
+    const auto vertices_info = graph_->vertices_info();
 
     Matrix<double> max_durations_vertex_budget(num_vertices_route + 1, uncertainty_budget_ + 1); // +1 stands for the zero node (depot) and the zero budget.
 
@@ -542,7 +553,7 @@ std::tuple<double, double> Instance::ComputeRouteCosts(std::list<int> &route) co
     {
         int previous_vertex = 0;
         int curr_vertex = -1;
-        std::list<int>::iterator it_vertex = route.begin();
+        auto it_vertex = route.begin();
         for (int vertex_index_route = 0; vertex_index_route <= num_vertices_route; ++vertex_index_route)
         {
             if (vertex_index_route == num_vertices_route)
@@ -557,7 +568,7 @@ std::tuple<double, double> Instance::ComputeRouteCosts(std::list<int> &route) co
             }
             else
             {
-                auto previous_vertex_info = (graph_->vertices_info())[previous_vertex];
+                auto previous_vertex_info = vertices_info[previous_vertex];
                 double previous_vertex_service_time = previous_vertex_info.nominal_service_time_;
                 double previous_vertex_service_time_dev = previous_vertex_info.dev_service_time_;
                 if (curr_budget == 0)
@@ -579,16 +590,37 @@ std::tuple<double, double> Instance::ComputeRouteCosts(std::list<int> &route) co
                 }
             }
 
+            auto curr_vertex_info = vertices_info[curr_vertex];
+            auto vertex_deadline = (curr_vertex <= num_mandatory_) ? limit_ : round_decimals(curr_vertex_info.profit_ / curr_vertex_info.decay_ratio_, 2);
+
+            // return solution with infinity route duration in case any vertex of the route is visited after its deadline (thus, the route is infeasible).
+            if (double_greater(max_durations_vertex_budget[vertex_index_route][curr_budget], vertex_deadline))
+                return {0.0, std::numeric_limits<double>::infinity()};
+
             if ((curr_budget == uncertainty_budget_) && (curr_vertex > num_mandatory_))
-            {
-                auto curr_vertex_info = (graph_->vertices_info())[curr_vertex];
                 profits_sum += (curr_vertex_info.profit_ - max_durations_vertex_budget[vertex_index_route][curr_budget] * curr_vertex_info.decay_ratio_);
-            }
 
             previous_vertex = curr_vertex;
             ++it_vertex;
         }
     }
+
+    // // return solution with infinity route duration in case any vertex of the route is visited after its deadline (thus, the route is infeasible).
+    // auto it = route.begin();
+    // double vertex_deadline = 0.0;
+    // int curr_vertex = 0;
+    // for (size_t cont = 0; cont < num_vertices_route; ++cont)
+    // {
+    //     curr_vertex = *it;
+    //     vertex_deadline = round_decimals(vertices_info[curr_vertex].profit_ / vertices_info[curr_vertex].decay_ratio_, 2);
+    //     if (double_greater(max_durations_vertex_budget[cont][uncertainty_budget_], vertex_deadline))
+    //     {
+    //         // std::cout << "pegou!" << std::endl;
+    //         return {0.0, std::numeric_limits<double>::infinity()};
+    //     }
+
+    //     ++it;
+    // }
 
     return {profits_sum, max_durations_vertex_budget[num_vertices_route][uncertainty_budget_]}; // stands for the value of zero (depot) using at most all budget.
 }
@@ -635,12 +667,13 @@ void Instance::WriteToFile(std::string folder, std::string curr_file)
     // output << std::setprecision(2) << std::fixed;
 
     for (int i = 0; i < num_vertices; ++i)
-        output << vertices_info[i].coordinates_.first << "\t"
-               << vertices_info[i].coordinates_.second << "\t"
-               << vertices_info[i].profit_ << "\t"
-               << vertices_info[i].decay_ratio_ << "\t"
-               << vertices_info[i].nominal_service_time_ << "\t"
-               << vertices_info[i].nominal_service_time_ << std::endl;
+        output
+            << vertices_info[i].coordinates_.first << "\t"
+            << vertices_info[i].coordinates_.second << "\t"
+            << vertices_info[i].profit_ << "\t"
+            << vertices_info[i].decay_ratio_ << "\t"
+            << vertices_info[i].nominal_service_time_ << "\t"
+            << vertices_info[i].nominal_service_time_ << std::endl;
 
     output << limit_;
     output.close();

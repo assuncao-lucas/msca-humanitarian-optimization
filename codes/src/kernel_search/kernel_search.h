@@ -2,6 +2,7 @@
 
 #include "src/heuristic_solution.h"
 #include "src/benders_generic_callback.h"
+#include "src/initial_solution/initial_solution.h"
 #include <vector>
 #include <list>
 #include <boost/dynamic_bitset.hpp>
@@ -16,10 +17,12 @@ public:
 
     KSHeuristicSolution *Run(Formulation formulation, int ks_max_size_bucket, int ks_min_time_limit, int ks_max_time_limit, double ks_decay_factor, bool feasibility_emphasis);
 
+    friend HeuristicSolution *InitalSolutionGenerator::GenerateInitialSolution(Instance &inst);
+
 private:
-    IloEnv *env_;     // Cplex environment
-    IloCplex *cplex_; // Cplex solver
-    IloModel *model_; // Cplex model
+    IloEnv *env_ = nullptr;     // Cplex environment
+    IloCplex *cplex_ = nullptr; // Cplex solver
+    IloModel *model_ = nullptr; // Cplex model
 
     IloNumVar slack_;
     MasterVariables master_vars_;

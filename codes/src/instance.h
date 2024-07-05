@@ -85,7 +85,7 @@ public:
 	void set_graph(Graph *graph);
 	const Graph *graph() const { return graph_; }
 	std::tuple<double, double> ComputeRouteCostsRecIter(std::list<int> &route, const std::list<int>::reverse_iterator &it_vertex, int budget, VertexBudgetHash *cache) const;
-	std::tuple<double, double> ComputeRouteCostsRec(std::list<int> &route, bool memoization) const;
+	std::tuple<double, double> ComputeRouteCostsRec(std::list<int> &route, bool memoization = false) const;
 	std::tuple<double, double> ComputeRouteCosts(std::list<int> &route) const;
 	friend std::ostream &operator<<(std::ostream &out, const Instance &instance);
 };

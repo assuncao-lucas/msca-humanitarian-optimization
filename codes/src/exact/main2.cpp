@@ -13,6 +13,7 @@
 #include "src/feasibility_pump/feasibility_pump.h"
 #include "src/ALNS/ALNS.h"
 #include "src/kernel_search/kernel_search.h"
+#include "src/initial_solution/initial_solution.h"
 
 void GenerateAlgorithmsLatexTablePerInstance(std::string folder, double total_time_limit)
 {
@@ -1392,14 +1393,47 @@ int main()
 
 	// std::cout << fp.solution_.profits_sum_ << std::endl;
 
+	Timestamp *ti = NewTimestamp();
+	Timer *timer = GetTimer();
+	timer->Clock(ti);
+
 	ALNS alns;
 	try
 	{
+		// find initial solution
+		timer->Clock(ti);
+		auto initial_solution = InitalSolutionGenerator::GenerateInitialSolution(inst);
+		std::cout << "found initial solution in " << timer->CurrentElapsedTime(ti) << " s" << std::endl;
+		std::cout << *initial_solution << std::endl;
+
 		// seed = time(nullptr);
 		srand(time(nullptr));
-		alns.Init(inst, (fp.solution_).GenerateFileName() + "_seed_" + std::to_string(seed), "//", instance_name);
+		// alns.Init(inst, (fp.solution_).GenerateFileName() + "_seed_" + std::to_string(seed), "//", instance_name);
+		alns.Init(inst, initial_solution);
+
+		delete initial_solution;
+		initial_solution = nullptr;
 
 		alns.Run();
+		std::cout << ALNSHeuristicSolution::GenerateFileName() << "_seed_" << seed << std::endl;
+		std::cout << "best solution: " << alns.best_solution()->profits_sum_ << std::endl;
+		std::cout << "elapsed time: " << timer->CurrentElapsedTime(ti) << " s" << std::endl;
+
+		timer->Clock(ti);
+		std::cout << " iteractive" << std::endl;
+		std::cout << alns.best_solution()->ComputeSolutionCost(inst) << std::endl;
+		std::cout << "elapsed time: " << timer->CurrentElapsedTime(ti) << " s" << std::endl;
+		timer->Clock(ti);
+		std::cout << " recursive" << std::endl;
+		std::cout << alns.best_solution()->ComputeSolutionCostRec(inst, false) << std::endl;
+		std::cout << "elapsed time: " << timer->CurrentElapsedTime(ti) << " s" << std::endl;
+		timer->Clock(ti);
+		std::cout << " recursive memoization" << std::endl;
+		std::cout << alns.best_solution()->ComputeSolutionCostRec(inst, true) << std::endl;
+		std::cout << "elapsed time: " << timer->CurrentElapsedTime(ti) << " s" << std::endl;
+		delete ti;
+		ti = nullptr;
+		DeleteTimer();
 	}
 	catch (const std::runtime_error &re)
 	{
@@ -1429,9 +1463,6 @@ int main()
 	{
 		std::cout << "Unknown failure occurred. Possible memory corruption" << std::endl;
 	}
-	std::cout << ALNSHeuristicSolution::GenerateFileName() << "_seed_" << seed << std::endl;
-
-	std::cout << alns.best_solution()->profits_sum_ << std::endl;
 
 	return 0;
 	// FeasibilityPump fp;

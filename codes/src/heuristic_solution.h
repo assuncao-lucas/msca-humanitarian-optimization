@@ -61,6 +61,10 @@ public:
 
 	friend std::ostream &operator<<(std::ostream &out, HeuristicSolution &sol);
 	bool CheckCorrectness(const Instance &instance);
+
+	double ComputeSolutionCost(Instance &instance) const;
+	double ComputeSolutionCostRec(Instance &instance, bool memoization = false) const;
+
 	virtual void WriteToFile(Instance &instance, std::string algo, std::string folder, std::string file_name) const;
 	virtual void ReadFromFile(Instance &inst, std::string algo, std::string folder, std::string file_name);
 
@@ -126,11 +130,12 @@ class ALNSHeuristicSolution : public HeuristicSolution
 public:
 	ALNSHeuristicSolution();
 	ALNSHeuristicSolution(ALNSHeuristicSolution *);
+	ALNSHeuristicSolution(HeuristicSolution *);
 	ALNSHeuristicSolution(int dimension, int dimension2, int num_routes);
 	~ALNSHeuristicSolution();
-	int num_iterations_;
-	int initial_solution_profits_sum_;
-	int last_improve_iteration_;
+	int num_iterations_ = 0;
+	double initial_solution_profits_sum_ = 0.0;
+	int last_improve_iteration_ = 0;
 
 	virtual void Reset(int dimension, int dimension2, int num_routes);
 	void WriteToFile(Instance &instance, std::string algo, std::string folder, std::string file_name) const;
