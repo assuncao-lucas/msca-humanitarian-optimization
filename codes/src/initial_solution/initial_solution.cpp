@@ -7,6 +7,10 @@ namespace InitalSolutionGenerator
 {
     HeuristicSolution *GenerateInitialSolution(Instance &inst)
     {
+        Timestamp *ti = NewTimestamp();
+        Timer *timer = GetTimer();
+        timer->Clock(ti);
+
         auto formulation = Formulation::single_commodity;
         KernelSearch ks(inst);
         auto graph = inst.graph();
@@ -45,6 +49,10 @@ namespace InitalSolutionGenerator
                 solution->is_infeasible_ = true;
             }
         }
+
+        solution->total_time_spent_ = timer->CurrentElapsedTime(ti);
+        delete ti;
+        ti = nullptr;
 
         return solution;
     }

@@ -2844,6 +2844,7 @@ static const struct option longOpts[] = {
 	{"ks-max-time-limit", required_argument, NULL, 'x'},
 	{"ks-decay-factor", required_argument, NULL, 'y'},
 	{"ks-feasibility-emphasis", required_argument, NULL, 'z'},
+	{"alns", no_argument, NULL, 'A'},
 	{NULL, no_argument, NULL, 0}};
 
 void ParseArgumentsAndRun(int argc, char *argv[])
@@ -2859,6 +2860,7 @@ void ParseArgumentsAndRun(int argc, char *argv[])
 	bool separate_benders_cuts_relaxation = false;
 	bool compute_initial_solution_heuristic = false;
 	bool solve_kernel_search = false;
+	bool solve_alns = false;
 	int ks_max_size_bucket = K_KS_MAX_SIZE_BUCKET, ks_min_time_limit = K_KS_MIN_TIME_LIMIT, ks_max_time_limit = K_KS_MAX_TIME_LIMIT;
 	double ks_decay_factor = K_KS_DECAY_FACTOR_TIME_LIMIT;
 	bool ks_feasibility_emphasis = false;
@@ -2955,6 +2957,9 @@ void ParseArgumentsAndRun(int argc, char *argv[])
 			ks_feasibility_emphasis = (std::atoi(optarg) != 0);
 			break;
 		}
+		case 'A':
+			solve_alns = true;
+			break;
 		}
 	}
 
@@ -3208,7 +3213,21 @@ void ParseArgumentsAndRun(int argc, char *argv[])
 		kernel_search_sol = nullptr;
 	}
 
-	if (!solve_kernel_search)
+	if (solve_alns)
+	{
+		ALNS alns;
+		auto initial_solution = InitalSolutionGenerator::GenerateInitialSolution(inst);
+		alns.Init(inst, initial_solution);
+
+		delete initial_solution;
+		initial_solution = nullptr;
+
+		alns.Run();
+		std::cout << ALNSHeuristicSolution::GenerateFileName() << "_seed_" << seed << std::endl;
+
+		(alns.best_solution())->WriteToFile(ALNSHeuristicSolution::GenerateFileName() + "_seed_" + std::to_string(seed), folder, file_name);
+	}
+	if (!solve_kernel_search && !solve_alns)
 	{
 		if (solve_relaxed)
 		{

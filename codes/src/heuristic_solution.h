@@ -23,18 +23,19 @@ public:
 class HeuristicSolution
 {
 public:
-	HeuristicSolution();
-	HeuristicSolution(int num_vertices, int num_arcs, int num_routes);
+	explicit HeuristicSolution() = default;
+	explicit HeuristicSolution(int num_vertices, int num_arcs, int num_routes);
 	virtual ~HeuristicSolution();
 	virtual void Reset(int num_vertices, int num_arcs, int num_routes);
-	bool is_infeasible_;
-	bool is_feasible_;
-	bool is_optimal_;
-	double profits_sum_;
-	double total_time_spent_;
-	int num_vertices_;
-	int num_arcs_;
-	int num_routes_;
+	bool is_infeasible_ = false;
+	bool is_feasible_ = false;
+	bool is_optimal_ = false;
+	double profits_sum_ = 0.0;
+	double total_time_spent_ = 0.0;
+	int num_vertices_ = 0;
+	int num_arcs_ = 0;
+	int num_routes_ = 0;
+
 	std::vector<Route> routes_vec_;
 	std::vector<VertexStatus> vertex_status_vec_;
 	std::list<int> unvisited_vertices_;
@@ -71,8 +72,6 @@ public:
 	boost::dynamic_bitset<> bitset_arcs_;
 	boost::dynamic_bitset<> bitset_vertices_;
 
-	// std::vector<double> x_values_;
-	// std::vector<double> y_values_;
 	void BuildBitset(const Instance &);
 };
 

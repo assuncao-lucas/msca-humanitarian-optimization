@@ -1414,10 +1414,22 @@ int main()
 		delete initial_solution;
 		initial_solution = nullptr;
 
+		// FeasibilityPump fp;
+		// fp.Init(inst);
+		// std::cout << (fp.solution_).GenerateFileName() + "_seed_" + std::to_string(seed) << std::endl;
+		// fp.Run();
+		// (fp.solution_).WriteToFile(inst, (fp.solution_).GenerateFileName() + "_seed_" + std::to_string(seed), "//", instance_name);
+		// alns.Init(inst, (fp.solution_).GenerateFileName() + "_seed_" + std::to_string(seed), "//", instance_name);
+		// std::cout << "found initial solution in " << fp.solution_.time_stage1_ + fp.solution_.time_stage2_ << " s" << std::endl;
+		std::cout << "found initial solution in " << (alns.best_solution())->total_time_spent_ << " s" << std::endl;
+
 		alns.Run();
 		std::cout << ALNSHeuristicSolution::GenerateFileName() << "_seed_" << seed << std::endl;
 		std::cout << "best solution: " << alns.best_solution()->profits_sum_ << std::endl;
 		std::cout << "elapsed time: " << timer->CurrentElapsedTime(ti) << " s" << std::endl;
+		std::cout << "elapsed time: " << (alns.best_solution())->total_time_spent_ << " s" << std::endl;
+
+		std::cout << *(alns.best_solution()) << std::endl;
 
 		timer->Clock(ti);
 		std::cout << " iteractive" << std::endl;

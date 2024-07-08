@@ -14,16 +14,6 @@ VertexStatus::~VertexStatus()
 {
 }
 
-HeuristicSolution::HeuristicSolution()
-{
-	profits_sum_ = 0;
-	num_vertices_ = 0;
-	num_arcs_ = 0;
-	is_infeasible_ = false;
-	is_feasible_ = false;
-	is_optimal_ = false;
-}
-
 HeuristicSolution::~HeuristicSolution()
 {
 }
@@ -1560,7 +1550,7 @@ void HeuristicSolution::ReadFromFile(Instance &inst, std::string algo, std::stri
 			else
 			{
 				is_feasible_ = true;
-				int pre_vertex = 0, curr_vertex = 0;
+				int pre_vertex = 0, curr_vertex = 0, vertex_pos_before_reordering = 0;
 				VertexStatus *status = nullptr;
 				for (int i = 0; i < num_routes; i++)
 				{
@@ -1571,8 +1561,10 @@ void HeuristicSolution::ReadFromFile(Instance &inst, std::string algo, std::stri
 					s_route >> curr_route->sum_profits_ >> curr_route->time_;
 					// std::cout << curr_route->sum_profits_ << " " << curr_route->time_ << std::endl;
 					curr_vertex = pre_vertex = 0;
-					while (s_route >> curr_vertex)
+					while (s_route >> vertex_pos_before_reordering)
 					{
+						// in the file/solution, is saved with original positions of vertices (before reordering!)
+						curr_vertex = inst.getReorderedVertexPosition(vertex_pos_before_reordering);
 						status = &((vertex_status_vec_)[curr_vertex]);
 
 						// remove from list of unvisited_vertices
@@ -1729,6 +1721,22 @@ void ALNSHeuristicSolution::ReadFromFile(Instance &inst, std::string algo, std::
 		is_infeasible_ = true;
 		is_feasible_ = false;
 	}
+
+	std::stringstream s_time_phase1, s_time_phase2;
+	double time_phase1 = 0.0, time_phase2 = 0.0;
+	for (int i = 1; i <= 6; ++i)
+		getline(input, line);
+	size_t pos = line.find_first_of(":");
+	s_time_phase1 << line.substr(pos + 2);
+	s_time_phase1 >> time_phase1;
+
+	for (int i = 1; i <= 5; ++i)
+		getline(input, line);
+	pos = line.find_first_of(":");
+	s_time_phase2 << line.substr(pos + 2);
+	s_time_phase2 >> time_phase2;
+
+	total_time_spent_ = time_phase1 + time_phase2;
 
 	input.close();
 }

@@ -93,16 +93,19 @@ void Instance::ReorderMandatoryVertices()
     Graph *new_graph = nullptr;
     std::vector<bool> reordered(num_vertices, false);
     map_reordered_vertices_to_original_positions_ = std::vector<int>(num_vertices, -1);
+    map_original_positions_to_reordered_vertices_ = std::vector<int>(num_vertices, -1);
     std::vector<int> new_pos(num_vertices, -1);
     reordered[0] = true;
     new_pos[0] = 0;
     map_reordered_vertices_to_original_positions_[0] = 0; // origin remains at the same position.
+    map_original_positions_to_reordered_vertices_[0] = 0;
     reordered_vertices_info[0] = vertices_info[0];
     int cont = 1;
     for (auto mandatory_vertex : mandatory_list_)
     {
         reordered[mandatory_vertex] = true;
         map_reordered_vertices_to_original_positions_[cont] = mandatory_vertex;
+        map_original_positions_to_reordered_vertices_[mandatory_vertex] = cont;
         new_pos[mandatory_vertex] = cont;
         reordered_vertices_info[cont] = vertices_info[mandatory_vertex];
         // as they are mandatory now, set as zero.
@@ -118,6 +121,7 @@ void Instance::ReorderMandatoryVertices()
         {
             reordered[i] = true;
             map_reordered_vertices_to_original_positions_[cont] = i;
+            map_original_positions_to_reordered_vertices_[i] = cont;
             new_pos[i] = cont;
             reordered_vertices_info[cont] = vertices_info[i];
             ++cont;
@@ -153,6 +157,30 @@ Instance::Instance(std::string dir_path, std::string file_name, int num_vehicles
 
     if (pre_process_graph)
         GeneratePreProcessedGraph();
+
+    struct
+    {
+        bool operator()(const std::pair<int, int> &v1, const std::pair<int, int> &v2) const
+        {
+            return v1.second < v2.second;
+        }
+    } order_less;
+
+    auto num_vertices = graph_->num_vertices();
+
+    ordered_profits_ = std::vector<std::pair<int, int>>(num_vertices - num_mandatory_ - 1); // -1 stands for the origin vertex. Last element of vector is: num_vertices - num_mandatory - 2!
+    const auto vertices_info = graph_->vertices_info();
+    for (int i = num_mandatory_ + 1; i < num_vertices; ++i)
+        (ordered_profits_)[i - num_mandatory_ - 1] = std::pair<int, int>(i, vertices_info[i].profit_);
+    std::sort((ordered_profits_).begin(), (ordered_profits_).end(), order_less);
+
+    // std::cout << "ORDERED PROFITS!" << std::endl;
+    // for (size_t i = 0; i < (ordered_profits_).size(); ++i)
+    // {
+    //     std::cout << "(" << ((ordered_profits_)[i]).first << "," << ((ordered_profits_)[i]).second << ")[" << vertices_info[((ordered_profits_)[i]).first].profit_ << "]" << std::endl;
+    // }
+    // getchar();
+    // getchar();
 }
 
 Instance::~Instance()

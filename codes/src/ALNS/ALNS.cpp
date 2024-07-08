@@ -3,6 +3,7 @@
 #include "src/general.h"
 #include "src/graph_algorithms.h"
 #include "src/formulations.h"
+#include "src/local_searches/local_searches.h"
 
 ALNS::ALNS()
 {
@@ -77,64 +78,24 @@ void ALNS::Init(Instance &instance, std::string algo, std::string folder, std::s
 {
   curr_instance_ = &instance;
   const Graph *graph = instance.graph();
-  int num_vertices = graph->num_vertices(), num_arcs = graph->num_arcs(), num_mandatory = instance.num_mandatory();
+  int num_vertices = graph->num_vertices(), num_arcs = graph->num_arcs();
   int num_routes = instance.num_vehicles();
-
-  struct
-  {
-    bool operator()(const std::pair<int, int> &v1, const std::pair<int, int> &v2) const
-    {
-      return v1.second < v2.second;
-    }
-  } order_less;
-
-  ordered_profits_ = std::vector<std::pair<int, int>>(num_vertices - num_mandatory - 1); // -1 stands for the origin vertex. Last element of vector is: num_vertices - num_mandatory - 2!
-  const auto vertices_info = graph->vertices_info();
-  for (int i = num_mandatory + 1; i < num_vertices; ++i)
-    (ordered_profits_)[i - num_mandatory - 1] = std::pair<int, int>(i, vertices_info[i].profit_);
-  std::sort((ordered_profits_).begin(), (ordered_profits_).end(), order_less);
-
-  /*for(size_t i = 0; i < (ordered_profits_).size(); ++i)
-  {
-    std::cout << "(" << ((ordered_profits_)[i]).first << "," << ((ordered_profits_)[i]).second << ")[" << (graph->profits())[((ordered_profits_)[i]).first] << "]" << std::endl;
-  }*/
 
   // std::cout << "read from file " << file_name << std::endl;
   ALNSHeuristicSolution *sol = new ALNSHeuristicSolution(num_vertices, num_arcs, num_routes);
   sol->ReadFromFile(instance, algo, folder, file_name);
   AddSolutionToPool(sol, 0);
+  time_spent_generating_initial_solution_ = sol->total_time_spent_;
   // std::cout << *sol << std::endl;
 }
 
 void ALNS::Init(Instance &instance, HeuristicSolution *initial_sol)
 {
   curr_instance_ = &instance;
-  const Graph *graph = instance.graph();
-  int num_vertices = graph->num_vertices(), num_arcs = graph->num_arcs(), num_mandatory = instance.num_mandatory();
-  int num_routes = instance.num_vehicles();
-
-  struct
-  {
-    bool operator()(const std::pair<int, int> &v1, const std::pair<int, int> &v2) const
-    {
-      return v1.second < v2.second;
-    }
-  } order_less;
-
-  ordered_profits_ = std::vector<std::pair<int, int>>(num_vertices - num_mandatory - 1); // -1 stands for the origin vertex. Last element of vector is: num_vertices - num_mandatory - 2!
-  const auto vertices_info = graph->vertices_info();
-  for (int i = num_mandatory + 1; i < num_vertices; ++i)
-    (ordered_profits_)[i - num_mandatory - 1] = std::pair<int, int>(i, vertices_info[i].profit_);
-  std::sort((ordered_profits_).begin(), (ordered_profits_).end(), order_less);
-
-  /*for(size_t i = 0; i < (ordered_profits_).size(); ++i)
-  {
-    std::cout << "(" << ((ordered_profits_)[i]).first << "," << ((ordered_profits_)[i]).second << ")[" << (graph->profits())[((ordered_profits_)[i]).first] << "]" << std::endl;
-  }*/
-
   // std::cout << "read from file " << file_name << std::endl;
   ALNSHeuristicSolution *sol = new ALNSHeuristicSolution(initial_sol);
   AddSolutionToPool(sol, 0);
+  time_spent_generating_initial_solution_ = initial_sol->total_time_spent_;
   // std::cout << *sol << std::endl;
 }
 
@@ -512,15 +473,15 @@ ALNSHeuristicSolution *ALNS::DoPathRelinkingIter(ALNSHeuristicSolution *guiding_
       do
       {
         continue_search = false;
-        if (DoLocalSearchImprovements(curr_sol))
+        if (LocalSearches::DoLocalSearchImprovements(*curr_instance_, curr_sol))
         {
-          continue_search = TryToInsertUnvisitedVertices(curr_sol);
+          continue_search = LocalSearches::TryToInsertUnvisitedVertices(*curr_instance_, curr_sol);
         }
 
-        if (DoReplacementImprovements(curr_sol))
+        if (LocalSearches::DoReplacementImprovements(*curr_instance_, curr_sol))
         {
           continue_search = true;
-          TryToInsertUnvisitedVertices(curr_sol);
+          LocalSearches::TryToInsertUnvisitedVertices(*curr_instance_, curr_sol);
         }
       } while (continue_search);
 
@@ -530,7 +491,7 @@ ALNSHeuristicSolution *ALNS::DoPathRelinkingIter(ALNSHeuristicSolution *guiding_
         best_sol = new ALNSHeuristicSolution(curr_sol);
         // AddSolutionToPool(new ALNSHeuristicSolution(curr_sol),ALNS_iter);
       }
-    } while (ShiftingAndInsertion(curr_sol));
+    } while (LocalSearches::ShiftingAndInsertion(*curr_instance_, curr_sol));
 
     // check is current solution is the best so far at the path relinking
     if (double_greater(curr_sol->profits_sum_, best_sol->profits_sum_))
@@ -573,7 +534,7 @@ void ALNS::RunOneThread(int num_thread, int num_iterations)
     // curr_sol1->BuildBitset(*(curr_instance_));
     // curr_sol1->CheckCorrectness(*curr_instance_);
     (mutex_).unlock();
-    RemoveVerticesFromSolution(curr_sol1, K_ALNS_PERTURBATION_PERCENTAGE);
+    LocalSearches::RemoveVerticesFromSolution(*curr_instance_, curr_sol1, K_ALNS_PERTURBATION_PERCENTAGE);
 
     do
     {
@@ -595,23 +556,23 @@ void ALNS::RunOneThread(int num_thread, int num_iterations)
       do
       {
         continue_search = false;
-        if (DoLocalSearchImprovements(curr_sol1))
+        if (LocalSearches::DoLocalSearchImprovements(*curr_instance_, curr_sol1))
         {
           // std::cout << "after local search" << std::endl;
           // curr_sol1->BuildBitset(*(curr_instance_));
           // curr_sol1->CheckCorrectness(*curr_instance_);
           // std::cout << *curr_sol << std::endl;
           continue_search = true;
-          TryToInsertUnvisitedVertices(curr_sol1);
+          LocalSearches::TryToInsertUnvisitedVertices(*curr_instance_, curr_sol1);
         }
 
-        if (DoReplacementImprovements(curr_sol1))
+        if (LocalSearches::DoReplacementImprovements(*curr_instance_, curr_sol1))
         {
           // std::cout << "after replacements" << std::endl;
           // curr_sol1->BuildBitset(*(curr_instance_));
           // curr_sol1->CheckCorrectness(*curr_instance_);
           continue_search = true;
-          TryToInsertUnvisitedVertices(curr_sol1);
+          LocalSearches::TryToInsertUnvisitedVertices(*curr_instance_, curr_sol1);
         }
       } while (continue_search);
 
@@ -626,7 +587,7 @@ void ALNS::RunOneThread(int num_thread, int num_iterations)
       (mutex_).unlock();
 
       // std::cout << *curr_sol1 << std::endl;
-    } while (ShiftingAndInsertion(curr_sol1));
+    } while (LocalSearches::ShiftingAndInsertion(*curr_instance_, curr_sol1));
 
     if (K_PATH_RELINKING)
     {
@@ -681,9 +642,9 @@ void ALNS::Run()
 
   if (!(curr_sol->is_infeasible_) && (curr_sol->is_feasible_))
   {
-    // std::cout << *curr_sol << std::endl;
+    std::cout << *curr_sol << std::endl;
     // std::cout << curr_sol->profits_sum_ << std::endl;
-    TryToInsertUnvisitedVertices(curr_sol, 0);
+    LocalSearches::TryToInsertUnvisitedVertices(*curr_instance_, curr_sol, 0);
     // std::cout << curr_sol->profits_sum_ << std::endl;
     initial_solution_profits_sum = curr_sol->profits_sum_;
     // std::cout << *curr_sol << std::endl;
@@ -694,12 +655,12 @@ void ALNS::Run()
       continue_search = false;
       // std::cout << *curr_sol << std::endl;
       // std::cout << "tentou local search" << std::endl;
-      if (DoLocalSearchImprovements(curr_sol))
+      if (LocalSearches::DoLocalSearchImprovements(*curr_instance_, curr_sol))
       {
         // std::cout << "fez local search" << std::endl;
         // std::cout << *curr_sol << std::endl;
         continue_search = true;
-        TryToInsertUnvisitedVertices(curr_sol, 0);
+        LocalSearches::TryToInsertUnvisitedVertices(*curr_instance_, curr_sol, 0);
         // std::cout << *curr_sol << std::endl;
         // std::cout << "after inserts 1" << std::endl;
         // curr_sol->BuildBitset(*(curr_instance_));
@@ -713,11 +674,11 @@ void ALNS::Run()
 
       // std::cout << "tentou replacements" << std::endl;
 
-      if (DoReplacementImprovements(curr_sol))
+      if (LocalSearches::DoReplacementImprovements(*curr_instance_, curr_sol))
       {
         // std::cout << "fez replacements" << std::endl;
         continue_search = true;
-        TryToInsertUnvisitedVertices(curr_sol, 0);
+        LocalSearches::TryToInsertUnvisitedVertices(*curr_instance_, curr_sol, 0);
       }
 
       // std::cout << "after replacements" << std::endl;
@@ -769,7 +730,7 @@ void ALNS::Run()
     curr_sol->initial_solution_profits_sum_ = initial_solution_profits_sum;
     curr_sol->last_improve_iteration_ = last_improve_iteration_;
     curr_sol->num_iterations_ = iter;
-    curr_sol->total_time_spent_ = timer->CurrentElapsedTime(ti);
+    curr_sol->total_time_spent_ = time_spent_generating_initial_solution_ + timer->CurrentElapsedTime(ti);
     // std::cout << *curr_sol << std::endl;
     // if(curr_sol->CheckCorrectness(*(curr_instance_)) == false){ std::cout << "deu merda" << std::endl; getchar(); getchar();}
     // std::cout << curr_sol->profits_sum_ << " " << std::endl;
@@ -964,688 +925,3 @@ ALNSHeuristicSolution *ALNS::BuildBestSolutionFromPool()
 
 //   return new_solution;
 // }
-
-bool ALNS::DoReplacementImprovements(ALNSHeuristicSolution *sol)
-{
-  bool global_improvement = false;
-  bool improved = false;
-
-  do
-  {
-    improved = (Do_1_1_Unrouted_Improvements(sol) || Do_2_1_Unrouted_Improvements(sol));
-    global_improvement = (global_improvement || improved);
-  } while (improved);
-
-  return global_improvement;
-}
-
-bool ALNS::DoLocalSearchImprovements(ALNSHeuristicSolution *sol)
-{
-  bool global_improvement = false;
-  bool improved = false;
-
-  do
-  {
-    improved = DoAllInterRoutesImprovements(sol);
-    global_improvement = (global_improvement || improved);
-
-    // std::cout << "after inter route" << std::endl;
-    // sol->BuildBitset(*(curr_instance_));
-    // sol->CheckCorrectness(*curr_instance_);
-
-    improved = DoAllIntraRouteImprovements(sol);
-    global_improvement = (global_improvement || improved);
-  } while (improved);
-
-  return global_improvement;
-}
-
-bool ALNS::DoIntraRouteImprovementOneRoute(ALNSHeuristicSolution *sol, int route)
-{
-  bool iteration_improvement = false;
-  bool improved = false;
-
-  do
-  {
-    // std::cout << "start 2 opt" << std::endl;
-    improved = sol->Do2OptImprovement(*curr_instance_, route);
-    iteration_improvement = (iteration_improvement || improved);
-    // std::cout << "end 2 opt" << std::endl;
-    // sol->BuildBitset(*(curr_instance_));
-    // sol->CheckCorrectness(*curr_instance_);
-  } while (improved);
-
-  // do
-  // {
-  //   improved = sol->Do3OptImprovement(graph, route);
-  //   iteration_improvement = (iteration_improvement || improved);
-  // } while (improved);
-
-  return iteration_improvement;
-}
-
-bool ALNS::DoAllIntraRouteImprovements(ALNSHeuristicSolution *solution)
-{
-  bool global_improvement = false, improved = false;
-  int num_vehicles = (curr_instance_)->num_vehicles();
-
-  for (int i = 0; i < num_vehicles; ++i)
-  {
-    improved = DoIntraRouteImprovementOneRoute(solution, i);
-    global_improvement = (global_improvement || improved);
-  }
-
-  return global_improvement;
-}
-
-bool ALNS::Do_1_1_Unrouted_Improvements(ALNSHeuristicSolution *solution)
-{
-  Route *curr_route = nullptr;
-  std::list<int>::iterator it_i1, it_i2, it_f1, prox_it;
-  double profit_variation1 = 0.0;
-  double time_variation1 = 0.0;
-  int pos_i1 = 0, pos_f1 = 0;
-  int max_pos1 = 0;
-  int num_routes = (curr_instance_)->num_vehicles();
-  int curr_vertex = 0;
-  VertexStatus *curr_status = nullptr;
-  int num_vertices = ((curr_instance_)->graph())->num_vertices(), num_mandatory = curr_instance_->num_mandatory();
-  std::list<int>::iterator next_vertex_to_be_replaced_it, first_vertex_to_be_replaced_it;
-
-  int type = rand() % 2;
-  for (size_t i = 0; i < (ordered_profits_).size(); ++i)
-  {
-    if (type == 0)
-      curr_vertex = ((ordered_profits_)[num_vertices - num_mandatory - 2 - i]).first;
-    if (type == 1)
-      curr_vertex = ((ordered_profits_)[i]).first;
-    curr_status = &((solution->vertex_status_vec_)[curr_vertex]);
-
-    if (!(curr_status->selected_))
-    {
-      // for(std::list<int>::iterator it_i2 = (solution->unvisited_vertices_).begin(); it_i2 != (solution->unvisited_vertices_).end();)
-      //{
-      // prox_it = it_i2;
-      //++prox_it;
-      it_i2 = curr_status->pos_;
-      for (int r1 = 0; r1 < num_routes; ++r1)
-      {
-        curr_route = &((solution->routes_vec_)[r1]);
-        max_pos1 = (int)((curr_route->vertices_).size()) - 1;
-        next_vertex_to_be_replaced_it = (curr_route->vertices_).begin();
-        for (int i = 0; i <= max_pos1; ++i)
-        {
-          first_vertex_to_be_replaced_it = next_vertex_to_be_replaced_it;
-          ++next_vertex_to_be_replaced_it;
-          pos_i1 = pos_f1 = i;
-          if (*first_vertex_to_be_replaced_it > num_mandatory)
-          {
-            if (solution->PreviewInterRouteSwapUnrouted(*(curr_instance_), r1, pos_i1, pos_f1, it_i1, it_f1, profit_variation1, time_variation1, it_i2))
-            {
-              if (double_greater(profit_variation1, 0.0) || (double_equals(profit_variation1, 0.0) && double_less(time_variation1, 0.0)))
-              {
-                // std::cout << "before inter route swap unrouted" << std::endl;
-                // solution->BuildBitset(*(curr_instance_));
-                // solution->CheckCorrectness(*curr_instance_);
-                solution->InterRouteSwapUnrouted(r1, it_i1, it_f1, profit_variation1, time_variation1, it_i2);
-                // std::cout << "after inter route swap unrouted" << std::endl;
-                // solution->BuildBitset(*(curr_instance_));
-                // solution->CheckCorrectness(*curr_instance_);
-                return true;
-              }
-            }
-            // std::cout << "after preview inter route unrouted FAILEDA" << std::endl;
-            // solution->BuildBitset(*(curr_instance_));
-            // solution->CheckCorrectness(*curr_instance_);
-          }
-          // first_vertex_to_be_replaced_it = next_vertex_to_be_replaced_it;
-        }
-      }
-
-      // it_i2 = prox_it;
-    }
-  }
-
-  return false;
-}
-
-bool ALNS::Do_2_1_Unrouted_Improvements(ALNSHeuristicSolution *solution)
-{
-  Route *curr_route = nullptr;
-  std::list<int>::iterator it_i1, it_i2, it_f1, prox_it;
-  double profit_variation1 = 0.0;
-  double time_variation1 = 0.0;
-  int pos_i1 = 0, pos_f1 = 0;
-  int max_pos1 = 0;
-  int num_routes = (curr_instance_)->num_vehicles();
-  int curr_vertex = 0;
-  VertexStatus *curr_status = nullptr;
-  int num_vertices = ((curr_instance_)->graph())->num_vertices(), num_mandatory = curr_instance_->num_mandatory();
-  ;
-  int type = rand() % 2;
-  std::list<int>::iterator next_vertex_to_be_replaced_it, first_vertex_to_be_replaced_it;
-
-  for (size_t i = 0; i < (ordered_profits_).size(); ++i)
-  {
-    if (type == 0)
-      curr_vertex = ((ordered_profits_)[num_vertices - num_mandatory - 2 - i]).first;
-    if (type == 1)
-      curr_vertex = ((ordered_profits_)[i]).first;
-    curr_status = &((solution->vertex_status_vec_)[curr_vertex]);
-
-    if (!(curr_status->selected_))
-    {
-      // for(std::list<int>::iterator it_i2 = (solution->unvisited_vertices_).begin(); it_i2 != (solution->unvisited_vertices_).end();)
-      //{
-      // prox_it = it_i2;
-      //++prox_it;
-      it_i2 = curr_status->pos_;
-      for (int r1 = 0; r1 < num_routes; ++r1)
-      {
-        curr_route = &((solution->routes_vec_)[r1]);
-        max_pos1 = (int)((curr_route->vertices_).size()) - 1;
-        next_vertex_to_be_replaced_it = (curr_route->vertices_).begin();
-        for (int i = 0; i <= max_pos1 - 1; ++i)
-        {
-          first_vertex_to_be_replaced_it = next_vertex_to_be_replaced_it;
-          ++next_vertex_to_be_replaced_it; // it's never the .end() iterator, since loop only goes until max_pos1-1
-
-          pos_i1 = i;
-          pos_f1 = i + 1;
-
-          if ((*first_vertex_to_be_replaced_it > num_mandatory) && (*next_vertex_to_be_replaced_it > num_mandatory))
-          {
-            if (solution->PreviewInterRouteSwapUnrouted(*(curr_instance_), r1, pos_i1, pos_f1, it_i1, it_f1, profit_variation1, time_variation1, it_i2))
-            {
-              if (double_greater(profit_variation1, 0.0) || (double_equals(profit_variation1, 0.0) && double_less(time_variation1, 0.0)))
-              {
-                // std::cout << "before inter route swap unrouted" << std::endl;
-                // solution->BuildBitset(*(curr_instance_));
-                // solution->CheckCorrectness(*curr_instance_);
-                solution->InterRouteSwapUnrouted(r1, it_i1, it_f1, profit_variation1, time_variation1, it_i2);
-                // std::cout << "after inter route swap unrouted" << std::endl;
-                // solution->BuildBitset(*(curr_instance_));
-                // solution->CheckCorrectness(*curr_instance_);
-                return true;
-              }
-            }
-            // std::cout << "after preview inter route unrouted FAILEDA" << std::endl;
-            // solution->BuildBitset(*(curr_instance_));
-            // solution->CheckCorrectness(*curr_instance_);
-          }
-        }
-      }
-      // it_i2 = prox_it;
-    }
-  }
-
-  return false;
-}
-
-bool ALNS::Do_1_1_Improvement(ALNSHeuristicSolution *solution, int r1, int r2)
-{
-  Route *route1 = &((solution->routes_vec_)[r1]), *route2 = &((solution->routes_vec_)[r2]);
-
-  if (((route1->vertices_).empty()) || ((route2->vertices_).empty()))
-    return false;
-
-  std::list<int>::iterator it_i1, it_i2, it_f1, it_f2;
-  double profit_variation1 = 0.0, profit_variation2 = 0.0;
-  double time_variation1 = 0.0, time_variation2 = 0.0;
-  double total_time_variation = 0.0, total_profit_variation = 0.0;
-  int pos_i1 = 0, pos_f1 = 0, pos_i2 = 0, pos_f2 = 0;
-  int max_pos1 = (int)((route1->vertices_).size()) - 1, max_pos2 = (int)((route2->vertices_).size()) - 1;
-
-  for (int i = 0; i <= max_pos1; ++i)
-  {
-    pos_i1 = pos_f1 = i;
-    for (int j = 0; j <= max_pos2; ++j)
-    {
-      pos_i2 = pos_f2 = j;
-      // std::cout << *solution << std::endl;
-      // std::cout << "preview swap " << pos_i1 << " to " << pos_f1 << " from " << r1 << " with " << pos_i2 << " to " << pos_f2 << " of " << r2 << std::endl;
-      if (solution->PreviewInterRouteSwap(*(curr_instance_), r1, pos_i1, pos_f1, r2, pos_i2, pos_f2, it_i1, it_f1, profit_variation1, time_variation1, it_i2, it_f2, profit_variation2, time_variation2))
-      {
-        total_time_variation = time_variation1 + time_variation2;
-        total_profit_variation = profit_variation1 + profit_variation2;
-        if (double_greater(total_profit_variation, 0.0) || (double_equals(total_profit_variation, 0.0) && double_less(total_time_variation, 0.0)))
-        {
-          // std::cout << "before inter route swap vertex" << std::endl;
-          // solution->BuildBitset(*(curr_instance_));
-          // solution->CheckCorrectness(*curr_instance_);
-          solution->InterRouteSwap(r1, r2, it_i1, it_f1, profit_variation1, time_variation1, it_i2, it_f2, profit_variation2, time_variation2);
-          // std::cout << "after inter route swap vertex" << std::endl;
-          // solution->BuildBitset(*(curr_instance_));
-          // solution->CheckCorrectness(*curr_instance_);
-          return true;
-        }
-      }
-      // std::cout << "after preview inter route FAILED" << std::endl;
-      // std::cout << *solution << std::endl;
-      // solution->BuildBitset(*(curr_instance_));
-      // solution->CheckCorrectness(*curr_instance_);
-    }
-  }
-
-  return false;
-}
-
-bool ALNS::Do_1_0_Improvement(ALNSHeuristicSolution *solution, int r1, int r2)
-{
-  Route *route1 = &((solution->routes_vec_)[r1]), *route2 = &((solution->routes_vec_)[r2]);
-
-  if ((route1->vertices_).empty())
-    return false;
-
-  std::list<int>::iterator it;
-  double profit_variation1 = 0.0, profit_variation2 = 0.0;
-  double time_variation1 = 0.0, time_variation2 = 0.0;
-  double total_time_variation = 0.0, total_profit_variation = 0.0;
-  int max_pos2 = (int)((route2->vertices_).size());
-  int vertex = 0;
-
-  auto it_vertex = (route1->vertices_).begin();
-  while (it_vertex != (route1->vertices_).end())
-  {
-    vertex = *it_vertex;
-    ++it_vertex; // already increment it as to avoid losing track of the original iterator reference. This is necessary because, at each PreviewInterRoute call, the current vertex is removed from the route and added back within a new iterator.
-    for (int pos = 0; pos <= max_pos2; ++pos)
-    {
-      // std::cout << *solution << std::endl;
-      // std::cout << "preview move vertex " << vertex << " to route " << r2 << " pos " << pos << std::endl;
-      if (solution->PreviewInterRouteMoveVertex(*(curr_instance_), vertex, r2, pos, it, profit_variation1, time_variation1, profit_variation2, time_variation2))
-      {
-        total_time_variation = time_variation1 + time_variation2;
-        total_profit_variation = profit_variation1 + profit_variation2;
-        if (double_greater(total_profit_variation, 0.0) || (double_equals(total_profit_variation, 0.0) && double_less(total_time_variation, 0.0)))
-        {
-          // std::cout << "before inter route move vertex" << std::endl;
-          // solution->BuildBitset(*(curr_instance_));
-          // solution->CheckCorrectness(*curr_instance_);
-          solution->InterRouteMoveVertex(vertex, r2, it, profit_variation1, time_variation1, profit_variation2, time_variation2);
-          // std::cout << "after inter route move vertex" << std::endl;
-          // solution->BuildBitset(*(curr_instance_));
-          // solution->CheckCorrectness(*curr_instance_);
-          return true;
-        }
-      }
-      // std::cout << "after preview inter route FAILED" << std::endl;
-      // // std::cout << *solution << std::endl;
-      // solution->BuildBitset(*(curr_instance_));
-      // solution->CheckCorrectness(*curr_instance_);
-    }
-  }
-
-  return false;
-}
-
-bool ALNS::Do_2_1_Improvement(ALNSHeuristicSolution *solution, int r1, int r2)
-{
-  Route *route1 = &((solution->routes_vec_)[r1]), *route2 = &((solution->routes_vec_)[r2]);
-
-  if (((route1->vertices_).size() < 2) || ((route2->vertices_).empty()))
-    return false;
-
-  std::list<int>::iterator it_i1, it_i2, it_f1, it_f2;
-  double profit_variation1 = 0.0, profit_variation2 = 0.0;
-  double time_variation1 = 0.0, time_variation2 = 0.0;
-  double total_time_variation = 0.0, total_profit_variation = 0.0;
-  int pos_i1 = 0, pos_f1 = 0, pos_i2 = 0, pos_f2 = 0;
-  int max_pos1 = (int)((route1->vertices_).size()) - 1, max_pos2 = (int)((route2->vertices_).size()) - 1;
-
-  for (int i = 0; i <= max_pos1 - 1; ++i)
-  {
-    pos_i1 = i;
-    pos_f1 = i + 1;
-    for (int j = 0; j <= max_pos2; ++j)
-    {
-      pos_i2 = pos_f2 = j;
-      // std::cout << "preview swap " << pos_i1 << " to  " << pos_f1 << " from " << r1 << " with " << pos_i2 << " to " << pos_f2 << " of " << r2 << std::endl;
-      if (solution->PreviewInterRouteSwap(*(curr_instance_), r1, pos_i1, pos_f1, r2, pos_i2, pos_f2, it_i1, it_f1, profit_variation1, time_variation1, it_i2, it_f2, profit_variation2, time_variation2))
-      {
-        total_time_variation = time_variation1 + time_variation2;
-        total_profit_variation = profit_variation1 + profit_variation2;
-        if (double_greater(total_profit_variation, 0.0) || (double_equals(total_profit_variation, 0.0) && double_less(total_time_variation, 0.0)))
-        {
-          // std::cout << "before inter route swap vertex" << std::endl;
-          // solution->BuildBitset(*(curr_instance_));
-          // solution->CheckCorrectness(*curr_instance_);
-          solution->InterRouteSwap(r1, r2, it_i1, it_f1, profit_variation1, time_variation1, it_i2, it_f2, profit_variation2, time_variation2);
-          // std::cout << "after inter route swap vertex" << std::endl;
-          // solution->BuildBitset(*(curr_instance_));
-          // solution->CheckCorrectness(*curr_instance_);
-          return true;
-        }
-      }
-      // std::cout << "after preview inter route FAILED" << std::endl;
-      // solution->BuildBitset(*(curr_instance_));
-      // solution->CheckCorrectness(*curr_instance_);
-    }
-  }
-
-  return false;
-}
-
-bool ALNS::DoAllInterRoutesImprovements(ALNSHeuristicSolution *solution)
-{
-  bool improved = false;
-  bool global_improvement = false;
-  int num_routes = (curr_instance_)->num_vehicles();
-
-  do
-  {
-    improved = false;
-    // para todas as combinações entre duas rotas
-    for (int i1 = 0; i1 < num_routes; ++i1)
-    {
-      for (int i2 = 0; i2 < num_routes; ++i2)
-      {
-        // Faz inter improvement apenas se as rotas são diferentes
-        if (i1 != i2)
-        {
-          // std::cout << "start 1 1 improvemente" << std::endl;
-          improved = (Do_1_1_Improvement(solution, i1, i2) || improved);
-          global_improvement = (global_improvement || improved);
-          // std::cout << "end 1 1 improvemente" << std::endl;
-
-          // std::cout << "start 1 0 improvemente" << std::endl;
-          improved = (Do_1_0_Improvement(solution, i1, i2) || improved);
-          global_improvement = (global_improvement || improved);
-          // std::cout << "end 1 0 improvemente" << std::endl;
-
-          // std::cout << "star 2 1 improvemente" << std::endl;
-          improved = (Do_2_1_Improvement(solution, i1, i2) || improved);
-          global_improvement = (global_improvement || improved);
-          // std::cout << "end 2 1 improvemente" << std::endl;
-        }
-      }
-    }
-  } while (improved);
-
-  return global_improvement;
-}
-
-bool ALNS::ShiftingOneVertex(ALNSHeuristicSolution *sol, int vertex, double &global_variation)
-{
-  double profit_variation1 = 0.0, profit_variation2 = 0.0;
-  double time_variation1 = 0.0, time_variation2 = std::numeric_limits<double>::infinity();
-  double curr_profit_variation = 0.0;
-  double curr_time_variation = 0.0;
-  std::list<int>::iterator curr_it, it;
-  bool can_add = false;
-  VertexStatus *status = &((sol->vertex_status_vec_)[vertex]);
-  int route = 0, base_route = status->route_;
-  int num_routes = (curr_instance_)->num_vehicles();
-
-  if (!(sol->PreviewRemoveVertex(*(curr_instance_), vertex, profit_variation1, time_variation1)))
-    return false;
-
-  status->selected_ = false; // suppose vertex is removed!
-  for (int curr_route = 0; curr_route < num_routes; ++curr_route)
-  {
-    if (curr_route != base_route)
-    {
-      // std::cout << "before preview add vertex minimum" << std::endl;
-      // std::cout << *sol << std::endl;
-      // sol->BuildBitset(*(curr_instance_));
-      // sol->CheckCorrectness(*curr_instance_);
-      if (sol->PreviewAddVertexToRouteWithinMaximumProfitIncrease(*(curr_instance_), vertex, curr_route, curr_it, curr_profit_variation, curr_time_variation))
-      {
-        if (double_greater(curr_profit_variation, profit_variation2) || (double_equals(curr_profit_variation, profit_variation2) && double_less(curr_time_variation, time_variation2)))
-        {
-          can_add = true;
-          route = curr_route;
-          it = curr_it;
-          profit_variation2 = curr_profit_variation;
-          time_variation2 = curr_time_variation;
-        }
-      }
-      // std::cout << "after preview add vertex minimum" << std::endl;
-      // sol->BuildBitset(*(curr_instance_));
-      // sol->CheckCorrectness(*curr_instance_);
-    }
-  }
-  status->selected_ = true;
-
-  if (can_add)
-  {
-    // std::cout << "before inter route move vertex" << std::endl;
-    // sol->BuildBitset(*(curr_instance_));
-    // sol->CheckCorrectness(*curr_instance_);
-    sol->InterRouteMoveVertex(vertex, route, it, profit_variation1, time_variation1, profit_variation2, time_variation2);
-    // std::cout << "after inter route move vertex" << std::endl;
-    // sol->BuildBitset(*(curr_instance_));
-    // sol->CheckCorrectness(*curr_instance_);
-    global_variation += (time_variation1 + time_variation2);
-    return true;
-  }
-
-  return false;
-}
-
-bool ALNS::TryToInsertUnvisitedVertices(ALNSHeuristicSolution *solution, int type)
-{
-  int curr_vertex = 0, curr_route = 0;
-  int num_vertices = ((curr_instance_)->graph())->num_vertices();
-  int num_mandatory = curr_instance_->num_mandatory();
-
-  double time_variation = 0.0, profit_variation = 0.0;
-  std::list<int>::iterator vertex_it;
-  const Graph *graph = (curr_instance_)->graph();
-  bool added_vertex = false;
-  VertexStatus *curr_status = nullptr;
-
-  // Route * route = nullptr;
-
-  if (type == -1)
-    type = rand() % 2;
-
-  for (size_t i = 0; i < (ordered_profits_).size(); ++i)
-  {
-    if (type == 0)
-      curr_vertex = ((ordered_profits_)[num_vertices - num_mandatory - 2 - i]).first;
-    if (type == 1)
-      curr_vertex = ((ordered_profits_)[i]).first;
-    curr_status = &((solution->vertex_status_vec_)[curr_vertex]);
-
-    if (!(curr_status->selected_))
-    {
-      if (solution->PreviewAddVertexWithinMaximumProfitIncrease(*(curr_instance_), curr_vertex, curr_route, vertex_it, profit_variation, time_variation))
-      {
-        if (double_greater(profit_variation, 0.0) || (double_equals(profit_variation, 0.0) && double_less(time_variation, 0.0)))
-        {
-          // std::cout << "before add vertex" << std::endl;
-          // solution->BuildBitset(*(curr_instance_));
-          // solution->CheckCorrectness(*curr_instance_);
-          solution->AddVertex(curr_vertex, curr_route, vertex_it, profit_variation, time_variation);
-          // std::cout << "after add vertex" << std::endl;
-          // solution->BuildBitset(*(curr_instance_));
-          // solution->CheckCorrectness(*curr_instance_);
-          added_vertex = true;
-        }
-      }
-      // std::cout << "after preview insert minimum FAILED" << std::endl;
-      // solution->BuildBitset(*(curr_instance_));
-      // solution->CheckCorrectness(*curr_instance_);
-    }
-  }
-
-  return added_vertex;
-}
-
-bool ALNS::TryToInsertUnvisitedVerticesOneRoute(ALNSHeuristicSolution *solution, int curr_route)
-{
-  int curr_vertex = 0;
-  int num_vertices = ((curr_instance_)->graph())->num_vertices();
-  int num_mandatory = curr_instance_->num_mandatory();
-  double time_variation = 0.0, profit_variation = 0;
-  bool added_vertex = false;
-  std::list<int>::iterator vertex_it;
-  VertexStatus *curr_status = nullptr;
-
-  int type = rand() % 2;
-
-  for (int i = 0; i < (int)((ordered_profits_).size()); ++i)
-  {
-    if (type == 0)
-      curr_vertex = ((ordered_profits_)[num_vertices - num_mandatory - 2 - i]).first;
-    if (type == 1)
-      curr_vertex = ((ordered_profits_)[i]).first;
-    curr_status = &((solution->vertex_status_vec_)[curr_vertex]);
-
-    if (!(curr_status->selected_))
-    {
-      if (solution->PreviewAddVertexToRouteWithinMaximumProfitIncrease(*(curr_instance_), curr_vertex, curr_route, vertex_it, profit_variation, time_variation))
-      {
-        // route = &((solution->routes_vec_)[curr_route]);
-        // std::cout << "before add vertex" << std::endl;
-        // solution->BuildBitset(*(curr_instance_));
-        // solution->CheckCorrectness(*curr_instance_);
-        solution->AddVertex(curr_vertex, curr_route, vertex_it, profit_variation, time_variation);
-        // std::cout << "after add vertex" << std::endl;
-        // solution->BuildBitset(*(curr_instance_));
-        // solution->CheckCorrectness(*curr_instance_);
-        added_vertex = true;
-      }
-      // std::cout << "after preview insert minimum FAILED" << std::endl;
-      // solution->BuildBitset(*(curr_instance_));
-      // solution->CheckCorrectness(*curr_instance_);
-    }
-  }
-
-  return added_vertex;
-}
-
-bool ALNS::ShiftingAndInsertion(ALNSHeuristicSolution *solution)
-{
-  bool shifting = false;
-  double global_variation = 0.0;
-  int num_vehicles = (curr_instance_)->num_vehicles();
-  Route *curr_route = nullptr;
-  double initial_profits_sum = solution->profits_sum_;
-
-  for (int i = 0; i < num_vehicles; ++i)
-  {
-    curr_route = &((solution->routes_vec_)[i]);
-    std::list<int> temp = curr_route->vertices_;
-    shifting = false;
-    for (std::list<int>::iterator it = temp.begin(); it != temp.end(); ++it)
-    {
-      shifting = ((ShiftingOneVertex(solution, *it, global_variation)) || shifting);
-    }
-
-    if (shifting)
-    {
-      TryToInsertUnvisitedVerticesOneRoute(solution, i);
-    }
-  }
-
-  // return true if improve total profits or decrease total time without decreasing total profits.
-  if (double_greater(solution->profits_sum_, initial_profits_sum) || (double_equals(solution->profits_sum_, initial_profits_sum) && double_less(global_variation, 0.0)))
-    return true;
-  return false;
-}
-
-void ALNS::RemoveVerticesFromSolution(ALNSHeuristicSolution *sol, double percentage)
-{
-  Route *curr_route = nullptr;
-  VertexStatus *curr_status = nullptr;
-  const Graph *graph = curr_instance_->graph();
-  int num_vertices = graph->num_vertices(), route = 0;
-  double time_variation = 0.0, profit_variation = 0.0;
-  int num_mandatory = curr_instance_->num_mandatory();
-  int num_visited_vertices = num_vertices - 2 - (int)((sol->unvisited_vertices_).size());
-  int num_visited_profitable_vertices = num_visited_vertices - num_mandatory;
-  int max_removed = 0;
-  int num_vertices_to_remove = 0;
-  int cont = 0, sub_cont = 0, type = 0;
-  int num_routes = sol->num_routes_;
-  int vertex_position = 0, curr_vertex = 0;
-  std::list<int>::iterator vertex_it;
-
-  type = rand() % 3;
-  // std::cout << "Remover " << num_removed_poles << " de " << sol->num_visited_poles_ << std::endl;
-  if (type == 0)
-    max_removed = (int)(std::floor(percentage * num_visited_vertices));
-  else
-    max_removed = (int)(std::floor(percentage * num_visited_profitable_vertices));
-
-  if (max_removed <= 0)
-    return;
-  else
-    num_vertices_to_remove = 1 + rand() % max_removed;
-  // std::cout << "num_visited_vertices:" << num_visited_vertices << std::endl;
-  // std::cout << "max removed:" << max_removed << std::endl;
-  // std::cout << "num_vertices_to_remove:" << num_vertices_to_remove << std::endl;
-  // std::cout << "type: " << type << std::endl;
-  do
-  {
-    switch (type)
-    {
-    // remove randomly
-    case 0:
-    {
-      route = rand() % num_routes;
-      curr_route = &((sol->routes_vec_)[route]);
-      while ((curr_route->vertices_).empty())
-      {
-        route = (route + 1) % num_routes;
-        curr_route = &((sol->routes_vec_)[route]);
-      }
-
-      vertex_position = rand() % ((curr_route->vertices_).size());
-      vertex_it = (curr_route->vertices_).begin();
-      if (vertex_position > 0)
-        std::advance(vertex_it, vertex_position);
-      curr_vertex = *vertex_it;
-
-      break;
-    }
-    // menor prioridade para maior prioridade
-    case 1:
-    {
-      do
-      {
-        curr_vertex = ((ordered_profits_)[sub_cont]).first;
-        curr_status = &((sol->vertex_status_vec_)[curr_vertex]);
-
-        ++sub_cont;
-      } while (!(curr_status->selected_));
-
-      break;
-    }
-
-    // maior prioridade para menor prioridade
-    case 2:
-    {
-      do
-      {
-        curr_vertex = ((ordered_profits_)[num_vertices - num_mandatory - 2 - sub_cont]).first;
-        curr_status = &((sol->vertex_status_vec_)[curr_vertex]);
-
-        ++sub_cont;
-      } while (!(curr_status->selected_));
-
-      break;
-    }
-    }
-
-    // std::cout << "try to remove " << curr_vertex << std::endl;
-    if ((curr_vertex > num_mandatory) && (sol->PreviewRemoveVertex(*(curr_instance_), curr_vertex, profit_variation, time_variation)))
-    {
-      // std::cout << "before remove vertex" << std::endl;
-      // sol->BuildBitset(*(curr_instance_));
-      // sol->CheckCorrectness(*curr_instance_);
-      sol->RemoveVertex(curr_vertex, profit_variation, time_variation);
-      // std::cout << "after remove vertex" << std::endl;
-      // sol->BuildBitset(*(curr_instance_));
-      // sol->CheckCorrectness(*curr_instance_);
-    }
-
-    // std::cout << *sol << std::endl;
-    // getchar(); getchar();
-
-    ++cont;
-  } while (cont < num_vertices_to_remove);
-  // std::cout << "Restaram " << sol->num_visited_poles_ << std::endl;
-}

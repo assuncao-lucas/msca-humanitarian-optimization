@@ -20,7 +20,7 @@
 #include "src/solution.hpp"
 #include "src/feasibility_pump/feasibility_pump.h"
 #include "src/local_branching.h"
-#include "src/ALNS.h"
+#include "src/ALNS/ALNS.h"
 
 void GenerateALNSLatexTable(std::vector<std::string> dirs, bool stop)
 {
@@ -3541,7 +3541,7 @@ static const struct option longOpts[] = {
     {"instance", required_argument, NULL, '1'},
     {"seed", required_argument, NULL, '2'},
     {"LNS", no_argument, NULL, '3'},
-    {"local-branching", no_argument, NULL, '4'},
+    {"simulated-annealing", no_argument, NULL, '4'},
     {NULL, no_argument, NULL, 0}};
 
 void ParseArgumentsAndRun(int argc, char *argv[])
@@ -3550,7 +3550,7 @@ void ParseArgumentsAndRun(int argc, char *argv[])
   int c = 0, seed = 0;
   bool solve_feasibility_pump = false;
   bool solve_ALNS = false;
-  bool solve_local_branching = false;
+  bool solve_simulated_annealing = false;
 
   while ((c = getopt_long(argc, argv, "01:2:3", longOpts, NULL)) != -1)
   {
@@ -3571,7 +3571,7 @@ void ParseArgumentsAndRun(int argc, char *argv[])
       solve_ALNS = true;
       break;
     case '4':
-      solve_local_branching = true;
+      solve_simulated_annealing = true;
       break;
     }
   }

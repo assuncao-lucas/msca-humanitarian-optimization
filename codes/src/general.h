@@ -78,7 +78,7 @@ const bool K_LOCAL_BRANCHING_SOLVE_ALNS = true;
 const int K_SIZE_OF_ALNS_POOL = 20;
 const int K_NUM_ITERATIONS_ALNS = 500;
 const double K_ALNS_PERTURBATION_PERCENTAGE = 0.75;
-const bool K_ALNS_MULTI_THREAD = true;
+const bool K_ALNS_MULTI_THREAD = false;
 
 // Path Relinking parameters
 const bool K_PATH_RELINKING = false;
