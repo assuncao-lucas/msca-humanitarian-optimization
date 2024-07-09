@@ -500,17 +500,14 @@ namespace LocalSearches
             {
                 if (solution->PreviewAddVertexWithinMaximumProfitIncrease(instance, curr_vertex, curr_route, vertex_it, profit_variation, time_variation))
                 {
-                    if (double_greater(profit_variation, 0.0) || (double_equals(profit_variation, 0.0) && double_less(time_variation, 0.0)))
-                    {
-                        // std::cout << "before add vertex" << std::endl;
-                        // solution->BuildBitset(instance);
-                        // solution->CheckCorrectness(instance);
-                        solution->AddVertex(curr_vertex, curr_route, vertex_it, profit_variation, time_variation);
-                        // std::cout << "after add vertex" << std::endl;
-                        // solution->BuildBitset(instance);
-                        // solution->CheckCorrectness(instance);
-                        added_vertex = true;
-                    }
+                    // std::cout << "before add vertex" << std::endl;
+                    // solution->BuildBitset(instance);
+                    // solution->CheckCorrectness(instance);
+                    solution->AddVertex(curr_vertex, curr_route, vertex_it, profit_variation, time_variation);
+                    // std::cout << "after add vertex" << std::endl;
+                    // solution->BuildBitset(instance);
+                    // solution->CheckCorrectness(instance);
+                    added_vertex = true;
                 }
                 // std::cout << "after preview insert minimum FAILED" << std::endl;
                 // solution->BuildBitset(instance);

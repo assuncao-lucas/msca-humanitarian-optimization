@@ -21,7 +21,7 @@ CC=g++ -std=c++17
 PROG_DIR=codes/src
 PROG_BIN=codes/bin
 
-MAIN_EXACT_SRC=$(PROG_DIR)/exact/main2.cpp
+MAIN_EXACT_SRC=$(PROG_DIR)/exact/main.cpp
 
 MAIN_HEURISTIC_SRC=$(PROG_DIR)/heuristic/main2.cpp
 

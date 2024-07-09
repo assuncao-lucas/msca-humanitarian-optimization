@@ -181,6 +181,12 @@ Instance::Instance(std::string dir_path, std::string file_name, int num_vehicles
     // }
     // getchar();
     // getchar();
+
+    // std::cout << "original to reordered pos" << std::endl;
+    // for (int i = 0; i < num_vertices; ++i)
+    // {
+    //     std::cout << i << " -> " << map_original_positions_to_reordered_vertices_[i] << " -> " << map_reordered_vertices_to_original_positions_[map_original_positions_to_reordered_vertices_[i]] << std::endl;
+    // }
 }
 
 Instance::~Instance()

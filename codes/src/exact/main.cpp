@@ -2844,13 +2844,17 @@ static const struct option longOpts[] = {
 	{"ks-max-time-limit", required_argument, NULL, 'x'},
 	{"ks-decay-factor", required_argument, NULL, 'y'},
 	{"ks-feasibility-emphasis", required_argument, NULL, 'z'},
-	{"alns", no_argument, NULL, 'A'},
+	{"seed", required_argument, NULL, 'A'},
+	{"alns", no_argument, NULL, 'B'},
+	{"alns-num-iterations", required_argument, NULL, 'C'},
+	{"alns-pool-size", required_argument, NULL, 'D'},
 	{NULL, no_argument, NULL, 0}};
 
 void ParseArgumentsAndRun(int argc, char *argv[])
 {
 	std::string instance, folder, file_name, dir_solutions;
 	int c;
+	int seed = 0;
 	int num_vehicles = 0, uncertainty_budget = 0;
 	bool solve_compact = false, solve_cb = false, solve_bc = false, baseline = false, capacity_based = false, generate_convex_hull = false;
 	bool solve_relaxed = false, solve_benders = false, solve_generic_callback = false, combine_feas_opt_cuts = false;
@@ -2865,10 +2869,11 @@ void ParseArgumentsAndRun(int argc, char *argv[])
 	double ks_decay_factor = K_KS_DECAY_FACTOR_TIME_LIMIT;
 	bool ks_feasibility_emphasis = false;
 	HeuristicSolution *initial_sol = nullptr;
+	int alns_num_iterations = K_ALNS_NUM_ITERATIONS, alns_pool_size = K_ALNS_SIZE_OF_POOL;
 
 	std::vector<bool> *CALLBACKS_SELECTION = GetCallbackSelection();
 
-	while ((c = getopt_long(argc, argv, "g:h:j:k:l:v:w:x:y:z:", longOpts, NULL)) != -1)
+	while ((c = getopt_long(argc, argv, "g:h:j:k:l:v:w:x:y:z:A:C:D:", longOpts, NULL)) != -1)
 	{
 		switch (c)
 		{
@@ -2953,12 +2958,22 @@ void ParseArgumentsAndRun(int argc, char *argv[])
 			ks_decay_factor = std::atof(optarg);
 			break;
 		case 'z':
-		{
 			ks_feasibility_emphasis = (std::atoi(optarg) != 0);
 			break;
-		}
 		case 'A':
+			if (optarg)
+				seed = std::atoi(optarg);
+			break;
+		case 'B':
 			solve_alns = true;
+			break;
+		case 'C':
+			if (optarg)
+				alns_num_iterations = std::atoi(optarg);
+			break;
+		case 'D':
+			if (optarg)
+				alns_pool_size = std::atoi(optarg);
 			break;
 		}
 	}
@@ -3215,18 +3230,18 @@ void ParseArgumentsAndRun(int argc, char *argv[])
 
 	if (solve_alns)
 	{
-		ALNS alns;
 		auto initial_solution = InitalSolutionGenerator::GenerateInitialSolution(inst);
-		alns.Init(inst, initial_solution);
+		ALNS alns(inst, initial_solution, alns_pool_size);
 
 		delete initial_solution;
 		initial_solution = nullptr;
 
-		alns.Run();
-		std::cout << ALNSHeuristicSolution::GenerateFileName() << "_seed_" << seed << std::endl;
+		alns.Run(alns_num_iterations);
+		std::cout << ALNSHeuristicSolution::GenerateFileName(alns_num_iterations, alns_pool_size) << "_seed_" << seed << std::endl;
 
-		(alns.best_solution())->WriteToFile(ALNSHeuristicSolution::GenerateFileName() + "_seed_" + std::to_string(seed), folder, file_name);
+		(alns.best_solution())->WriteToFile(inst, ALNSHeuristicSolution::GenerateFileName(alns_num_iterations, alns_pool_size) + "_seed_" + std::to_string(seed), dir_solutions, instance_name);
 	}
+
 	if (!solve_kernel_search && !solve_alns)
 	{
 		if (solve_relaxed)
@@ -3244,6 +3259,7 @@ void ParseArgumentsAndRun(int argc, char *argv[])
 		std::cout << "# feas cuts: " << sol.num_benders_feas_cuts_ << std::endl
 				  << std::endl;
 	}
+
 	delete[] R0;
 	R0 = nullptr;
 

@@ -57,7 +57,6 @@ public:
 	bool PreviewAddVertexWithinMaximumProfitIncrease(Instance &, int vertex, int &route, std::list<int>::iterator &it, double &profit_variation, double &time_variation);
 
 	bool Do2OptImprovement(const Instance &inst, const int &route);
-	bool Do3OptImprovement(const Graph *graph, const int &route);
 	bool operator==(HeuristicSolution &);
 
 	friend std::ostream &operator<<(std::ostream &out, HeuristicSolution &sol);
@@ -139,5 +138,5 @@ public:
 	virtual void Reset(int dimension, int dimension2, int num_routes);
 	void WriteToFile(Instance &instance, std::string algo, std::string folder, std::string file_name) const;
 	void ReadFromFile(Instance &inst, std::string algo, std::string folder, std::string file_name);
-	static std::string GenerateFileName();
+	static std::string GenerateFileName(int num_iterations, int pool_size);
 };

@@ -62,7 +62,7 @@ const bool FIXED_FLIP_BASIS = true;
 const double K_APLHA_DECREMENT_PRECISION = 0.005;
 const bool K_FEASIBILITY_PUMP_ADD_CUTS = false;
 
-// Kernel Search parameters
+// DEFAULT Kernel Search parameters
 const bool K_KERNEL_SEARCH_ADD_CUTS = false;
 const int K_KS_MAX_SIZE_BUCKET = 5;
 const int K_KS_MAX_TIME_LIMIT = 20;
@@ -74,11 +74,11 @@ const int K_LOCAL_BRANCHING_K = 30;
 const bool K_LOCAL_BRANCHING_ADD_CUTS = false;
 const bool K_LOCAL_BRANCHING_SOLVE_ALNS = true;
 
-// ALNS parameters
-const int K_SIZE_OF_ALNS_POOL = 20;
-const int K_NUM_ITERATIONS_ALNS = 500;
+// DEFAULT ALNS parameters
+const int K_ALNS_SIZE_OF_POOL = 20;
+const int K_ALNS_NUM_ITERATIONS = 2000;
 const double K_ALNS_PERTURBATION_PERCENTAGE = 0.75;
-const bool K_ALNS_MULTI_THREAD = false;
+const bool K_ALNS_MULTI_THREAD = true;
 
 // Path Relinking parameters
 const bool K_PATH_RELINKING = false;

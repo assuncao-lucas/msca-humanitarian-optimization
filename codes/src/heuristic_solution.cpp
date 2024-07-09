@@ -233,421 +233,6 @@ bool HeuristicSolution::Do2OptImprovement(const Instance &inst, const int &route
 	return false;
 }
 
-bool HeuristicSolution::Do3OptImprovement(const Graph *graph, const int &route)
-{
-	Route *curr_route = &((routes_vec_)[route]);
-	size_t size_route = ((curr_route->vertices_).size());
-
-	if (size_route < 4)
-		return false;
-
-	std::list<int>::iterator vi_it;
-	std::list<int>::iterator vj_it;
-	std::list<int>::iterator vk_it;
-	std::list<int>::iterator pre_vi_it, pos_vk_it, pos_vj_it, it_init, it_end;
-	int vi = 0, vj = 0, vk = 0, pre_vi = 0, pos_vj = 0, pos_vk = 0, v1 = 0, v2 = 0;
-	int num_vertices = graph->num_vertices();
-	GArc *new_arc1 = nullptr, *new_arc2 = nullptr, *new_arc3 = nullptr, *curr_arc = nullptr;
-	bool invalid_swap = false;
-
-	double time_variation = 0.0, minus_variation = 0.0;
-
-	std::list<int> temp;
-	std::list<int>::iterator new_route_it, temp_it;
-
-	vi_it = (curr_route->vertices_).begin();
-	for (int i = 0; i <= size_route - 4; i++)
-	{
-		vi = (*vi_it);
-
-		if (i > 0)
-		{
-			pre_vi_it = vi_it;
-			--pre_vi_it;
-			pre_vi = (*pre_vi_it);
-		}
-		else
-		{
-			pre_vi = 0;
-		}
-
-		vj_it = vi_it;
-		++vj_it; // because next loop begins from i + 1
-		for (int j = i + 1; j <= size_route - 3; j++)
-		{
-			vj = (*vj_it);
-
-			pos_vj_it = vj_it;
-			++pos_vj_it;
-			pos_vj = (*pos_vj_it);
-
-			vk_it = vj_it;
-			std::advance(vk_it, 2); // because next loop begins from j + 2
-			for (int k = j + 2; k <= size_route - 1; k++)
-			{
-				vk = (*vk_it);
-
-				if (k < size_route - 1)
-				{
-					pos_vk_it = vk_it;
-					pos_vk_it++;
-					pos_vk = (*pos_vk_it);
-				}
-				else
-				{
-					pos_vk = num_vertices - 1;
-				}
-
-				minus_variation = ((*graph)[pre_vi][vi])->distance() + ((*graph)[vj][pos_vj])->distance() + ((*graph)[vk][pos_vk])->distance();
-
-				// primeira possibilidade de reconexão
-				invalid_swap = false;
-				new_arc1 = (*graph)[pre_vi][pos_vj];
-				new_arc2 = (*graph)[vk][vi];
-				new_arc3 = (*graph)[vj][pos_vk];
-
-				if ((new_arc1 == nullptr) || (new_arc2 == nullptr) || (new_arc3 == nullptr))
-					invalid_swap = true;
-				// time_variation = ((*min_dists)[actual_pre_vi][actual_pos_vj] + (*min_dists)[actual_vk][actual_vi] + (*min_dists)[actual_vj][actual_pos_vk] - minus_variation)/((curr_instance_)->speed_vehicle());
-
-				if (!invalid_swap)
-				{
-					// in this case, does not need to reverse any part of the route
-					time_variation = new_arc1->distance() + new_arc2->distance() + new_arc3->distance() - minus_variation;
-				}
-
-				// se há melhora no tempo da rota, faz o swap
-				if ((!invalid_swap) && double_less(time_variation, 0.0))
-				{
-					// std::cout << *curr_route << std::endl;
-					// std::cout << "após 3-opt com:" << std::endl;
-					// std::cout << "vi: " << vi << ", pre_vi:" << pre_vi <<", vj: " << vj << ", pos_vj:" << pos_vj << ", vk: " << vk << ",pos_vk: " << pos_vk << std::endl;
-					(curr_route->time_) += (time_variation);
-					temp = curr_route->vertices_;
-
-					new_route_it = vi_it;
-
-					temp_it = temp.begin();
-					std::advance(temp_it, j + 1);
-
-					for (int cont = j + 1; cont <= k; cont++)
-					{
-						*new_route_it = *temp_it;
-
-						((vertex_status_vec_)[*new_route_it]).pos_ = new_route_it;
-
-						new_route_it++;
-						temp_it++;
-					}
-
-					temp_it = temp.begin();
-					std::advance(temp_it, i);
-
-					for (int cont = i; cont <= j; cont++)
-					{
-						*new_route_it = *temp_it;
-
-						((vertex_status_vec_)[*new_route_it]).pos_ = new_route_it;
-
-						new_route_it++;
-						temp_it++;
-					}
-
-					// std::cout << "case 1" << std::endl;
-					// std::cout << "i: " << vi << " j: " << vj << " k: " << vk << std::endl;
-					// std::cout << *curr_route << std::endl;
-					// getchar();getchar();
-
-					return true;
-				}
-
-				// segunda possibilidade de reconexão]
-				invalid_swap = false;
-				new_arc1 = (*graph)[pre_vi][vj];
-				new_arc2 = (*graph)[vi][vk];
-				new_arc3 = (*graph)[pos_vj][pos_vk];
-
-				if ((new_arc1 == nullptr) || (new_arc2 == nullptr) || (new_arc3 == nullptr))
-					invalid_swap = true;
-				// time_variation = ((*min_dists)[actual_pre_vi][actual_vj] + (*min_dists)[actual_vi][actual_vk] + (*min_dists)[actual_pos_vj][actual_pos_vk] - minus_variation)/((curr_instance_)->speed_vehicle());
-
-				if (!invalid_swap)
-				{
-					// in this case, does not need to reverse any part of the route
-					time_variation = new_arc1->distance() + new_arc2->distance() + new_arc3->distance() - minus_variation;
-
-					it_init = vi_it;
-					v2 = *it_init;
-					it_end = vj_it;
-					// bool invalid_swap = false;
-
-					while (it_init != it_end)
-					{
-						v1 = v2;
-						++it_init;
-						v2 = *it_init;
-
-						curr_arc = (*graph)[v1][v2];
-						time_variation -= curr_arc->distance();
-						curr_arc = (*graph)[v2][v1];
-						if (curr_arc == nullptr)
-						{
-							invalid_swap = true;
-							break;
-						}
-						else
-							time_variation += curr_arc->distance();
-					}
-
-					if (!invalid_swap)
-					{
-						it_init = pos_vj_it;
-						v2 = *it_init;
-						it_end = vk_it;
-						// bool invalid_swap = false;
-
-						while (it_init != it_end)
-						{
-							v1 = v2;
-							++it_init;
-							v2 = *it_init;
-
-							curr_arc = (*graph)[v1][v2];
-							time_variation -= curr_arc->distance();
-							curr_arc = (*graph)[v2][v1];
-							if (curr_arc == nullptr)
-							{
-								invalid_swap = true;
-								break;
-							}
-							else
-								time_variation += curr_arc->distance();
-						}
-					}
-				}
-
-				// se há melhora no tempo da rota, faz o swap
-				if ((!invalid_swap) && double_less(time_variation, 0.0))
-				{
-					// std::cout << *curr_route << std::endl;
-					// std::cout << "após 3-opt com:" << std::endl;
-					// std::cout << "vi: " << vi << ", pre_vi:" << pre_vi <<", vj: " << vj << ", pos_vj:" << pos_vj << ", vk: " << vk << ",pos_vk: " << pos_vk << std::endl;
-					(curr_route->time_) += (time_variation);
-					temp = curr_route->vertices_;
-
-					new_route_it = vi_it;
-
-					temp_it = temp.begin();
-					std::advance(temp_it, j);
-
-					for (int cont = j; cont >= i; cont--)
-					{
-						*new_route_it = *temp_it;
-
-						((vertex_status_vec_)[*new_route_it]).pos_ = new_route_it;
-
-						new_route_it++;
-						temp_it--;
-					}
-
-					temp_it = temp.begin();
-					std::advance(temp_it, k);
-
-					for (int cont = k; cont >= j + 1; cont--)
-					{
-						*new_route_it = *temp_it;
-
-						((vertex_status_vec_)[*new_route_it]).pos_ = new_route_it;
-
-						new_route_it++;
-						temp_it--;
-					}
-
-					// std::cout << *curr_route << std::endl;
-					// getchar();getchar();
-					// std::cout << "case 2" << std::endl;
-					// std::cout << "i: " << vi << " j: " << vj << " k: " << vk << std::endl;
-
-					return true;
-				}
-
-				// terceira possibilidade de reconexão
-				invalid_swap = false;
-				new_arc1 = (*graph)[pre_vi][vk];
-				new_arc2 = (*graph)[pos_vj][vi];
-				new_arc3 = (*graph)[vj][pos_vk];
-
-				if ((new_arc1 == nullptr) || (new_arc2 == nullptr) || (new_arc3 == nullptr))
-					invalid_swap = true;
-				// time_variation = ((*min_dists)[actual_pre_vi][actual_vk] + (*min_dists)[actual_pos_vj][actual_vi] + (*min_dists)[actual_vj][actual_pos_vk] - minus_variation)/((curr_instance_)->speed_vehicle());
-
-				if (!invalid_swap)
-				{
-					// in this case, does not need to reverse any part of the route
-					time_variation = new_arc1->distance() + new_arc2->distance() + new_arc3->distance() - minus_variation;
-
-					it_init = pos_vj_it;
-					v2 = *it_init;
-					it_end = vk_it;
-					// bool invalid_swap = false;
-
-					while (it_init != it_end)
-					{
-						v1 = v2;
-						++it_init;
-						v2 = *it_init;
-
-						curr_arc = (*graph)[v1][v2];
-						time_variation -= curr_arc->distance();
-						curr_arc = (*graph)[v2][v1];
-						if (curr_arc == nullptr)
-						{
-							invalid_swap = true;
-							break;
-						}
-						else
-							time_variation += curr_arc->distance();
-					}
-				}
-
-				// se há melhora no tempo da rota, faz o swap
-				if ((!invalid_swap) && double_less(time_variation, 0.0))
-				{
-					// std::cout << *curr_route << std::endl;
-					// std::cout << "após 3-opt com:" << std::endl;
-					// std::cout << "vi: " << vi << ", pre_vi:" << pre_vi <<", vj: " << vj << ", pos_vj:" << pos_vj << ", vk: " << vk << ",pos_vk: " << pos_vk << std::endl;
-					(curr_route->time_) += (time_variation);
-					temp = curr_route->vertices_;
-
-					new_route_it = vi_it;
-
-					temp_it = temp.begin();
-					std::advance(temp_it, k);
-
-					for (int cont = k; cont >= j + 1; cont--)
-					{
-						*new_route_it = *temp_it;
-
-						((vertex_status_vec_)[*new_route_it]).pos_ = new_route_it;
-
-						new_route_it++;
-						temp_it--;
-					}
-
-					temp_it = temp.begin();
-					std::advance(temp_it, i);
-
-					for (int cont = i; cont <= j; cont++)
-					{
-						*new_route_it = *temp_it;
-
-						((vertex_status_vec_)[*new_route_it]).pos_ = new_route_it;
-
-						new_route_it++;
-						temp_it++;
-					}
-
-					// std::cout << *curr_route << std::endl;
-					// getchar();getchar();
-					// std::cout << "case 3" << std::endl;
-					// std::cout << "i: " << vi << " j: " << vj << " k: " << vk << std::endl;
-
-					return true;
-				}
-
-				// quarta possibilidade de reconexão
-				invalid_swap = false;
-				new_arc1 = (*graph)[pre_vi][pos_vj];
-				new_arc2 = (*graph)[vk][vj];
-				new_arc3 = (*graph)[vi][pos_vk];
-
-				if ((new_arc1 == nullptr) || (new_arc2 == nullptr) || (new_arc3 == nullptr))
-					invalid_swap = true;
-				// time_variation = ((*min_dists)[actual_pre_vi][actual_pos_vj] + (*min_dists)[actual_vk][actual_vj] + (*min_dists)[actual_vi][actual_pos_vk] - minus_variation)/((curr_instance_)->speed_vehicle());
-
-				if (!invalid_swap)
-				{
-					// in this case, does not need to reverse any part of the route
-					time_variation = new_arc1->distance() + new_arc2->distance() + new_arc3->distance() - minus_variation;
-
-					it_init = vi_it;
-					v2 = *it_init;
-					it_end = vj_it;
-					// bool invalid_swap = false;
-
-					while (it_init != it_end)
-					{
-						v1 = v2;
-						++it_init;
-						v2 = *it_init;
-
-						curr_arc = (*graph)[v1][v2];
-						time_variation -= curr_arc->distance();
-						curr_arc = (*graph)[v2][v1];
-						if (curr_arc == nullptr)
-						{
-							invalid_swap = true;
-							break;
-						}
-						else
-							time_variation += curr_arc->distance();
-					}
-				}
-
-				// se há melhora no tempo da rota, faz o swap
-				if ((!invalid_swap) && double_less(time_variation, 0.0))
-				{
-					// std::cout << *curr_route << std::endl;
-					// std::cout << "após 3-opt com:" << std::endl;
-					// std::cout << "vi: " << vi << ", pre_vi:" << pre_vi <<", vj: " << vj << ", pos_vj:" << pos_vj << ", vk: " << vk << ",pos_vk: " << pos_vk << std::endl;
-					(curr_route->time_) += (time_variation);
-					temp = curr_route->vertices_;
-
-					new_route_it = vi_it;
-
-					temp_it = temp.begin();
-					std::advance(temp_it, j + 1);
-
-					for (int cont = j + 1; cont <= k; cont++)
-					{
-						*new_route_it = *temp_it;
-
-						((vertex_status_vec_)[*new_route_it]).pos_ = new_route_it;
-
-						new_route_it++;
-						temp_it++;
-					}
-
-					temp_it = temp.begin();
-					std::advance(temp_it, j);
-
-					for (int cont = j; cont >= i; cont--)
-					{
-						*new_route_it = *temp_it;
-
-						((vertex_status_vec_)[*new_route_it]).pos_ = new_route_it;
-
-						new_route_it++;
-						temp_it--;
-					}
-
-					// std::cout << *curr_route << std::endl;
-					// getchar();getchar();
-					// std::cout << "case 4" << std::endl;
-					// std::cout << "i: " << vi << " j: " << vj << " k: " << vk << std::endl;
-
-					return true;
-				}
-
-				++vk_it;
-			}
-			vj_it++;
-		}
-		vi_it++;
-	}
-	return false;
-}
-
 void HeuristicSolution::AddVertex(int vertex, int route, std::list<int>::iterator it, double profit_variation, double time_variation)
 {
 	VertexStatus *status = &((vertex_status_vec_)[vertex]);
@@ -975,7 +560,7 @@ bool HeuristicSolution::PreviewAddVertexWithinMaximumProfitIncrease(Instance &in
 	{
 		if (PreviewAddVertexToRouteWithinMaximumProfitIncrease(inst, vertex, curr_route, curr_it, curr_profit_variation, curr_time_variation))
 		{
-			if (double_less(curr_time_variation, time_variation))
+			if (double_greater(curr_profit_variation, profit_variation) || (double_equals(curr_profit_variation, profit_variation) && double_less(curr_time_variation, time_variation)))
 			{
 				can_add = true;
 				route = curr_route;
@@ -1512,7 +1097,7 @@ void HeuristicSolution::ReadFromFile(Instance &inst, std::string algo, std::stri
 	Route *curr_route = nullptr;
 	int num_routes = 0;
 	std::fstream input;
-	std::string path = "..//solutions";
+	std::string path = "..//solutions//";
 	path.append(folder);
 	// struct stat sb;
 	// if(stat(path.c_str(),&sb) != 0 || !S_ISDIR(sb.st_mode)) mkdir(path.c_str(),0777);
@@ -1659,7 +1244,7 @@ void ALNSHeuristicSolution::Reset(int num_vertices, int num_arcs, int num_routes
 void ALNSHeuristicSolution::WriteToFile(Instance &instance, std::string algo, std::string folder, std::string file_name) const
 {
 	std::fstream file;
-	std::string path = "..//solutions";
+	std::string path = "..//solutions//";
 	path.append(folder);
 	// struct stat sb;
 	// if(stat(path.c_str(),&sb) != 0 || !S_ISDIR(sb.st_mode)) mkdir(path.c_str(),0777);
@@ -1697,7 +1282,7 @@ void ALNSHeuristicSolution::ReadFromFile(Instance &inst, std::string algo, std::
 	HeuristicSolution::ReadFromFile(inst, algo, folder, file_name);
 
 	std::fstream input;
-	std::string path = "..//solutions";
+	std::string path = "..//solutions//";
 	path.append(folder);
 	// struct stat sb;
 	// if(stat(path.c_str(),&sb) != 0 || !S_ISDIR(sb.st_mode)) mkdir(path.c_str(),0777);
@@ -1741,19 +1326,13 @@ void ALNSHeuristicSolution::ReadFromFile(Instance &inst, std::string algo, std::
 	input.close();
 }
 
-std::string ALNSHeuristicSolution::GenerateFileName()
+std::string ALNSHeuristicSolution::GenerateFileName(int num_iterations, int pool_size)
 {
-
-	std::string file_name = FPHeuristicSolution::GenerateFileName();
+	std::string file_name = "alns";
 	if (K_ALNS_MULTI_THREAD)
-		file_name += "_MT";
-	if ((K_PATH_RELINKING) && (!K_STOP_AT_FIRST_PR_DETECTION))
-		file_name += "_PR";
-	file_name += ("_ALNS_");
-	if (K_STOP_AT_FIRST_PR_DETECTION)
-		file_name += "CONV";
-	else
-		file_name += std::to_string(K_NUM_ITERATIONS_ALNS);
+		file_name += "_MT_";
+	file_name += std::to_string(num_iterations);
+	file_name += "_ps_" + std::to_string(pool_size);
 
 	return file_name;
 }
@@ -1827,7 +1406,7 @@ std::string FPHeuristicSolution::GenerateFileName()
 void FPHeuristicSolution::WriteToFile(Instance &instance, std::string algo, std::string folder, std::string file_name) const
 {
 	std::fstream file;
-	std::string path = "..//solutions";
+	std::string path = "..//solutions//";
 	path.append(folder);
 	// struct stat sb;
 	// if(stat(path.c_str(),&sb) != 0 || !S_ISDIR(sb.st_mode)) mkdir(path.c_str(),0777);

@@ -4,7 +4,7 @@
 
 # valgrind --leak-check=yes --track-origins=yes
 
-dir0="../instances/R-STOP-DP"
+dir0="../instances/R-STOP-DP-reduced-RC"
 dir_solutions=$(date +%Y-%m-%d_%H:%M:%S)
 mkdir "../solutions/"$dir_solutions
 
@@ -125,15 +125,17 @@ do
 					# echo $service_time_deviation
 					# echo $uncertainty_budget
                     # Exact 
-                    # ./bin/stop --solution-dir $dir_solutions --compact --baseline --time-limit $time_limit --instance $file --num-vehicles $num_vehicles --uncertainty-budget $uncertainty_budget --service-time-deviation $service_time_deviation
+                    ./bin/stop --solution-dir $dir_solutions --compact --baseline --time-limit $time_limit --instance $file --num-vehicles $num_vehicles --uncertainty-budget $uncertainty_budget --service-time-deviation $service_time_deviation
                     # ./bin/stop --solution-dir $dir_solutions --warm-start --compact --baseline --time-limit $time_limit --instance $file --num-vehicles $num_vehicles --uncertainty-budget $uncertainty_budget --service-time-deviation $service_time_deviation --ks-max-size-bucket 2 --ks-min-time-limit 19 --ks-max-time-limit 84 --ks-decay-factor 0.96 --ks-feasibility-emphasis 1	
 					# ./bin/stop --solution-dir $dir_solutions --compact --capacity-based --time-limit $time_limit --instance $file --num-vehicles $num_vehicles --uncertainty-budget $uncertainty_budget --service-time-deviation $service_time_deviation
                     # ./bin/stop --solution-dir $dir_solutions --cutting-plane --baseline --AVICs --CCCs --time-limit $time_limit --instance $file --num-vehicles $num_vehicles --uncertainty-budget $uncertainty_budget --service-time-deviation $service_time_deviation
                     # ./bin/stop --solution-dir $dir_solutions --cutting-plane --capacity-based --AVICs --CCCs --time-limit $time_limit --instance $file --num-vehicles $num_vehicles --uncertainty-budget $uncertainty_budget --service-time-deviation $service_time_deviation
                     # Kernel Search
-                    ./bin/stop --solution-dir $dir_solutions --kernel-search --baseline --instance $file --num-vehicles $num_vehicles --uncertainty-budget $uncertainty_budget --service-time-deviation $service_time_deviation --ks-max-size-bucket 5 --ks-min-time-limit 19 --ks-max-time-limit 84 --ks-decay-factor 0.96 --ks-feasibility-emphasis 1
-                    ./bin/stop --solution-dir $dir_solutions --kernel-search --capacity-based --instance $file --num-vehicles $num_vehicles --uncertainty-budget $uncertainty_budget --service-time-deviation $service_time_deviation --ks-max-size-bucket 5 --ks-min-time-limit 25 --ks-max-time-limit 72 --ks-decay-factor 0.86 --ks-feasibility-emphasis 0
-                done
+                    # ./bin/stop --solution-dir $dir_solutions --kernel-search --baseline --instance $file --num-vehicles $num_vehicles --uncertainty-budget $uncertainty_budget --service-time-deviation $service_time_deviation --ks-max-size-bucket 5 --ks-min-time-limit 19 --ks-max-time-limit 84 --ks-decay-factor 0.96 --ks-feasibility-emphasis 1
+                    # ./bin/stop --solution-dir $dir_solutions --kernel-search --capacity-based --instance $file --num-vehicles $num_vehicles --uncertainty-budget $uncertainty_budget --service-time-deviation $service_time_deviation --ks-max-size-bucket 5 --ks-min-time-limit 25 --ks-max-time-limit 72 --ks-decay-factor 0.86 --ks-feasibility-emphasis 0
+					# ALNS
+					# ./bin/stop --solution-dir $dir_solutions --alns --capacity-based --instance $file --num-vehicles $num_vehicles --uncertainty-budget $uncertainty_budget --service-time-deviation $service_time_deviation --seed 10 --alns-num-iterations 10 --alns-pool-size 3
+				done
 			done
 		done 
 	fi

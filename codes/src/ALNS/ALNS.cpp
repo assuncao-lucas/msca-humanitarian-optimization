@@ -5,13 +5,6 @@
 #include "src/formulations.h"
 #include "src/local_searches/local_searches.h"
 
-ALNS::ALNS()
-{
-  num_elements_in_pool_ = 0;
-  pool_ = std::vector<ALNSHeuristicSolution *>(K_SIZE_OF_ALNS_POOL, nullptr);
-  Reset();
-}
-
 ALNS::~ALNS()
 {
   for (int i = 0; i < num_elements_in_pool_; ++i)
@@ -21,20 +14,20 @@ ALNS::~ALNS()
   }
 }
 
-void ALNS::Reset()
-{
-  for (int i = 0; i < num_elements_in_pool_; ++i)
-  {
-    delete ((pool_)[i]);
-    (pool_)[i] = nullptr;
-  }
+// void ALNS::Reset()
+// {
+//   for (int i = 0; i < num_elements_in_pool_; ++i)
+//   {
+//     delete ((pool_)[i]);
+//     (pool_)[i] = nullptr;
+//   }
 
-  num_elements_in_pool_ = 0;
-  pos_best_sol_ = -1;
-  pos_worst_sol_ = -1;
-  last_improve_iteration_ = 0;
-  non_improve_iterations_counter_ = 0;
-}
+//   num_elements_in_pool_ = 0;
+//   pos_best_sol_ = -1;
+//   pos_worst_sol_ = -1;
+//   last_improve_iteration_ = 0;
+//   non_improve_iterations_counter_ = 0;
+// }
 
 bool ALNS::CheckPoolIntegrity()
 {
@@ -42,7 +35,7 @@ bool ALNS::CheckPoolIntegrity()
   ALNSHeuristicSolution *curr_sol = nullptr;
   double max_profits = -1.0, min_profits = std::numeric_limits<double>::max();
   int max_profits_index = -1, min_profits_index = -1;
-  if (num_elements_in_pool_ > K_SIZE_OF_ALNS_POOL)
+  if (num_elements_in_pool_ > max_pool_size_)
     throw "Inconsistent pool 1";
   // if(num_elements_in_pool_ != (int)((pool_).size())) throw "Inconsistent pool 2";
 
@@ -74,8 +67,10 @@ bool ALNS::CheckPoolIntegrity()
   return true;
 }
 
-void ALNS::Init(Instance &instance, std::string algo, std::string folder, std::string file_name)
+ALNS::ALNS(Instance &instance, std::string algo, std::string folder, std::string file_name, int pool_size)
 {
+  max_pool_size_ = pool_size;
+  pool_ = std::vector<ALNSHeuristicSolution *>(pool_size, nullptr);
   curr_instance_ = &instance;
   const Graph *graph = instance.graph();
   int num_vertices = graph->num_vertices(), num_arcs = graph->num_arcs();
@@ -89,8 +84,10 @@ void ALNS::Init(Instance &instance, std::string algo, std::string folder, std::s
   // std::cout << *sol << std::endl;
 }
 
-void ALNS::Init(Instance &instance, HeuristicSolution *initial_sol)
+ALNS::ALNS(Instance &instance, HeuristicSolution *initial_sol, int pool_size)
 {
+  max_pool_size_ = pool_size;
+  pool_ = std::vector<ALNSHeuristicSolution *>(pool_size, nullptr);
   curr_instance_ = &instance;
   // std::cout << "read from file " << file_name << std::endl;
   ALNSHeuristicSolution *sol = new ALNSHeuristicSolution(initial_sol);
@@ -129,7 +126,7 @@ ALNSHeuristicSolution *ALNS::worst_solution()
 bool ALNS::AddSolutionToPool(ALNSHeuristicSolution *sol, int iter)
 {
   ALNSHeuristicSolution *curr_sol = nullptr;
-  if (K_SIZE_OF_ALNS_POOL <= 0)
+  if (max_pool_size_ <= 0)
     return false;
 
   int pos_second_worst_sol = -1;
@@ -173,7 +170,7 @@ bool ALNS::AddSolutionToPool(ALNSHeuristicSolution *sol, int iter)
 
     if (!sol_is_in_pool)
     {
-      if (num_elements_in_pool_ < K_SIZE_OF_ALNS_POOL)
+      if (num_elements_in_pool_ < max_pool_size_)
       {
         (pool_)[num_elements_in_pool_] = sol;
         (num_elements_in_pool_)++;
@@ -189,7 +186,7 @@ bool ALNS::AddSolutionToPool(ALNSHeuristicSolution *sol, int iter)
           pos_worst_sol_ = num_elements_in_pool_ - 1;
         }
       }
-      else if (num_elements_in_pool_ == K_SIZE_OF_ALNS_POOL)
+      else if (num_elements_in_pool_ == max_pool_size_)
       {
         // se nova solução é melhor que a pior, substitui a pior solução pela nova solução e atualiza pior solução e melhor solução!
         if (double_greater(sol->profits_sum_, ((pool_)[pos_worst_sol_])->profits_sum_))
@@ -629,7 +626,7 @@ void ALNS::RunOneThread(int num_thread, int num_iterations)
   // std::cout << "* " << best_solution()->profits_sum_ << std::endl;
 }
 
-void ALNS::Run()
+void ALNS::Run(int num_iterations)
 {
   Timestamp *ti = NewTimestamp();
   Timer *timer = GetTimer();
@@ -642,7 +639,7 @@ void ALNS::Run()
 
   if (!(curr_sol->is_infeasible_) && (curr_sol->is_feasible_))
   {
-    std::cout << *curr_sol << std::endl;
+    // std::cout << *curr_sol << std::endl;
     // std::cout << curr_sol->profits_sum_ << std::endl;
     LocalSearches::TryToInsertUnvisitedVertices(*curr_instance_, curr_sol, 0);
     // std::cout << curr_sol->profits_sum_ << std::endl;
@@ -701,7 +698,7 @@ void ALNS::Run()
     // std::cout << *curr_sol << std::endl;
 
     int num_cores = (int)std::thread::hardware_concurrency();
-    int iterations_per_thread = (int)std::ceil((1.0 * K_NUM_ITERATIONS_ALNS) / num_cores);
+    int iterations_per_thread = (int)std::ceil((1.0 * num_iterations) / num_cores);
 
     if ((K_ALNS_MULTI_THREAD) && (num_cores > 1))
     {
@@ -720,7 +717,7 @@ void ALNS::Run()
       }
     }
     else
-      RunOneThread(0, K_NUM_ITERATIONS_ALNS);
+      RunOneThread(0, num_iterations);
 
     curr_sol = best_solution();
     /*std::cout << curr_sol->profits_sum_ << std::endl;
@@ -729,7 +726,7 @@ void ALNS::Run()
     std::cout << "* " << curr_sol->profits_sum_ << std::endl;*/
     curr_sol->initial_solution_profits_sum_ = initial_solution_profits_sum;
     curr_sol->last_improve_iteration_ = last_improve_iteration_;
-    curr_sol->num_iterations_ = iter;
+    curr_sol->num_iterations_ = num_iterations;
     curr_sol->total_time_spent_ = time_spent_generating_initial_solution_ + timer->CurrentElapsedTime(ti);
     // std::cout << *curr_sol << std::endl;
     // if(curr_sol->CheckCorrectness(*(curr_instance_)) == false){ std::cout << "deu merda" << std::endl; getchar(); getchar();}
