@@ -359,6 +359,7 @@ bool HeuristicSolution::PreviewInterRouteSwap(Instance &inst, int r1, int pos_i1
 	if (dif > 0)
 		std::advance(it_f1, dif);
 
+	end_segment_vertex1 = *it_f1;
 	++it_f1; // always increment one because the slice function works in the interval [it_i1,it_f1).
 	// compute pos_vertex
 	if (pos_f1 == max_pos1)
@@ -393,6 +394,7 @@ bool HeuristicSolution::PreviewInterRouteSwap(Instance &inst, int r1, int pos_i1
 	if (dif > 0)
 		std::advance(it_f2, dif);
 
+	end_segment_vertex2 = *it_f2;
 	++it_f2; // always increment one because the slice function works in the interval [it_i2,it_f2).
 	// compute pos_vertex
 	if (pos_f2 == max_pos2)
@@ -1326,10 +1328,10 @@ void ALNSHeuristicSolution::ReadFromFile(Instance &inst, std::string algo, std::
 	input.close();
 }
 
-std::string ALNSHeuristicSolution::GenerateFileName(int num_iterations, int pool_size)
+std::string ALNSHeuristicSolution::GenerateFileName(int num_iterations, int pool_size, int multithreading)
 {
 	std::string file_name = "alns";
-	if (K_ALNS_MULTI_THREAD)
+	if (multithreading)
 		file_name += "_MT_";
 	file_name += std::to_string(num_iterations);
 	file_name += "_ps_" + std::to_string(pool_size);

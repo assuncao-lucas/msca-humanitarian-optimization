@@ -15,7 +15,7 @@ public:
 	explicit ALNS(Instance &instance, HeuristicSolution *initial_sol, int max_pool_size);
 	~ALNS();
 	// void Reset();
-	void Run(int num_iterations);
+	void Run(int num_iterations, bool multithreading);
 	void RunOneThread(int num_thread, int num_iterations);
 	void PrintPool();
 	ALNSHeuristicSolution *best_solution();
@@ -30,11 +30,12 @@ private:
 	int last_improve_iteration_ = 0;
 	int non_improve_iterations_counter_ = 0;
 	int max_pool_size_ = 0;
+	int total_iter_ = 0;
 	double time_spent_generating_initial_solution_ = 0.0;
 
 	std::mutex mutex_;
 
-	bool AddSolutionToPool(ALNSHeuristicSolution *sol, int iter);
+	bool AddSolutionToPool(ALNSHeuristicSolution *sol);
 	ALNSHeuristicSolution *CopyRandomSolutionFromPool();
 
 	ALNSHeuristicSolution *DoPathRelinking(ALNSHeuristicSolution *sol);

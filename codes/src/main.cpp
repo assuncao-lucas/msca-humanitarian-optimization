@@ -2848,6 +2848,7 @@ static const struct option longOpts[] = {
 	{"alns", no_argument, NULL, 'B'},
 	{"alns-num-iterations", required_argument, NULL, 'C'},
 	{"alns-pool-size", required_argument, NULL, 'D'},
+	{"alns-multi-threading", no_argument, NULL, 'E'}, // Exact and Kernel search will always be multithreading!
 	{NULL, no_argument, NULL, 0}};
 
 void ParseArgumentsAndRun(int argc, char *argv[])
@@ -2865,6 +2866,7 @@ void ParseArgumentsAndRun(int argc, char *argv[])
 	bool compute_initial_solution_heuristic = false;
 	bool solve_kernel_search = false;
 	bool solve_alns = false;
+	bool alns_multi_threading = false;
 	int ks_max_size_bucket = K_KS_MAX_SIZE_BUCKET, ks_min_time_limit = K_KS_MIN_TIME_LIMIT, ks_max_time_limit = K_KS_MAX_TIME_LIMIT;
 	double ks_decay_factor = K_KS_DECAY_FACTOR_TIME_LIMIT;
 	bool ks_feasibility_emphasis = false;
@@ -2975,6 +2977,9 @@ void ParseArgumentsAndRun(int argc, char *argv[])
 			if (optarg)
 				alns_pool_size = std::atoi(optarg);
 			break;
+		case 'E':
+			alns_multi_threading = true;
+			break;
 		}
 	}
 
@@ -3013,7 +3018,7 @@ void ParseArgumentsAndRun(int argc, char *argv[])
 
 		KernelSearch ks(inst);
 		std::cout << KSHeuristicSolution::GenerateFileName(formulation, ks_max_size_bucket, ks_min_time_limit, ks_max_time_limit, ks_decay_factor, ks_feasibility_emphasis) << std::endl;
-		initial_sol = ks.Run(formulation, ks_max_size_bucket, ks_min_time_limit, ks_max_time_limit, ks_decay_factor, ks_feasibility_emphasis);
+		initial_sol = ks.Run(formulation, ks_max_size_bucket, ks_min_time_limit, ks_max_time_limit, ks_decay_factor, ks_feasibility_emphasis, true);
 	}
 
 	Solution<double> sol(graph->num_vertices());
@@ -3212,7 +3217,7 @@ void ParseArgumentsAndRun(int argc, char *argv[])
 
 		KernelSearch ks(inst);
 		std::cout << KSHeuristicSolution::GenerateFileName(formulation, ks_max_size_bucket, ks_min_time_limit, ks_max_time_limit, ks_decay_factor, ks_feasibility_emphasis) << std::endl;
-		const auto *kernel_search_sol = ks.Run(formulation, ks_max_size_bucket, ks_min_time_limit, ks_max_time_limit, ks_decay_factor, ks_feasibility_emphasis);
+		const auto *kernel_search_sol = ks.Run(formulation, ks_max_size_bucket, ks_min_time_limit, ks_max_time_limit, ks_decay_factor, ks_feasibility_emphasis, true);
 		kernel_search_sol->WriteToFile(inst, KSHeuristicSolution::GenerateFileName(formulation, ks_max_size_bucket, ks_min_time_limit, ks_max_time_limit, ks_decay_factor, ks_feasibility_emphasis), dir_solutions, instance_name);
 		//  if (kernel_search_sol->is_feasible_)
 		//  	std::cout << " lb: " << kernel_search_sol->profits_sum_ << std::endl;
@@ -3230,16 +3235,19 @@ void ParseArgumentsAndRun(int argc, char *argv[])
 
 	if (solve_alns)
 	{
-		auto initial_solution = InitalSolutionGenerator::GenerateInitialSolution(inst);
+		auto initial_solution = InitalSolutionGenerator::GenerateInitialSolution(inst, true);
 		ALNS alns(inst, initial_solution, alns_pool_size);
 
 		delete initial_solution;
 		initial_solution = nullptr;
 
-		alns.Run(alns_num_iterations);
-		std::cout << ALNSHeuristicSolution::GenerateFileName(alns_num_iterations, alns_pool_size) << "_seed_" << seed << std::endl;
-
-		(alns.best_solution())->WriteToFile(inst, ALNSHeuristicSolution::GenerateFileName(alns_num_iterations, alns_pool_size) + "_seed_" + std::to_string(seed), dir_solutions, instance_name);
+		alns.Run(alns_num_iterations, alns_multi_threading);
+		std::cout << ALNSHeuristicSolution::GenerateFileName(alns_num_iterations, alns_pool_size, alns_multi_threading) << "_seed_" << seed << std::endl;
+		std::cout << "profits: " << (alns.best_solution())->profits_sum_ << std::endl;
+		std::cout << "last improve iter: " << (alns.best_solution())->last_improve_iteration_ << std::endl;
+		std::cout << "total iter: " << (alns.best_solution())->num_iterations_ << std::endl;
+		std::cout << "time: " << (alns.best_solution())->total_time_spent_ << std::endl;
+		(alns.best_solution())->WriteToFile(inst, ALNSHeuristicSolution::GenerateFileName(alns_num_iterations, alns_pool_size, alns_multi_threading) + "_seed_" + std::to_string(seed), dir_solutions, instance_name);
 	}
 
 	if (!solve_kernel_search && !solve_alns)

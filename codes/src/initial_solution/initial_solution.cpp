@@ -5,7 +5,7 @@
 
 namespace InitalSolutionGenerator
 {
-    HeuristicSolution *GenerateInitialSolution(Instance &inst)
+    HeuristicSolution *GenerateInitialSolution(Instance &inst, bool multithreading)
     {
         Timestamp *ti = NewTimestamp();
         Timer *timer = GetTimer();
@@ -26,7 +26,7 @@ namespace InitalSolutionGenerator
         }
         else
         {
-            ks.InitCplex();
+            ks.InitCplex(multithreading);
             ks.BuildModel(formulation, false, true, false);
 
             // enable just origin and mandatory vertices!

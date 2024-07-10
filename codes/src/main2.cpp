@@ -1423,14 +1423,14 @@ int main()
 		std::cout << "found initial solution in " << fp.solution_.time_stage1_ + fp.solution_.time_stage2_ << " s" << std::endl;
 		std::cout << "found initial solution in " << (alns.best_solution())->total_time_spent_ << " s" << std::endl;
 
-		alns.Run(K_ALNS_NUM_ITERATIONS);
-		std::cout << ALNSHeuristicSolution::GenerateFileName(K_ALNS_NUM_ITERATIONS, K_ALNS_SIZE_OF_POOL) << "_seed_" << seed << std::endl;
+		alns.Run(K_ALNS_NUM_ITERATIONS, K_ALNS_MULTI_THREAD);
+		std::cout << ALNSHeuristicSolution::GenerateFileName(K_ALNS_NUM_ITERATIONS, K_ALNS_SIZE_OF_POOL, K_ALNS_MULTI_THREAD) << "_seed_" << seed << std::endl;
 		std::cout << "best solution: " << alns.best_solution()->profits_sum_ << std::endl;
 		std::cout << "elapsed time: " << timer->CurrentElapsedTime(ti) << " s" << std::endl;
 		std::cout << "elapsed time: " << (alns.best_solution())->total_time_spent_ << " s" << std::endl;
 
 		// std::cout << *(alns.best_solution()) << std::endl;
-		(alns.best_solution())->WriteToFile(inst, ALNSHeuristicSolution::GenerateFileName(K_ALNS_NUM_ITERATIONS, K_ALNS_SIZE_OF_POOL) + "_seed_" + std::to_string(seed), "", instance_name);
+		(alns.best_solution())->WriteToFile(inst, ALNSHeuristicSolution::GenerateFileName(K_ALNS_NUM_ITERATIONS, K_ALNS_SIZE_OF_POOL, K_ALNS_MULTI_THREAD) + "_seed_" + std::to_string(seed), "", instance_name);
 
 		timer->Clock(ti);
 		std::cout << " iteractive" << std::endl;

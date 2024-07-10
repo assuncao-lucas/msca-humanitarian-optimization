@@ -15,9 +15,9 @@ public:
     explicit KernelSearch(Instance &instance);
     virtual ~KernelSearch();
 
-    KSHeuristicSolution *Run(Formulation formulation, int ks_max_size_bucket, int ks_min_time_limit, int ks_max_time_limit, double ks_decay_factor, bool feasibility_emphasis);
+    KSHeuristicSolution *Run(Formulation formulation, int ks_max_size_bucket, int ks_min_time_limit, int ks_max_time_limit, double ks_decay_factor, bool feasibility_emphasis, bool multithreading);
 
-    friend HeuristicSolution *InitalSolutionGenerator::GenerateInitialSolution(Instance &inst);
+    friend HeuristicSolution *InitalSolutionGenerator::GenerateInitialSolution(Instance &inst, bool multihreading);
 
 private:
     IloEnv *env_ = nullptr;     // Cplex environment
@@ -41,8 +41,8 @@ private:
 
     const Instance &instance_;
 
-    void BuildKernelAndBuckets(Formulation formulation, KSHeuristicSolution *solution, int ks_max_size_bucket);
-    void InitCplex();
+    void BuildKernelAndBuckets(Formulation formulation, KSHeuristicSolution *solution, int ks_max_size_bucket, bool multithreading);
+    void InitCplex(bool multithreading);
     void ResetCplex();
     void BuildModel(Formulation formulation, bool linearly_relaxed, bool disable_all_binary_vars, bool export_model);
     void RetrieveSolutionArcVertexValues();

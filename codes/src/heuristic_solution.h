@@ -138,5 +138,5 @@ public:
 	virtual void Reset(int dimension, int dimension2, int num_routes);
 	void WriteToFile(Instance &instance, std::string algo, std::string folder, std::string file_name) const;
 	void ReadFromFile(Instance &inst, std::string algo, std::string folder, std::string file_name);
-	static std::string GenerateFileName(int num_iterations, int pool_size);
+	static std::string GenerateFileName(int num_iterations, int pool_size, int multithreading);
 };

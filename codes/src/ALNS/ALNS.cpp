@@ -79,7 +79,7 @@ ALNS::ALNS(Instance &instance, std::string algo, std::string folder, std::string
   // std::cout << "read from file " << file_name << std::endl;
   ALNSHeuristicSolution *sol = new ALNSHeuristicSolution(num_vertices, num_arcs, num_routes);
   sol->ReadFromFile(instance, algo, folder, file_name);
-  AddSolutionToPool(sol, 0);
+  AddSolutionToPool(sol);
   time_spent_generating_initial_solution_ = sol->total_time_spent_;
   // std::cout << *sol << std::endl;
 }
@@ -91,7 +91,7 @@ ALNS::ALNS(Instance &instance, HeuristicSolution *initial_sol, int pool_size)
   curr_instance_ = &instance;
   // std::cout << "read from file " << file_name << std::endl;
   ALNSHeuristicSolution *sol = new ALNSHeuristicSolution(initial_sol);
-  AddSolutionToPool(sol, 0);
+  AddSolutionToPool(sol);
   time_spent_generating_initial_solution_ = initial_sol->total_time_spent_;
   // std::cout << *sol << std::endl;
 }
@@ -123,7 +123,7 @@ ALNSHeuristicSolution *ALNS::worst_solution()
   return nullptr;
 }
 
-bool ALNS::AddSolutionToPool(ALNSHeuristicSolution *sol, int iter)
+bool ALNS::AddSolutionToPool(ALNSHeuristicSolution *sol)
 {
   ALNSHeuristicSolution *curr_sol = nullptr;
   if (max_pool_size_ <= 0)
@@ -145,7 +145,7 @@ bool ALNS::AddSolutionToPool(ALNSHeuristicSolution *sol, int iter)
     (num_elements_in_pool_)++;
     pos_best_sol_ = 0;
     pos_worst_sol_ = 0;
-    last_improve_iteration_ = iter;
+    last_improve_iteration_ = total_iter_;
   }
   else
   {
@@ -177,7 +177,7 @@ bool ALNS::AddSolutionToPool(ALNSHeuristicSolution *sol, int iter)
         if (double_greater(sol->profits_sum_, ((pool_)[pos_best_sol_])->profits_sum_))
         {
           pos_best_sol_ = num_elements_in_pool_ - 1;
-          last_improve_iteration_ = iter;
+          last_improve_iteration_ = total_iter_;
           // std::cout << "*Melhorou!!!" << std::endl;
         }
 
@@ -194,7 +194,7 @@ bool ALNS::AddSolutionToPool(ALNSHeuristicSolution *sol, int iter)
           if (double_greater(sol->profits_sum_, ((pool_)[pos_best_sol_])->profits_sum_))
           {
             pos_best_sol_ = pos_worst_sol_;
-            last_improve_iteration_ = iter;
+            last_improve_iteration_ = total_iter_;
             // std::cout << "*Melhorou!!!" << std::endl;
           }
 
@@ -526,6 +526,7 @@ void ALNS::RunOneThread(int num_thread, int num_iterations)
     // std::cout << iter << std::endl;
     ++iter;
     (mutex_).lock();
+    ++total_iter_;
     curr_sol1 = CopyRandomSolutionFromPool();
     // std::cout << "after remove from pool" << std::endl;
     // curr_sol1->BuildBitset(*(curr_instance_));
@@ -579,7 +580,7 @@ void ALNS::RunOneThread(int num_thread, int num_iterations)
         // std::cout << *curr_sol1 << std::endl;
         // getchar();
         // getchar();
-        AddSolutionToPool(new ALNSHeuristicSolution(curr_sol1), iter);
+        AddSolutionToPool(new ALNSHeuristicSolution(curr_sol1));
       }
       (mutex_).unlock();
 
@@ -602,7 +603,7 @@ void ALNS::RunOneThread(int num_thread, int num_iterations)
           if (path_relinking_sol != nullptr)
           {
             (mutex_).lock();
-            AddSolutionToPool(path_relinking_sol, iter);
+            AddSolutionToPool(path_relinking_sol);
             (mutex_).unlock();
           }
         }
@@ -613,9 +614,9 @@ void ALNS::RunOneThread(int num_thread, int num_iterations)
       converged = true;
 
     (mutex_).lock();
-    AddSolutionToPool(curr_sol1, iter);
+    AddSolutionToPool(curr_sol1);
 
-    if (last_improve_iteration_ != iter)
+    if (last_improve_iteration_ != total_iter_)
       ++non_improve_iterations_counter_;
     else
       non_improve_iterations_counter_ = 0;
@@ -626,12 +627,13 @@ void ALNS::RunOneThread(int num_thread, int num_iterations)
   // std::cout << "* " << best_solution()->profits_sum_ << std::endl;
 }
 
-void ALNS::Run(int num_iterations)
+void ALNS::Run(int num_iterations, bool multithreading)
 {
   Timestamp *ti = NewTimestamp();
   Timer *timer = GetTimer();
   timer->Clock(ti);
-  int iter = 0, initial_solution_profits_sum = 0;
+  int initial_solution_profits_sum = 0;
+  total_iter_ = 0;
   ALNSHeuristicSolution *curr_sol = nullptr;
 
   // at this point, must have one solution at pool (generated from feasibility pump)
@@ -698,9 +700,13 @@ void ALNS::Run(int num_iterations)
     // std::cout << *curr_sol << std::endl;
 
     int num_cores = (int)std::thread::hardware_concurrency();
-    int iterations_per_thread = (int)std::ceil((1.0 * num_iterations) / num_cores);
+    // std::cout << "cores: " << num_cores << std::endl;
+    int iterations_per_thread = (int)std::floor((1.0 * num_iterations) / num_cores);
+    int rest_of_iterations = num_iterations % num_cores;
+    // std::cout << "iterations_per_thread: " << iterations_per_thread << std::endl;
+    // std::cout << "rest_of_iterations: " << rest_of_iterations << std::endl;
 
-    if ((K_ALNS_MULTI_THREAD) && (num_cores > 1))
+    if ((multithreading) && (num_cores > 1))
     {
       std::vector<std::thread> v(num_cores - 1);
 
@@ -709,7 +715,7 @@ void ALNS::Run(int num_iterations)
         v[i] = std::thread(&ALNS::RunOneThread, this, i, iterations_per_thread);
       }
 
-      RunOneThread(num_cores - 1, iterations_per_thread);
+      RunOneThread(num_cores - 1, iterations_per_thread + rest_of_iterations);
 
       for (size_t i = 0; i < v.size(); ++i)
       {
@@ -726,7 +732,7 @@ void ALNS::Run(int num_iterations)
     std::cout << "* " << curr_sol->profits_sum_ << std::endl;*/
     curr_sol->initial_solution_profits_sum_ = initial_solution_profits_sum;
     curr_sol->last_improve_iteration_ = last_improve_iteration_;
-    curr_sol->num_iterations_ = num_iterations;
+    curr_sol->num_iterations_ = total_iter_;
     curr_sol->total_time_spent_ = time_spent_generating_initial_solution_ + timer->CurrentElapsedTime(ti);
     // std::cout << *curr_sol << std::endl;
     // if(curr_sol->CheckCorrectness(*(curr_instance_)) == false){ std::cout << "deu merda" << std::endl; getchar(); getchar();}

@@ -54,7 +54,7 @@ void KernelSearch::ResetCplex()
     }
 }
 
-void KernelSearch::InitCplex()
+void KernelSearch::InitCplex(bool multithreading)
 {
     env_ = new IloEnv();
     model_ = new IloModel(*env_);
@@ -65,7 +65,7 @@ void KernelSearch::InitCplex()
     cplex_->setWarning(env_->getNullStream());
     cplex_->setError(env_->getNullStream());
     cplex_->extract(*model_);
-    if (!K_MULTI_THREAD)
+    if (!multithreading)
         cplex_->setParam(IloCplex::Param::Threads, 1);
 }
 
@@ -276,9 +276,9 @@ void KernelSearch::BuildHeuristicSolution(KSHeuristicSolution *solution)
     //     std::cout << curr_best_solution_value_ << " != " << solution->profits_sum_ << std::endl;
 }
 
-void KernelSearch::BuildKernelAndBuckets(Formulation formulation, KSHeuristicSolution *solution, int ks_max_size_bucket)
+void KernelSearch::BuildKernelAndBuckets(Formulation formulation, KSHeuristicSolution *solution, int ks_max_size_bucket, bool multithreading)
 {
-    InitCplex();
+    InitCplex(multithreading);
     BuildModel(formulation, true, false, false);
     curr_kernel_bitset_.reset();
 
@@ -365,7 +365,7 @@ void KernelSearch::BuildKernelAndBuckets(Formulation formulation, KSHeuristicSol
     assert(vertices_added == num_vertices);
 }
 
-KSHeuristicSolution *KernelSearch::Run(Formulation formulation, int ks_max_size_bucket, int ks_min_time_limit, int ks_max_time_limit, double ks_decay_factor, bool feasibility_emphasis)
+KSHeuristicSolution *KernelSearch::Run(Formulation formulation, int ks_max_size_bucket, int ks_min_time_limit, int ks_max_time_limit, double ks_decay_factor, bool feasibility_emphasis, bool multithreading)
 {
     Timestamp *ti = NewTimestamp();
     Timer *timer = GetTimer();
@@ -381,7 +381,7 @@ KSHeuristicSolution *KernelSearch::Run(Formulation formulation, int ks_max_size_
     KSHeuristicSolution *solution = new KSHeuristicSolution(num_vertices, num_arcs, num_routes);
 
     // build Kernel by solving LP of given problem.
-    BuildKernelAndBuckets(formulation, solution, ks_max_size_bucket);
+    BuildKernelAndBuckets(formulation, solution, ks_max_size_bucket, multithreading);
     solution->time_spent_building_kernel_buckets_ = timer->CurrentElapsedTime(ti);
 
     if (!solution->is_infeasible_)
@@ -390,7 +390,7 @@ KSHeuristicSolution *KernelSearch::Run(Formulation formulation, int ks_max_size_
 
         // delete LP model and create the MILP model.
         ResetCplex();
-        InitCplex();
+        InitCplex(multithreading);
 
         BuildModel(formulation, false, true, false); // initially, set all binary variables to zero.
 

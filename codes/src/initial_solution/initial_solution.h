@@ -5,5 +5,5 @@
 
 namespace InitalSolutionGenerator
 {
-    HeuristicSolution *GenerateInitialSolution(Instance &inst);
+    HeuristicSolution *GenerateInitialSolution(Instance &inst, bool multihreading);
 }
