@@ -1,0 +1,10 @@
+STATUS: FOUND ARC INTEGER FEASIBLE
+time building kernel and buckets (s): 11.39453
+total time (s): 302.06570
+***********************************
+Total profit sum: 225.36687
+Num routes: 4
+45.33822 687.46000 48 40 14 16 
+46.86497 714.30000 47 5 31 21 
+58.02239 728.23000 32 30 49 12 
+75.14129 701.58000 26 13 23 39 
