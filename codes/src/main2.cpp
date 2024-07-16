@@ -15,7 +15,7 @@
 #include "src/kernel_search/kernel_search.h"
 #include "src/initial_solution/initial_solution.h"
 
-void GenerateAlgorithmsLatexTablePerInstance(std::string folder, double total_time_limit)
+void GenerateAlgorithmsLatexTablePerInstance(std::string folder)
 {
 	std::string curr_file;
 	std::vector<std::string> algorithms;
@@ -137,7 +137,6 @@ void GenerateAlgorithmsLatexTablePerInstance(std::string folder, double total_ti
 				if ((!(double_equals(lb, -1))) && (!(double_equals(ub, -1))))
 				{
 					if ((!double_greater(ub, lb)))
-					// if(double_less(time,total_time_limit))
 					{
 						++(total_num_optimal[algo]);
 					}
@@ -184,7 +183,7 @@ void GenerateAlgorithmsLatexTablePerInstance(std::string folder, double total_ti
 	output.close();
 }
 
-void GenerateAlgorithmsLatexTable(std::string folder, double total_time_limit)
+void GenerateAlgorithmsLatexTable(std::string folder)
 {
 	std::string curr_file;
 	std::vector<std::string> algorithms;
@@ -338,7 +337,6 @@ void GenerateAlgorithmsLatexTable(std::string folder, double total_time_limit)
 							if ((!(double_equals(lb, -1))) && (!(double_equals(ub, -1))))
 							{
 								if ((!double_greater(ub, lb)))
-								// if(double_less(time,total_time_limit))
 								{
 									++(num_optimal_inst_size[algo]);
 									++(num_optimal_quantile[algo]);
@@ -449,7 +447,7 @@ void GenerateAlgorithmsLatexTable(std::string folder, double total_time_limit)
 	output.close();
 }
 
-void GenerateKernelSearchLatexTable(std::string folder, double total_time_limit, bool add_exact_results)
+void GenerateKernelSearchLatexTable(std::string folder, bool add_exact_results)
 {
 	std::string curr_file;
 	std::vector<std::string> algorithms;
@@ -731,7 +729,6 @@ void GenerateKernelSearchLatexTable(std::string folder, double total_time_limit,
 							if ((!(double_equals(lb, -1))) && (!(double_equals(ub, -1))))
 							{
 								if ((!double_greater(ub, lb)))
-								// if(double_less(time,total_time_limit))
 								{
 									++(num_optimal_inst_size_exact[algo]);
 									++(num_optimal_quantile_exact[algo]);
@@ -1237,12 +1234,12 @@ int main()
 	std::string folder = "2024-05-13_07:54:26_all_kernel_search";
 	// try
 	// {
-	// GenerateAlgorithmsLatexTablePerInstance(3600);
+	// GenerateAlgorithmsLatexTablePerInstance(folder);
 	// return 1;
 	// GenerateLPImprovementsLatexTable();
-	// GenerateAlgorithmsLatexTable(folder, 3600);
-	// GenerateKernelSearchLatexTable(folder, 3600, false);
-	// return 0;
+	// GenerateAlgorithmsLatexTable(folder);
+	GenerateKernelSearchLatexTable(folder, false);
+	return 0;
 	int time_limit = -1;
 	int num_routes = 2;
 	int uncertainty_budget = 1;
