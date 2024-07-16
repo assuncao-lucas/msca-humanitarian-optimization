@@ -16,7 +16,7 @@ CPLEXINCDIR   = -I $(CPLEXDIR)/cplex/include -I $(CPLEXDIR)/concert/include
 CFLAGS = $(COPT) $(GENERALINCDIR) -std=c++17
 CFLAGS2  = $(COPT) $(CPLEXINCDIR)
 
-CC=g++ -std=c++17
+CC=ccache g++ -std=c++17
 
 PROG_DIR=codes/src
 PROG_BIN=codes/bin
@@ -62,6 +62,10 @@ LOCAL_BRANCHING_OBJ=$(PROG_BIN)/local_branching.o
 ALNS_SRC=$(PROG_DIR)/ALNS/ALNS.cpp
 ALNS_H=$(PROG_DIR)/ALNS/ALNS.h
 ALNS_OBJ=$(PROG_BIN)/ALNS.o
+
+SIMULATED_ANNEALING_SRC=$(PROG_DIR)/simulated_annealing/simulated_annealing.cpp
+SIMULATED_ANNEALING_H=$(PROG_DIR)/simulated_annealing/simulated_annealing.h
+SIMULATED_ANNEALING_OBJ=$(PROG_BIN)/simulated_annealing.o
 
 INITIAL_SOL_SRC=$(PROG_DIR)/initial_solution/initial_solution.cpp
 INITIAL_SOL_H=$(PROG_DIR)/initial_solution/initial_solution.h
@@ -127,6 +131,9 @@ LOCAL_BRANCHING_OBJ: $(LOCAL_BRANCHING_SRC) $(LOCAL_BRANCHING_H)
 alns: $(ALNS_SRC) $(ALNS_H)
 	$(CC) $(CFLAGS) $(CFLAGS2) -c $(ALNS_SRC) -o $(ALNS_OBJ)
 
+simulated_annealing: $(SIMULATED_ANNEALING_SRC) $(SIMULATED_ANNEALING_H)
+	$(CC) $(CFLAGS) -c $(SIMULATED_ANNEALING_SRC) -o $(SIMULATED_ANNEALING_OBJ)
+
 initial_solution: $(INITIAL_SOL_SRC) $(INITIAL_SOL_H)
 	$(CC) $(CFLAGS) $(CFLAGS2) -c $(INITIAL_SOL_SRC) -o $(INITIAL_SOL_OBJ)
 
@@ -154,8 +161,8 @@ formulations: $(FORM_SRC) $(FORM_H)
 benders_callback: $(BENDERS_CALLBACK_SRC) $(BENDERS_CALLBACK_H)
 	$(CC) $(CFLAGS) $(CFLAGS2) -c $(BENDERS_CALLBACK_SRC) -o $(BENDERS_CALLBACK_OBJ)
 
-stop: arc graph graph_algo general instance route matrix timer heuristic_solution solution benders_callback formulations feasibility_pump local_searches alns initial_solution kernel_search
-	$(CC) $(CFLAGS) $(CFLAGS2) $(ARC_SRC) $(GRAPH_SRC) $(GRAPH_ALGO_SRC) $(GENERAL_SRC) $(USERCUT_SRC) $(ROUTE_SRC) $(MATRIX_HPP) $(INSTANCE_SRC) $(TIMER_SRC) $(HEURISTIC_SOLUTION_SRC) $(SOLUTION_HPP) $(BENDERS_CALLBACK_SRC) $(FORM_SRC) $(FEASIBILITY_PUMP_SRC) $(INITIAL_SOL_SRC) $(LOCAL_SEARCHES_SRC) $(ALNS_SRC) $(KERNEL_SEARCH_SRC) $(MAIN_SRC) -o $(PROG_BIN)/stop $(CLNFLAGS)
+stop: arc graph graph_algo general instance route matrix timer heuristic_solution solution benders_callback formulations feasibility_pump local_searches alns simulated_annealing initial_solution kernel_search
+	$(CC) $(CFLAGS) $(CFLAGS2) $(ARC_SRC) $(GRAPH_SRC) $(GRAPH_ALGO_SRC) $(GENERAL_SRC) $(USERCUT_SRC) $(ROUTE_SRC) $(MATRIX_HPP) $(INSTANCE_SRC) $(TIMER_SRC) $(HEURISTIC_SOLUTION_SRC) $(SOLUTION_HPP) $(BENDERS_CALLBACK_SRC) $(FORM_SRC) $(FEASIBILITY_PUMP_SRC) $(INITIAL_SOL_SRC) $(LOCAL_SEARCHES_SRC) $(ALNS_SRC) $(SIMULATED_ANNEALING_SRC) $(KERNEL_SEARCH_SRC) $(MAIN_SRC) -o $(PROG_BIN)/stop $(CLNFLAGS)
 
 clean:
 	rm $(PROG_BIN)/*

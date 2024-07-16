@@ -4,7 +4,6 @@
 #include <vector>
 #include <mutex>
 #include "src/instance.h"
-#include "src/timer.h"
 #include "src/heuristic_solution.h"
 
 class ALNS
@@ -16,12 +15,12 @@ public:
 	~ALNS();
 	// void Reset();
 	void Run(int num_iterations, bool multithreading);
-	void RunOneThread(int num_thread, int num_iterations);
 	void PrintPool();
 	ALNSHeuristicSolution *best_solution();
 	ALNSHeuristicSolution *worst_solution();
 
 private:
+	void RunOneThread(int num_thread, int num_iterations);
 	Instance *curr_instance_;
 	std::vector<ALNSHeuristicSolution *> pool_;
 	int num_elements_in_pool_ = 0;

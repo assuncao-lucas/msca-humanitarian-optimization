@@ -14,6 +14,7 @@
 #include "src/ALNS/ALNS.h"
 #include "src/kernel_search/kernel_search.h"
 #include "src/initial_solution/initial_solution.h"
+#include "src/simulated_annealing/simulated_annealing.h"
 
 void GenerateAlgorithmsLatexTablePerInstance(std::string folder)
 {
@@ -570,7 +571,7 @@ void GenerateKernelSearchLatexTable(std::string folder, bool add_exact_results)
 				{
 					std::string instance = instance_prefix + instances_termination;
 					// std::cout << instance << std::endl;
-					double best_lb = -1;
+					double best_lb = 1;
 					bool is_infeasible = false;
 					bool has_optimal_bound = false;
 
@@ -881,6 +882,7 @@ void GenerateKernelSearchLatexTable(std::string folder, bool add_exact_results)
 							else
 							{
 								improvement = (100 * (heuristic_lb - best_lb)) / best_lb;
+								// std::cout << best_lb << " " << heuristic_lb << " " << status << std::endl;
 								if (!double_less(improvement, 0.0))
 								{
 									++(num_best_known_bound_inst_size[algo]);
@@ -890,6 +892,12 @@ void GenerateKernelSearchLatexTable(std::string folder, bool add_exact_results)
 							}
 						}
 
+						// if (!double_equals(improvement, 100))
+						// {
+						// 	std::cout << improvement << std::endl;
+						// 	getchar();
+						// 	getchar();
+						// }
 						gap_per_algo_inst_size[algo].push_back(improvement);
 						gap_per_algo_quantile[algo].push_back(improvement);
 						total_gap_per_algo[algo].push_back(improvement);
@@ -1232,14 +1240,15 @@ void GenerateLPImprovementsLatexTable()
 int main()
 {
 	std::string folder = "2024-05-13_07:54:26_all_kernel_search";
+	// std::string folder = "2024-06-23_13:01:07_all_kernel_search_less_time";
 	// try
 	// {
 	// GenerateAlgorithmsLatexTablePerInstance(folder);
 	// return 1;
 	// GenerateLPImprovementsLatexTable();
 	// GenerateAlgorithmsLatexTable(folder);
-	GenerateKernelSearchLatexTable(folder, false);
-	return 0;
+	// GenerateKernelSearchLatexTable(folder, false);
+	// return 0;
 	int time_limit = -1;
 	int num_routes = 2;
 	int uncertainty_budget = 1;
@@ -1398,49 +1407,52 @@ int main()
 		auto pool_size = K_ALNS_SIZE_OF_POOL;
 		// find initial solution
 		timer->Clock(ti);
-		// auto initial_solution = InitalSolutionGenerator::GenerateInitialSolution(inst);
-		// std::cout << "found initial solution in " << timer->CurrentElapsedTime(ti) << " s" << std::endl;
-		// // std::cout << *initial_solution << std::endl;
+		auto initial_solution = InitalSolutionGenerator::GenerateInitialSolution(inst, K_ALNS_MULTI_THREAD);
+		std::cout << "found initial solution in " << timer->CurrentElapsedTime(ti) << " s" << std::endl;
+		// std::cout << *initial_solution << std::endl;
+		ALNS alns(inst, initial_solution, pool_size);
+		SimulatedAnnealing sa(inst, initial_solution, 100, 0.98);
 
-		// // seed = time(nullptr);
-		// srand(time(nullptr));
-		// // alns.Init(inst, (fp.solution_).GenerateFileName() + "_seed_" + std::to_string(seed), "//", instance_name);
-		// alns.Init(inst, initial_solution);
+		// seed = time(nullptr);
+		srand(time(nullptr));
 
-		// delete initial_solution;
-		// initial_solution = nullptr;
+		delete initial_solution;
+		initial_solution = nullptr;
 
-		FeasibilityPump fp;
-		fp.Init(inst);
-		std::cout << (fp.solution_).GenerateFileName() + "_seed_" + std::to_string(seed) << std::endl;
-		fp.Run();
-		(fp.solution_).WriteToFile(inst, (fp.solution_).GenerateFileName() + "_seed_" + std::to_string(seed), "", instance_name);
-		std::cout << (fp.solution_) << std::endl;
-		ALNS alns(inst, (fp.solution_).GenerateFileName() + "_seed_" + std::to_string(seed), "", instance_name, pool_size);
-		std::cout << "found initial solution in " << fp.solution_.time_stage1_ + fp.solution_.time_stage2_ << " s" << std::endl;
-		std::cout << "found initial solution in " << (alns.best_solution())->total_time_spent_ << " s" << std::endl;
+		// FeasibilityPump fp;
+		// fp.Init(inst);
+		// std::cout << (fp.solution_).GenerateFileName() + "_seed_" + std::to_string(seed) << std::endl;
+		// fp.Run();
+		// (fp.solution_).WriteToFile(inst, (fp.solution_).GenerateFileName() + "_seed_" + std::to_string(seed), "", instance_name);
+		// std::cout << (fp.solution_) << std::endl;
+		// ALNS alns(inst, (fp.solution_).GenerateFileName() + "_seed_" + std::to_string(seed), "", instance_name, pool_size);
+		// std::cout << "found initial solution in " << fp.solution_.time_stage1_ + fp.solution_.time_stage2_ << " s" << std::endl;
+		// std::cout << "found initial solution in " << (alns.best_solution())->total_time_spent_ << " s" << std::endl;
 
+		timer->Clock(ti);
 		alns.Run(K_ALNS_NUM_ITERATIONS, K_ALNS_MULTI_THREAD);
 		std::cout << ALNSHeuristicSolution::GenerateFileName(K_ALNS_NUM_ITERATIONS, K_ALNS_SIZE_OF_POOL, K_ALNS_MULTI_THREAD) << "_seed_" << seed << std::endl;
 		std::cout << "best solution: " << alns.best_solution()->profits_sum_ << std::endl;
 		std::cout << "elapsed time: " << timer->CurrentElapsedTime(ti) << " s" << std::endl;
 		std::cout << "elapsed time: " << (alns.best_solution())->total_time_spent_ << " s" << std::endl;
+		std::cout << "num iter: " << alns.best_solution()->num_iterations_ << std::endl;
+		std::cout << "las improve iter: " << alns.best_solution()->last_improve_iteration_ << std::endl;
 
 		// std::cout << *(alns.best_solution()) << std::endl;
 		(alns.best_solution())->WriteToFile(inst, ALNSHeuristicSolution::GenerateFileName(K_ALNS_NUM_ITERATIONS, K_ALNS_SIZE_OF_POOL, K_ALNS_MULTI_THREAD) + "_seed_" + std::to_string(seed), "", instance_name);
 
 		timer->Clock(ti);
-		std::cout << " iteractive" << std::endl;
-		std::cout << alns.best_solution()->ComputeSolutionCost(inst) << std::endl;
+		sa.Run(K_ALNS_MULTI_THREAD);
+		// std::cout << ALNSHeuristicSolution::GenerateFileName(K_ALNS_NUM_ITERATIONS, K_ALNS_SIZE_OF_POOL, K_ALNS_MULTI_THREAD) << "_seed_" << seed << std::endl;
+		std::cout << "best solution: " << sa.best_solution()->profits_sum_ << std::endl;
 		std::cout << "elapsed time: " << timer->CurrentElapsedTime(ti) << " s" << std::endl;
-		timer->Clock(ti);
-		std::cout << " recursive" << std::endl;
-		std::cout << alns.best_solution()->ComputeSolutionCostRec(inst, false) << std::endl;
-		std::cout << "elapsed time: " << timer->CurrentElapsedTime(ti) << " s" << std::endl;
-		timer->Clock(ti);
-		std::cout << " recursive memoization" << std::endl;
-		std::cout << alns.best_solution()->ComputeSolutionCostRec(inst, true) << std::endl;
-		std::cout << "elapsed time: " << timer->CurrentElapsedTime(ti) << " s" << std::endl;
+		std::cout << "elapsed time: " << (sa.best_solution())->total_time_spent_ << " s" << std::endl;
+		std::cout << "num iter: " << sa.best_solution()->num_iterations_ << std::endl;
+		std::cout << "las improve iter: " << sa.best_solution()->last_improve_iteration_ << std::endl;
+
+		// std::cout << *(alns.best_solution()) << std::endl;
+		(alns.best_solution())->WriteToFile(inst, ALNSHeuristicSolution::GenerateFileName(K_ALNS_NUM_ITERATIONS, K_ALNS_SIZE_OF_POOL, K_ALNS_MULTI_THREAD) + "_seed_" + std::to_string(seed), "", instance_name);
+
 		delete ti;
 		ti = nullptr;
 		DeleteTimer();

@@ -1212,7 +1212,7 @@ ALNSHeuristicSolution::ALNSHeuristicSolution(HeuristicSolution *sol) : Heuristic
 		((vertex_status_vec_)[*it]).pos_ = it;
 }
 
-ALNSHeuristicSolution::ALNSHeuristicSolution(ALNSHeuristicSolution *sol)
+ALNSHeuristicSolution::ALNSHeuristicSolution(const ALNSHeuristicSolution *sol)
 {
 	(*this) = (*sol);
 

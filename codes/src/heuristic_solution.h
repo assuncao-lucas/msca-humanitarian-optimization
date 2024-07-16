@@ -127,7 +127,7 @@ class ALNSHeuristicSolution : public HeuristicSolution
 {
 public:
 	ALNSHeuristicSolution();
-	ALNSHeuristicSolution(ALNSHeuristicSolution *);
+	ALNSHeuristicSolution(const ALNSHeuristicSolution *);
 	ALNSHeuristicSolution(HeuristicSolution *);
 	ALNSHeuristicSolution(int dimension, int dimension2, int num_routes);
 	~ALNSHeuristicSolution();

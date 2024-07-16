@@ -1,6 +1,7 @@
 #include <thread>
-#include "ALNS.h"
+#include "src/ALNS/ALNS.h"
 #include "src/general.h"
+#include "src/timer.h"
 #include "src/graph_algorithms.h"
 #include "src/formulations.h"
 #include "src/local_searches/local_searches.h"
@@ -517,8 +518,8 @@ ALNSHeuristicSolution *ALNS::CopyRandomSolutionFromPool()
 void ALNS::RunOneThread(int num_thread, int num_iterations)
 {
   int iter = 0;
-  ALNSHeuristicSolution *curr_sol1 = nullptr, *curr_sol2 = nullptr, *path_relinking_sol = nullptr;
-  bool continue_inner_loop = false, converged = false;
+  ALNSHeuristicSolution *curr_sol1 = nullptr, *path_relinking_sol = nullptr;
+  bool converged = false;
 
   while (!converged)
   {
@@ -575,6 +576,7 @@ void ALNS::RunOneThread(int num_thread, int num_iterations)
       } while (continue_search);
 
       (mutex_).lock();
+      // IMPORTANT: ShiftingAndInsertion might lead to a worse solution, so we should check BEFORE if the current solution is better than the best found so far as to not lose track of it!
       if (double_greater(curr_sol1->profits_sum_, (best_solution())->profits_sum_))
       {
         // std::cout << *curr_sol1 << std::endl;
