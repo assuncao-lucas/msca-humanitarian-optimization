@@ -33,7 +33,7 @@ ALNS::~ALNS()
 bool ALNS::CheckPoolIntegrity()
 {
   //(mutex_).lock();
-  ALNSHeuristicSolution *curr_sol = nullptr;
+  MetaHeuristicSolution *curr_sol = nullptr;
   double max_profits = -1.0, min_profits = std::numeric_limits<double>::max();
   int max_profits_index = -1, min_profits_index = -1;
   if (num_elements_in_pool_ > max_pool_size_)
@@ -71,14 +71,14 @@ bool ALNS::CheckPoolIntegrity()
 ALNS::ALNS(Instance &instance, std::string algo, std::string folder, std::string file_name, int pool_size)
 {
   max_pool_size_ = pool_size;
-  pool_ = std::vector<ALNSHeuristicSolution *>(pool_size, nullptr);
+  pool_ = std::vector<MetaHeuristicSolution *>(pool_size, nullptr);
   curr_instance_ = &instance;
   const Graph *graph = instance.graph();
   int num_vertices = graph->num_vertices(), num_arcs = graph->num_arcs();
   int num_routes = instance.num_vehicles();
 
   // std::cout << "read from file " << file_name << std::endl;
-  ALNSHeuristicSolution *sol = new ALNSHeuristicSolution(num_vertices, num_arcs, num_routes);
+  MetaHeuristicSolution *sol = new MetaHeuristicSolution(num_vertices, num_arcs, num_routes);
   sol->ReadFromFile(instance, algo, folder, file_name);
   AddSolutionToPool(sol);
   time_spent_generating_initial_solution_ = sol->total_time_spent_;
@@ -88,10 +88,10 @@ ALNS::ALNS(Instance &instance, std::string algo, std::string folder, std::string
 ALNS::ALNS(Instance &instance, HeuristicSolution *initial_sol, int pool_size)
 {
   max_pool_size_ = pool_size;
-  pool_ = std::vector<ALNSHeuristicSolution *>(pool_size, nullptr);
+  pool_ = std::vector<MetaHeuristicSolution *>(pool_size, nullptr);
   curr_instance_ = &instance;
   // std::cout << "read from file " << file_name << std::endl;
-  ALNSHeuristicSolution *sol = new ALNSHeuristicSolution(initial_sol);
+  MetaHeuristicSolution *sol = new MetaHeuristicSolution(initial_sol);
   AddSolutionToPool(sol);
   time_spent_generating_initial_solution_ = initial_sol->total_time_spent_;
   // std::cout << *sol << std::endl;
@@ -110,23 +110,23 @@ void ALNS::PrintPool()
   (mutex_).unlock();
 }
 
-ALNSHeuristicSolution *ALNS::best_solution()
+MetaHeuristicSolution *ALNS::best_solution()
 {
   if (pos_best_sol_ != -1)
     return (pool_)[pos_best_sol_];
   return nullptr;
 }
 
-ALNSHeuristicSolution *ALNS::worst_solution()
+MetaHeuristicSolution *ALNS::worst_solution()
 {
   if (pos_worst_sol_ != -1)
     return (pool_)[pos_worst_sol_];
   return nullptr;
 }
 
-bool ALNS::AddSolutionToPool(ALNSHeuristicSolution *sol)
+bool ALNS::AddSolutionToPool(MetaHeuristicSolution *sol)
 {
-  ALNSHeuristicSolution *curr_sol = nullptr;
+  MetaHeuristicSolution *curr_sol = nullptr;
   if (max_pool_size_ <= 0)
     return false;
 
@@ -225,19 +225,19 @@ bool ALNS::AddSolutionToPool(ALNSHeuristicSolution *sol)
   return true;
 }
 
-ALNSHeuristicSolution *ALNS::DoPathRelinking(ALNSHeuristicSolution *sol)
+MetaHeuristicSolution *ALNS::DoPathRelinking(MetaHeuristicSolution *sol)
 {
-  ALNSHeuristicSolution *curr_sol = nullptr, *curr_pool_sol = nullptr, *best_sol = sol;
+  MetaHeuristicSolution *curr_sol = nullptr, *curr_pool_sol = nullptr, *best_sol = sol;
   double curr_similarity = 0.0;
 
   sol->BuildBitset(*(curr_instance_));
 
   // creates a copy of the pool of solutions
   (mutex_).lock();
-  std::vector<ALNSHeuristicSolution *> pool_copy(num_elements_in_pool_, nullptr);
+  std::vector<MetaHeuristicSolution *> pool_copy(num_elements_in_pool_, nullptr);
 
   for (int i = 0; i < num_elements_in_pool_; ++i)
-    pool_copy[i] = new ALNSHeuristicSolution((pool_)[i]);
+    pool_copy[i] = new MetaHeuristicSolution((pool_)[i]);
 
   // for(int i = 0; i < num_elements_in_pool_; ++i)
   // std::cout << ((pool_)[i])->profits_sum_ << " == " << (pool_copy[i])->profits_sum_ << std::endl;
@@ -251,8 +251,8 @@ ALNSHeuristicSolution *ALNS::DoPathRelinking(ALNSHeuristicSolution *sol)
   {
     // std::cout << " * " << i << std::endl;
     /*(mutex_).lock();
-    if(i == 0) curr_pool_sol = new ALNSHeuristicSolution(best_solution());
-    else if(i == 1) curr_pool_sol = new ALNSHeuristicSolution(worst_solution());
+    if(i == 0) curr_pool_sol = new MetaHeuristicSolution(best_solution());
+    else if(i == 1) curr_pool_sol = new MetaHeuristicSolution(worst_solution());
     else curr_pool_sol = CopyRandomSolutionFromPool();
     (mutex_).unlock();*/
 
@@ -302,7 +302,7 @@ ALNSHeuristicSolution *ALNS::DoPathRelinking(ALNSHeuristicSolution *sol)
   return nullptr;
 }
 
-ALNSHeuristicSolution *ALNS::DoPathRelinkingIter(ALNSHeuristicSolution *guiding_sol, ALNSHeuristicSolution *new_sol)
+MetaHeuristicSolution *ALNS::DoPathRelinkingIter(MetaHeuristicSolution *guiding_sol, MetaHeuristicSolution *new_sol)
 {
   const Graph *graph = (curr_instance_)->graph();
   size_t num_routes = (size_t)((curr_instance_)->num_vehicles());
@@ -311,7 +311,7 @@ ALNSHeuristicSolution *ALNS::DoPathRelinkingIter(ALNSHeuristicSolution *guiding_
   std::list<int> infeasible_routes;
   int curr_vertex = -1;
   double route_limit = (curr_instance_)->limit();
-  ALNSHeuristicSolution *best_sol = new ALNSHeuristicSolution(new_sol), *curr_sol = new ALNSHeuristicSolution(new_sol);
+  MetaHeuristicSolution *best_sol = new MetaHeuristicSolution(new_sol), *curr_sol = new MetaHeuristicSolution(new_sol);
 
   double time_variation = std::numeric_limits<double>::infinity();
   double curr_time_variation = std::numeric_limits<double>::infinity();
@@ -416,7 +416,7 @@ ALNSHeuristicSolution *ALNS::DoPathRelinkingIter(ALNSHeuristicSolution *guiding_
     // std::cout << "passou" << std::endl;
 
     // getchar(); getchar();
-    // return new ALNSHeuristicSolution(new_sol);
+    // return new MetaHeuristicSolution(new_sol);
 
     // remove vertices to restore feassearchesibility
     Route *curr_route = nullptr;
@@ -486,8 +486,8 @@ ALNSHeuristicSolution *ALNS::DoPathRelinkingIter(ALNSHeuristicSolution *guiding_
       if (double_greater(curr_sol->profits_sum_, best_sol->profits_sum_))
       {
         delete best_sol;
-        best_sol = new ALNSHeuristicSolution(curr_sol);
-        // AddSolutionToPool(new ALNSHeuristicSolution(curr_sol),ALNS_iter);
+        best_sol = new MetaHeuristicSolution(curr_sol);
+        // AddSolutionToPool(new MetaHeuristicSolution(curr_sol),ALNS_iter);
       }
     } while (LocalSearches::ShiftingAndInsertion(*curr_instance_, curr_sol));
 
@@ -495,7 +495,7 @@ ALNSHeuristicSolution *ALNS::DoPathRelinkingIter(ALNSHeuristicSolution *guiding_
     if (double_greater(curr_sol->profits_sum_, best_sol->profits_sum_))
     {
       delete best_sol;
-      best_sol = new ALNSHeuristicSolution(curr_sol);
+      best_sol = new MetaHeuristicSolution(curr_sol);
     }
 
     // curr_sol->CheckCorrectness(*(curr_instance_));
@@ -508,17 +508,17 @@ ALNSHeuristicSolution *ALNS::DoPathRelinkingIter(ALNSHeuristicSolution *guiding_
   return best_sol;
 }
 
-ALNSHeuristicSolution *ALNS::CopyRandomSolutionFromPool()
+MetaHeuristicSolution *ALNS::CopyRandomSolutionFromPool()
 {
   if (num_elements_in_pool_ == 0)
     return nullptr;
-  return new ALNSHeuristicSolution((pool_)[rand() % (num_elements_in_pool_)]);
+  return new MetaHeuristicSolution((pool_)[rand() % (num_elements_in_pool_)]);
 }
 
 void ALNS::RunOneThread(int num_thread, int num_iterations)
 {
   int iter = 0;
-  ALNSHeuristicSolution *curr_sol1 = nullptr, *path_relinking_sol = nullptr;
+  MetaHeuristicSolution *curr_sol1 = nullptr, *path_relinking_sol = nullptr;
   bool converged = false;
 
   while (!converged)
@@ -582,7 +582,7 @@ void ALNS::RunOneThread(int num_thread, int num_iterations)
         // std::cout << *curr_sol1 << std::endl;
         // getchar();
         // getchar();
-        AddSolutionToPool(new ALNSHeuristicSolution(curr_sol1));
+        AddSolutionToPool(new MetaHeuristicSolution(curr_sol1));
       }
       (mutex_).unlock();
 
@@ -636,7 +636,7 @@ void ALNS::Run(int num_iterations, bool multithreading)
   timer->Clock(ti);
   int initial_solution_profits_sum = 0;
   total_iter_ = 0;
-  ALNSHeuristicSolution *curr_sol = nullptr;
+  MetaHeuristicSolution *curr_sol = nullptr;
 
   // at this point, must have one solution at pool (generated from feasibility pump)
   curr_sol = best_solution();
@@ -751,7 +751,7 @@ void ALNS::Run(int num_iterations, bool multithreading)
   ti = nullptr;
 }
 
-ALNSHeuristicSolution *ALNS::BuildBestSolutionFromPool()
+MetaHeuristicSolution *ALNS::BuildBestSolutionFromPool()
 {
   IloEnv env;
   IloModel model(env);
@@ -766,7 +766,7 @@ ALNSHeuristicSolution *ALNS::BuildBestSolutionFromPool()
 
   Route *curr_route = nullptr;
   int curr_route_index = -1;
-  ALNSHeuristicSolution *new_solution = new ALNSHeuristicSolution(num_vertices, num_arcs, num_vehicles);
+  MetaHeuristicSolution *new_solution = new MetaHeuristicSolution(num_vertices, num_arcs, num_vehicles);
 
   IloNumVarArray h(env, (num_elements_in_pool_)*num_vehicles, 0.0, 1.0, ILOINT);
   std::vector<std::list<int>> vertex_to_route_map(num_vertices);
@@ -854,7 +854,7 @@ ALNSHeuristicSolution *ALNS::BuildBestSolutionFromPool()
   return new_solution;
 }
 
-// ALNSHeuristicSolution *ALNS::BuildBestSolutionFromGraphInducedByPool()
+// MetaHeuristicSolution *ALNS::BuildBestSolutionFromGraphInducedByPool()
 // {
 
 //   const Graph *graph = curr_instance_->graph();
@@ -911,7 +911,7 @@ ALNSHeuristicSolution *ALNS::BuildBestSolutionFromPool()
 //   CapacitatedSingleCommodity(*(curr_instance_), R, Rn, -1, sol, false, false, false, nullptr, nullptr);
 
 //   int num_arcs = new_graph->num_arcs();
-//   ALNSHeuristicSolution *new_solution = new ALNSHeuristicSolution(num_vertices, num_arcs, num_vehicles);
+//   MetaHeuristicSolution *new_solution = new MetaHeuristicSolution(num_vertices, num_arcs, num_vehicles);
 //   new_solution->profits_sum_ = sol->lb_;
 
 //   delete sol;

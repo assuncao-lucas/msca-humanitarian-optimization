@@ -1180,15 +1180,15 @@ void HeuristicSolution::ReadFromFile(Instance &inst, std::string algo, std::stri
 	input.close();
 }
 
-ALNSHeuristicSolution::ALNSHeuristicSolution() : HeuristicSolution()
+MetaHeuristicSolution::MetaHeuristicSolution() : HeuristicSolution()
 {
 }
 
-ALNSHeuristicSolution::ALNSHeuristicSolution(int num_vertices, int num_arcs, int num_routes) : HeuristicSolution(num_vertices, num_arcs, num_routes)
+MetaHeuristicSolution::MetaHeuristicSolution(int num_vertices, int num_arcs, int num_routes) : HeuristicSolution(num_vertices, num_arcs, num_routes)
 {
 }
 
-ALNSHeuristicSolution::ALNSHeuristicSolution(HeuristicSolution *sol) : HeuristicSolution(sol->num_vertices_, sol->num_arcs_, sol->num_routes_)
+MetaHeuristicSolution::MetaHeuristicSolution(HeuristicSolution *sol) : HeuristicSolution(sol->num_vertices_, sol->num_arcs_, sol->num_routes_)
 {
 	is_infeasible_ = sol->is_infeasible_;
 	is_feasible_ = sol->is_feasible_;
@@ -1212,7 +1212,7 @@ ALNSHeuristicSolution::ALNSHeuristicSolution(HeuristicSolution *sol) : Heuristic
 		((vertex_status_vec_)[*it]).pos_ = it;
 }
 
-ALNSHeuristicSolution::ALNSHeuristicSolution(const ALNSHeuristicSolution *sol)
+MetaHeuristicSolution::MetaHeuristicSolution(const MetaHeuristicSolution *sol)
 {
 	(*this) = (*sol);
 
@@ -1230,11 +1230,11 @@ ALNSHeuristicSolution::ALNSHeuristicSolution(const ALNSHeuristicSolution *sol)
 		((vertex_status_vec_)[*it]).pos_ = it;
 }
 
-ALNSHeuristicSolution::~ALNSHeuristicSolution()
+MetaHeuristicSolution::~MetaHeuristicSolution()
 {
 }
 
-void ALNSHeuristicSolution::Reset(int num_vertices, int num_arcs, int num_routes)
+void MetaHeuristicSolution::Reset(int num_vertices, int num_arcs, int num_routes)
 {
 	HeuristicSolution::Reset(num_vertices, num_arcs, num_routes);
 
@@ -1243,7 +1243,7 @@ void ALNSHeuristicSolution::Reset(int num_vertices, int num_arcs, int num_routes
 	last_improve_iteration_ = 0;
 }
 
-void ALNSHeuristicSolution::WriteToFile(Instance &instance, std::string algo, std::string folder, std::string file_name) const
+void MetaHeuristicSolution::WriteToFile(Instance &instance, std::string algo, std::string folder, std::string file_name) const
 {
 	std::fstream file;
 	std::string path = "..//solutions//";
@@ -1279,7 +1279,7 @@ void ALNSHeuristicSolution::WriteToFile(Instance &instance, std::string algo, st
 	HeuristicSolution::WriteToFile(instance, algo, folder, file_name);
 }
 
-void ALNSHeuristicSolution::ReadFromFile(Instance &inst, std::string algo, std::string folder, std::string file_name)
+void MetaHeuristicSolution::ReadFromFile(Instance &inst, std::string algo, std::string folder, std::string file_name)
 {
 	HeuristicSolution::ReadFromFile(inst, algo, folder, file_name);
 
@@ -1328,13 +1328,25 @@ void ALNSHeuristicSolution::ReadFromFile(Instance &inst, std::string algo, std::
 	input.close();
 }
 
-std::string ALNSHeuristicSolution::GenerateFileName(int num_iterations, int pool_size, int multithreading)
+std::string MetaHeuristicSolution::GenerateALNSFileName(int num_iterations, int pool_size, int multithreading)
 {
 	std::string file_name = "alns";
 	if (multithreading)
-		file_name += "_MT_";
-	file_name += std::to_string(num_iterations);
+		file_name += "_MT";
+	file_name += "_i_" + std::to_string(num_iterations);
 	file_name += "_ps_" + std::to_string(pool_size);
+
+	return file_name;
+}
+
+std::string MetaHeuristicSolution::GenerateSimulatedAnnealingFileName(double temp_decay_rate, int multithreading)
+{
+	std::stringstream ss_decay_factor;
+	ss_decay_factor << std::fixed << std::setprecision(2) << temp_decay_rate;
+	std::string file_name = "sa";
+	if (multithreading)
+		file_name += "_MT";
+	file_name += "_df_" + ss_decay_factor.str();
 
 	return file_name;
 }

@@ -8,23 +8,25 @@ class SimulatedAnnealing
 {
 public:
     explicit SimulatedAnnealing() = delete;
-    explicit SimulatedAnnealing(Instance &instance, std::string algo, std::string folder, std::string file_name, double initial_temperature, double temperature_decrease_rate);
-    explicit SimulatedAnnealing(Instance &instance, HeuristicSolution *initial_sol, double initial_temperature, double temperature_decrease_rate);
-    ~SimulatedAnnealing() = default;
+    explicit SimulatedAnnealing(Instance &instance, std::string algo, std::string folder, std::string file_name);
+    explicit SimulatedAnnealing(Instance &instance, HeuristicSolution *initial_sol);
+    ~SimulatedAnnealing();
     // void Reset();
-    void Run(bool multithreading);
-    ALNSHeuristicSolution *best_solution();
+    void Run(double temperature_decrease_rate, bool multithreading);
+    MetaHeuristicSolution *best_solution();
 
 private:
-    void CheckUpdateBestSolution(ALNSHeuristicSolution *current_solution);
-    void RunOneThread(int num_thread, ALNSHeuristicSolution *initial_sol);
+    void CheckUpdateBestSolution(MetaHeuristicSolution *current_solution);
+    void RunOneThread(int num_thread, MetaHeuristicSolution *initial_sol);
+    MetaHeuristicSolution *RunOneStep(MetaHeuristicSolution *current_solution);
+    void ComputeAndSetInitialTemperature(int sampling_size, double target_acceptance_probability);
     Instance *curr_instance_;
     int last_improve_iteration_ = 0;
     int total_iter_ = 0;
     double time_spent_generating_initial_solution_ = 0.0;
     double temperature_decrease_rate_ = 0.0;
-    double current_temparature_ = 0.0;
-    ALNSHeuristicSolution *best_solution_ = nullptr;
+    double current_temperature_ = 0.0;
+    MetaHeuristicSolution *best_solution_ = nullptr;
 
     std::mutex mutex_;
 };

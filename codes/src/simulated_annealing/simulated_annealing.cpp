@@ -4,17 +4,15 @@
 #include "src/timer.h"
 #include "src/local_searches/local_searches.h"
 
-SimulatedAnnealing::SimulatedAnnealing(Instance &instance, std::string algo, std::string folder, std::string file_name, double initial_temperature, double temperature_decrease_rate)
+SimulatedAnnealing::SimulatedAnnealing(Instance &instance, std::string algo, std::string folder, std::string file_name)
 {
-    current_temparature_ = initial_temperature;
-    temperature_decrease_rate_ = temperature_decrease_rate;
     curr_instance_ = &instance;
     const Graph *graph = instance.graph();
     int num_vertices = graph->num_vertices(), num_arcs = graph->num_arcs();
     int num_routes = instance.num_vehicles();
 
     // std::cout << "read from file " << file_name << std::endl;
-    ALNSHeuristicSolution *sol = new ALNSHeuristicSolution(num_vertices, num_arcs, num_routes);
+    MetaHeuristicSolution *sol = new MetaHeuristicSolution(num_vertices, num_arcs, num_routes);
     sol->ReadFromFile(instance, algo, folder, file_name);
     best_solution_ = sol;
     best_solution_->BuildBitset(instance);
@@ -22,66 +20,148 @@ SimulatedAnnealing::SimulatedAnnealing(Instance &instance, std::string algo, std
     // std::cout << *sol << std::endl;
 }
 
-SimulatedAnnealing::SimulatedAnnealing(Instance &instance, HeuristicSolution *initial_sol, double initial_temperature, double temperature_decrease_rate)
+SimulatedAnnealing::SimulatedAnnealing(Instance &instance, HeuristicSolution *initial_sol)
 {
-    current_temparature_ = initial_temperature;
-    temperature_decrease_rate_ = temperature_decrease_rate;
     curr_instance_ = &instance;
     // std::cout << "read from file " << file_name << std::endl;
-    best_solution_ = new ALNSHeuristicSolution(initial_sol);
+    best_solution_ = new MetaHeuristicSolution(initial_sol);
     best_solution_->BuildBitset(instance);
     time_spent_generating_initial_solution_ = initial_sol->total_time_spent_;
     // std::cout << *sol << std::endl;
 }
 
-ALNSHeuristicSolution *SimulatedAnnealing::best_solution()
+SimulatedAnnealing::~SimulatedAnnealing()
+{
+    if (best_solution_)
+    {
+        delete best_solution_;
+        best_solution_ = nullptr;
+    }
+}
+
+MetaHeuristicSolution *SimulatedAnnealing::best_solution()
 {
     return best_solution_;
 }
 
-void SimulatedAnnealing::RunOneThread(int num_thread, ALNSHeuristicSolution *initial_solution)
+MetaHeuristicSolution *SimulatedAnnealing::RunOneStep(MetaHeuristicSolution *current_solution)
 {
-    bool converged = false, allow_worse_solution = false;
-    ALNSHeuristicSolution *possibly_improved_solution = nullptr, *current_solution = new ALNSHeuristicSolution(initial_solution);
+    MetaHeuristicSolution *possibly_improved_solution = new MetaHeuristicSolution(current_solution);
+    LocalSearches::RemoveVerticesFromSolution(*curr_instance_, possibly_improved_solution, K_ALNS_PERTURBATION_PERCENTAGE);
 
-    while (!converged)
+    do
     {
-        possibly_improved_solution = new ALNSHeuristicSolution(current_solution);
-        LocalSearches::RemoveVerticesFromSolution(*curr_instance_, possibly_improved_solution, K_ALNS_PERTURBATION_PERCENTAGE);
 
+        bool continue_search = false;
         do
         {
-
-            bool continue_search = false;
-            do
+            continue_search = false;
+            if (LocalSearches::DoLocalSearchImprovements(*curr_instance_, possibly_improved_solution))
             {
-                continue_search = false;
-                if (LocalSearches::DoLocalSearchImprovements(*curr_instance_, possibly_improved_solution))
-                {
-                    continue_search = true;
-                    LocalSearches::TryToInsertUnvisitedVertices(*curr_instance_, possibly_improved_solution);
-                }
+                continue_search = true;
+                LocalSearches::TryToInsertUnvisitedVertices(*curr_instance_, possibly_improved_solution);
+            }
 
-                if (LocalSearches::DoReplacementImprovements(*curr_instance_, possibly_improved_solution))
-                {
-                    continue_search = true;
-                    LocalSearches::TryToInsertUnvisitedVertices(*curr_instance_, possibly_improved_solution);
-                }
-            } while (continue_search);
+            if (LocalSearches::DoReplacementImprovements(*curr_instance_, possibly_improved_solution))
+            {
+                continue_search = true;
+                LocalSearches::TryToInsertUnvisitedVertices(*curr_instance_, possibly_improved_solution);
+            }
+        } while (continue_search);
 
-            // IMPORTANT: ShiftingAndInsertion might lead to a worse solution, so we should check BEFORE if the current solution is better than the best found so far as to not lose track of it!
-            CheckUpdateBestSolution(possibly_improved_solution);
-        } while (LocalSearches::ShiftingAndInsertion(*curr_instance_, possibly_improved_solution));
+        // IMPORTANT: ShiftingAndInsertion might lead to a worse solution, so we should check BEFORE if the current solution is better than the best found so far as to not lose track of it!
+        CheckUpdateBestSolution(possibly_improved_solution);
+    } while (LocalSearches::ShiftingAndInsertion(*curr_instance_, possibly_improved_solution));
+
+    return possibly_improved_solution;
+}
+
+void SimulatedAnnealing::ComputeAndSetInitialTemperature(int sampling_size, double target_acceptance_probability)
+{
+    std::vector<std::pair<double, double>> degrading_sampling;
+    MetaHeuristicSolution *initial_solution = new MetaHeuristicSolution(best_solution_), *possibly_degraded_solution = nullptr;
+
+    // Do initial sampling.
+    bool converged_sampling = false;
+    size_t count = 0, sampling_iter = 0, min_sampling = 5;
+    do
+    {
+        possibly_degraded_solution = RunOneStep(initial_solution);
+
+        // if step degrades solution quality/cost, add it to sampling.
+        if (double_less(possibly_degraded_solution->profits_sum_, initial_solution->profits_sum_))
+        {
+            degrading_sampling.push_back({possibly_degraded_solution->profits_sum_, initial_solution->profits_sum_});
+            ++count;
+        }
+        else
+        {
+            // use the sampling procedure to also explore improvement of the solution.
+            CheckUpdateBestSolution(possibly_degraded_solution);
+        }
+
+        ++sampling_iter;
+        if (sampling_iter >= sampling_size && count > min_sampling)
+            converged_sampling = true;
+
+        delete possibly_degraded_solution;
+        possibly_degraded_solution = nullptr;
+    } while (!converged_sampling);
+
+    delete initial_solution;
+    initial_solution = nullptr;
+
+    // compute input temperature.
+    double sum_deltas = 0.0;
+    for (const auto &[min, max] : degrading_sampling)
+        sum_deltas += (max - min);
+
+    double input_temp = -sum_deltas / (degrading_sampling.size() * log(target_acceptance_probability));
+    std::cout << "input temp: " << input_temp << std::endl;
+
+    bool converged = false;
+    double convergence_tolerance = 0.001, current_acceptance_probability = 0.0;
+    double sum_min = 0.0, sum_max = 0.0;
+    double current_temp = input_temp;
+    // compute the initial temperature based on sampling and input temperature.
+    do
+    {
+        sum_min = 0.0;
+        sum_max = 0.0;
+        for (const auto &[min, max] : degrading_sampling)
+        {
+            sum_min += exp(-min / current_temp);
+            sum_max += exp(-max / current_temp);
+        }
+        current_acceptance_probability = sum_max / sum_min;
+        current_temp *= (log(current_acceptance_probability) / log(target_acceptance_probability));
+        std::cout << "current_temp: " << current_temp << std::endl;
+        std::cout << "current_acceptance_probability: " << current_acceptance_probability << std::endl;
+
+    } while (double_greater(fabs(current_acceptance_probability - target_acceptance_probability), 0.0, convergence_tolerance));
+
+    std::cout << "initial temp: " << current_temp << std::endl;
+    current_temperature_ = current_temp;
+}
+
+void SimulatedAnnealing::RunOneThread(int num_thread, MetaHeuristicSolution *initial_solution)
+{
+    bool converged = false, allow_worse_solution = false;
+    MetaHeuristicSolution *possibly_improved_solution = nullptr, *current_solution = new MetaHeuristicSolution(initial_solution);
+    double curr_percentage = 0.0, sorted = 0.0;
+    while (!converged)
+    {
+        possibly_improved_solution = RunOneStep(current_solution);
 
         (mutex_).lock();
-        // std::cout << "temp: " << current_temparature_ << std::endl;
+        // std::cout << "temp: " << current_temperature_ << std::endl;
         // std::cout << "curr profits: " << current_solution->profits_sum_ << std::endl;
         // std::cout << "new profits: " << possibly_improved_solution->profits_sum_ << std::endl;
-        auto curr_percentage = 100.0 * exp((possibly_improved_solution->profits_sum_ - current_solution->profits_sum_) / current_temparature_);
-        auto sorted = 1.0 * (rand() % 101);
+        curr_percentage = 100.0 * exp((possibly_improved_solution->profits_sum_ - current_solution->profits_sum_) / current_temperature_);
+        sorted = 1.0 * (rand() % 101);
         // std::cout << "percentage: " << curr_percentage << std::endl;
         // std::cout << "sorted: " << sorted << std::endl;
-        allow_worse_solution = double_greater(current_temparature_, 0.0) ? !double_greater(sorted, curr_percentage) : false;
+        allow_worse_solution = double_greater(current_temperature_, 0.0) ? !double_greater(sorted, curr_percentage) : false;
         (mutex_).unlock();
 
         if ((allow_worse_solution) || double_greater(possibly_improved_solution->profits_sum_, current_solution->profits_sum_))
@@ -89,8 +169,6 @@ void SimulatedAnnealing::RunOneThread(int num_thread, ALNSHeuristicSolution *ini
             delete current_solution;
             current_solution = possibly_improved_solution;
             CheckUpdateBestSolution(current_solution);
-            // getchar();
-            // getchar();
         }
         else
         {
@@ -100,8 +178,10 @@ void SimulatedAnnealing::RunOneThread(int num_thread, ALNSHeuristicSolution *ini
 
         (mutex_).lock();
         ++total_iter_;
-        current_temparature_ *= temperature_decrease_rate_;
-        if (double_equals(current_temparature_, 0.0))
+        // std::cout << total_iter_ << std::endl;
+        // std::cout << current_temperature_ << std::endl;
+        current_temperature_ *= temperature_decrease_rate_;
+        if (double_equals(current_temperature_, 0.0))
             converged = true;
         (mutex_).unlock();
     }
@@ -113,13 +193,13 @@ void SimulatedAnnealing::RunOneThread(int num_thread, ALNSHeuristicSolution *ini
     current_solution = nullptr;
 }
 
-void SimulatedAnnealing::CheckUpdateBestSolution(ALNSHeuristicSolution *current_solution)
+void SimulatedAnnealing::CheckUpdateBestSolution(MetaHeuristicSolution *current_solution)
 {
     (mutex_).lock();
     if (double_greater(current_solution->profits_sum_, (best_solution())->profits_sum_))
     {
         delete best_solution_;
-        best_solution_ = new ALNSHeuristicSolution(current_solution);
+        best_solution_ = new MetaHeuristicSolution(current_solution);
         best_solution_->BuildBitset(*curr_instance_);
         last_improve_iteration_ = total_iter_;
     }
@@ -127,82 +207,49 @@ void SimulatedAnnealing::CheckUpdateBestSolution(ALNSHeuristicSolution *current_
     (mutex_).unlock();
 }
 
-void SimulatedAnnealing::Run(bool multithreading)
+void SimulatedAnnealing::Run(double temperature_decrease_rate, bool multithreading)
 {
+    temperature_decrease_rate_ = temperature_decrease_rate;
     Timestamp *ti = NewTimestamp();
     Timer *timer = GetTimer();
     timer->Clock(ti);
     int initial_solution_profits_sum = 0;
     total_iter_ = 0;
-    ALNSHeuristicSolution *curr_sol = nullptr;
-    curr_sol = best_solution();
+    MetaHeuristicSolution *curr_sol = best_solution_;
 
     if (!(curr_sol->is_infeasible_) && (curr_sol->is_feasible_))
     {
-        // std::cout << *curr_sol << std::endl;
-        // std::cout << curr_sol->profits_sum_ << std::endl;
         LocalSearches::TryToInsertUnvisitedVertices(*curr_instance_, curr_sol, 0);
-        // std::cout << curr_sol->profits_sum_ << std::endl;
         initial_solution_profits_sum = curr_sol->profits_sum_;
-        // std::cout << *curr_sol << std::endl;
 
         bool continue_search = false;
         do
         {
             continue_search = false;
-            // std::cout << *curr_sol << std::endl;
-            // std::cout << "tentou local search" << std::endl;
             if (LocalSearches::DoLocalSearchImprovements(*curr_instance_, curr_sol))
             {
-                // std::cout << "fez local search" << std::endl;
-                // std::cout << *curr_sol << std::endl;
                 continue_search = true;
                 LocalSearches::TryToInsertUnvisitedVertices(*curr_instance_, curr_sol, 0);
-                // std::cout << *curr_sol << std::endl;
-                // std::cout << "after inserts 1" << std::endl;
-                // curr_sol->BuildBitset(*(curr_instance_));
-                // curr_sol->CheckCorrectness(*curr_instance_);
             }
-
-            // std::cout << "after local searches" << std::endl;
-            // // // std::cout << *curr_sol << std::endl;
-            // curr_sol->BuildBitset(*(curr_instance_));
-            // curr_sol->CheckCorrectness(*curr_instance_);
-
-            // std::cout << "tentou replacements" << std::endl;
 
             if (LocalSearches::DoReplacementImprovements(*curr_instance_, curr_sol))
             {
-                // std::cout << "fez replacements" << std::endl;
                 continue_search = true;
                 LocalSearches::TryToInsertUnvisitedVertices(*curr_instance_, curr_sol, 0);
             }
-
-            // std::cout << "after replacements" << std::endl;
-            // curr_sol->BuildBitset(*(curr_instance_));
-            // curr_sol->CheckCorrectness(*curr_instance_);
         } while (continue_search);
-        // std::cout << "saiu do loop" << std::endl;
-        // curr_sol->BuildBitset(*(curr_instance_));
-        // curr_sol->CheckCorrectness(*curr_instance_);
 
-        // std::cout << "FIM" << std::endl;
-        // getchar(); getchar();
-
-        // std::cout << curr_sol->profits_sum_ << std::endl;
-        // update bitset.
         curr_sol->BuildBitset(*(curr_instance_));
-        // std::cout << curr_sol->profits_sum_ << " ";
 
-        // if(curr_sol->CheckCorrectness(*(curr_instance_)) == false){ std::cout << "deu merda" << std::endl; getchar(); getchar();}
-
-        // std::cout << *curr_sol << std::endl;
+        ComputeAndSetInitialTemperature(50, 0.9);
 
         int num_cores = (int)std::thread::hardware_concurrency();
         // std::cout << "cores: " << num_cores << std::endl;
 
         if ((multithreading) && (num_cores > 1))
         {
+            curr_sol = new MetaHeuristicSolution(best_solution()); // need to create copy because, in multithreading, when the best solution is
+                                                                   // updated before the init of another thread, the reference to this initial best solution would already be lost.
             std::vector<std::thread> v(num_cores - 1);
 
             for (size_t i = 0; i < v.size(); ++i)
@@ -216,6 +263,7 @@ void SimulatedAnnealing::Run(bool multithreading)
             {
                 (v[i]).join();
             }
+            delete curr_sol;
         }
         else
             RunOneThread(0, curr_sol);

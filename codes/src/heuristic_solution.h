@@ -8,7 +8,7 @@
 #include "instance.h"
 #include "general.h"
 
-class ALNSHeuristicSolution;
+class MetaHeuristicSolution;
 
 class VertexStatus
 {
@@ -123,14 +123,14 @@ public:
 	void WriteToFile(Instance &instance, std::string algo, std::string folder, std::string file_name) const;
 };
 
-class ALNSHeuristicSolution : public HeuristicSolution
+class MetaHeuristicSolution : public HeuristicSolution
 {
 public:
-	ALNSHeuristicSolution();
-	ALNSHeuristicSolution(const ALNSHeuristicSolution *);
-	ALNSHeuristicSolution(HeuristicSolution *);
-	ALNSHeuristicSolution(int dimension, int dimension2, int num_routes);
-	~ALNSHeuristicSolution();
+	MetaHeuristicSolution();
+	MetaHeuristicSolution(const MetaHeuristicSolution *);
+	MetaHeuristicSolution(HeuristicSolution *);
+	MetaHeuristicSolution(int dimension, int dimension2, int num_routes);
+	~MetaHeuristicSolution();
 	int num_iterations_ = 0;
 	double initial_solution_profits_sum_ = 0.0;
 	int last_improve_iteration_ = 0;
@@ -138,5 +138,6 @@ public:
 	virtual void Reset(int dimension, int dimension2, int num_routes);
 	void WriteToFile(Instance &instance, std::string algo, std::string folder, std::string file_name) const;
 	void ReadFromFile(Instance &inst, std::string algo, std::string folder, std::string file_name);
-	static std::string GenerateFileName(int num_iterations, int pool_size, int multithreading);
+	static std::string GenerateALNSFileName(int num_iterations, int pool_size, int multithreading);
+	static std::string GenerateSimulatedAnnealingFileName(double temo_decay_rate, int multithreading);
 };

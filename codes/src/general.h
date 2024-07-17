@@ -80,6 +80,9 @@ const int K_ALNS_NUM_ITERATIONS = 2000;
 const double K_ALNS_PERTURBATION_PERCENTAGE = 0.75;
 const bool K_ALNS_MULTI_THREAD = true;
 
+// DEFAULT SIMULATED ANNEALING PARAMETERS
+const double K_SA_TEMP_DECAY_RATE = 0.95;
+
 // Path Relinking parameters
 const bool K_PATH_RELINKING = false;
 const int K_NON_IMPROVE_ITERATIONS_LIMIT = 100;

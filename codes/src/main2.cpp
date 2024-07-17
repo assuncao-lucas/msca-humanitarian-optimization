@@ -1250,8 +1250,8 @@ int main()
 	// GenerateKernelSearchLatexTable(folder, false);
 	// return 0;
 	int time_limit = -1;
-	int num_routes = 2;
-	int uncertainty_budget = 1;
+	int num_routes = 5;
+	int uncertainty_budget = 10;
 	auto dev = 0.5;
 	int seed = 10;
 	std::string instance_name = "test.txt";
@@ -1277,7 +1277,7 @@ int main()
 	// return 0;
 
 	auto graph = inst.graph();
-	// ALNSHeuristicSolution sol(graph->num_vertices(), graph->num_arcs(), num_routes);
+	// MetaHeuristicSolution sol(graph->num_vertices(), graph->num_arcs(), num_routes);
 
 	// std::cout << inst << std::endl;
 	// double time_variation = 0.0;
@@ -1411,7 +1411,7 @@ int main()
 		std::cout << "found initial solution in " << timer->CurrentElapsedTime(ti) << " s" << std::endl;
 		// std::cout << *initial_solution << std::endl;
 		ALNS alns(inst, initial_solution, pool_size);
-		SimulatedAnnealing sa(inst, initial_solution, 100, 0.98);
+		SimulatedAnnealing sa(inst, initial_solution);
 
 		// seed = time(nullptr);
 		srand(time(nullptr));
@@ -1431,7 +1431,7 @@ int main()
 
 		timer->Clock(ti);
 		alns.Run(K_ALNS_NUM_ITERATIONS, K_ALNS_MULTI_THREAD);
-		std::cout << ALNSHeuristicSolution::GenerateFileName(K_ALNS_NUM_ITERATIONS, K_ALNS_SIZE_OF_POOL, K_ALNS_MULTI_THREAD) << "_seed_" << seed << std::endl;
+		std::cout << MetaHeuristicSolution::GenerateALNSFileName(K_ALNS_NUM_ITERATIONS, K_ALNS_SIZE_OF_POOL, K_ALNS_MULTI_THREAD) << "_seed_" << seed << std::endl;
 		std::cout << "best solution: " << alns.best_solution()->profits_sum_ << std::endl;
 		std::cout << "elapsed time: " << timer->CurrentElapsedTime(ti) << " s" << std::endl;
 		std::cout << "elapsed time: " << (alns.best_solution())->total_time_spent_ << " s" << std::endl;
@@ -1439,11 +1439,11 @@ int main()
 		std::cout << "las improve iter: " << alns.best_solution()->last_improve_iteration_ << std::endl;
 
 		// std::cout << *(alns.best_solution()) << std::endl;
-		(alns.best_solution())->WriteToFile(inst, ALNSHeuristicSolution::GenerateFileName(K_ALNS_NUM_ITERATIONS, K_ALNS_SIZE_OF_POOL, K_ALNS_MULTI_THREAD) + "_seed_" + std::to_string(seed), "", instance_name);
+		(alns.best_solution())->WriteToFile(inst, MetaHeuristicSolution::GenerateALNSFileName(K_ALNS_NUM_ITERATIONS, K_ALNS_SIZE_OF_POOL, K_ALNS_MULTI_THREAD) + "_seed_" + std::to_string(seed), "", instance_name);
 
 		timer->Clock(ti);
-		sa.Run(K_ALNS_MULTI_THREAD);
-		// std::cout << ALNSHeuristicSolution::GenerateFileName(K_ALNS_NUM_ITERATIONS, K_ALNS_SIZE_OF_POOL, K_ALNS_MULTI_THREAD) << "_seed_" << seed << std::endl;
+		sa.Run(K_SA_TEMP_DECAY_RATE, K_ALNS_MULTI_THREAD);
+		std::cout << MetaHeuristicSolution::GenerateSimulatedAnnealingFileName(K_SA_TEMP_DECAY_RATE, K_ALNS_MULTI_THREAD) << "_seed_" << seed << std::endl;
 		std::cout << "best solution: " << sa.best_solution()->profits_sum_ << std::endl;
 		std::cout << "elapsed time: " << timer->CurrentElapsedTime(ti) << " s" << std::endl;
 		std::cout << "elapsed time: " << (sa.best_solution())->total_time_spent_ << " s" << std::endl;
@@ -1451,7 +1451,7 @@ int main()
 		std::cout << "las improve iter: " << sa.best_solution()->last_improve_iteration_ << std::endl;
 
 		// std::cout << *(alns.best_solution()) << std::endl;
-		(alns.best_solution())->WriteToFile(inst, ALNSHeuristicSolution::GenerateFileName(K_ALNS_NUM_ITERATIONS, K_ALNS_SIZE_OF_POOL, K_ALNS_MULTI_THREAD) + "_seed_" + std::to_string(seed), "", instance_name);
+		(alns.best_solution())->WriteToFile(inst, MetaHeuristicSolution::GenerateSimulatedAnnealingFileName(K_SA_TEMP_DECAY_RATE, K_ALNS_MULTI_THREAD) + "_seed_" + std::to_string(seed), "", instance_name);
 
 		delete ti;
 		ti = nullptr;

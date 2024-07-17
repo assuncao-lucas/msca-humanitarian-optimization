@@ -16,13 +16,13 @@ public:
 	// void Reset();
 	void Run(int num_iterations, bool multithreading);
 	void PrintPool();
-	ALNSHeuristicSolution *best_solution();
-	ALNSHeuristicSolution *worst_solution();
+	MetaHeuristicSolution *best_solution();
+	MetaHeuristicSolution *worst_solution();
 
 private:
 	void RunOneThread(int num_thread, int num_iterations);
 	Instance *curr_instance_;
-	std::vector<ALNSHeuristicSolution *> pool_;
+	std::vector<MetaHeuristicSolution *> pool_;
 	int num_elements_in_pool_ = 0;
 	int pos_best_sol_ = -1;
 	int pos_worst_sol_ = -1;
@@ -34,13 +34,13 @@ private:
 
 	std::mutex mutex_;
 
-	bool AddSolutionToPool(ALNSHeuristicSolution *sol);
-	ALNSHeuristicSolution *CopyRandomSolutionFromPool();
+	bool AddSolutionToPool(MetaHeuristicSolution *sol);
+	MetaHeuristicSolution *CopyRandomSolutionFromPool();
 
-	ALNSHeuristicSolution *DoPathRelinking(ALNSHeuristicSolution *sol);
-	ALNSHeuristicSolution *DoPathRelinkingIter(ALNSHeuristicSolution *guiding_sol, ALNSHeuristicSolution *new_sol);
+	MetaHeuristicSolution *DoPathRelinking(MetaHeuristicSolution *sol);
+	MetaHeuristicSolution *DoPathRelinkingIter(MetaHeuristicSolution *guiding_sol, MetaHeuristicSolution *new_sol);
 
 	bool CheckPoolIntegrity();
-	ALNSHeuristicSolution *BuildBestSolutionFromPool();
-	// ALNSHeuristicSolution *BuildBestSolutionFromGraphInducedByPool();
+	MetaHeuristicSolution *BuildBestSolutionFromPool();
+	// MetaHeuristicSolution *BuildBestSolutionFromGraphInducedByPool();
 };

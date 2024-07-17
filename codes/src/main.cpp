@@ -23,6 +23,7 @@
 #include "src/feasibility_pump/feasibility_pump.h"
 #include "src/kernel_search/kernel_search.h"
 #include "src/ALNS/ALNS.h"
+#include "src/simulated_annealing/simulated_annealing.h"
 
 // Instance* GenerateFilesFromOPinstancesIter(std::string dir_path, std::string file_name, double mandatory_percentage)
 // {
@@ -2848,7 +2849,9 @@ static const struct option longOpts[] = {
 	{"alns", no_argument, NULL, 'B'},
 	{"alns-num-iterations", required_argument, NULL, 'C'},
 	{"alns-pool-size", required_argument, NULL, 'D'},
-	{"alns-multi-threading", no_argument, NULL, 'E'}, // Exact and Kernel search will always be multithreading!
+	{"metaheuristic-multi-threading", no_argument, NULL, 'E'}, // Exact and Kernel search will always be multithreading!
+	{"simulated-annealing", no_argument, NULL, 'F'},
+	{"sa-temperature-decay-rate", required_argument, NULL, 'G'},
 	{NULL, no_argument, NULL, 0}};
 
 void ParseArgumentsAndRun(int argc, char *argv[])
@@ -2866,16 +2869,18 @@ void ParseArgumentsAndRun(int argc, char *argv[])
 	bool compute_initial_solution_heuristic = false;
 	bool solve_kernel_search = false;
 	bool solve_alns = false;
-	bool alns_multi_threading = false;
+	bool metaheuristic_multi_threading = false;
 	int ks_max_size_bucket = K_KS_MAX_SIZE_BUCKET, ks_min_time_limit = K_KS_MIN_TIME_LIMIT, ks_max_time_limit = K_KS_MAX_TIME_LIMIT;
 	double ks_decay_factor = K_KS_DECAY_FACTOR_TIME_LIMIT;
 	bool ks_feasibility_emphasis = false;
+	bool solve_simulated_annealing = false;
 	HeuristicSolution *initial_sol = nullptr;
 	int alns_num_iterations = K_ALNS_NUM_ITERATIONS, alns_pool_size = K_ALNS_SIZE_OF_POOL;
+	double sa_temperature_decay_rate = K_SA_TEMP_DECAY_RATE;
 
 	std::vector<bool> *CALLBACKS_SELECTION = GetCallbackSelection();
 
-	while ((c = getopt_long(argc, argv, "g:h:j:k:l:v:w:x:y:z:A:C:D:", longOpts, NULL)) != -1)
+	while ((c = getopt_long(argc, argv, "g:h:j:k:l:v:w:x:y:z:A:C:D:G:", longOpts, NULL)) != -1)
 	{
 		switch (c)
 		{
@@ -2978,7 +2983,14 @@ void ParseArgumentsAndRun(int argc, char *argv[])
 				alns_pool_size = std::atoi(optarg);
 			break;
 		case 'E':
-			alns_multi_threading = true;
+			metaheuristic_multi_threading = true;
+			break;
+		case 'F':
+			solve_simulated_annealing = true;
+			break;
+		case 'G':
+			if (optarg)
+				sa_temperature_decay_rate = std::atof(optarg);
 			break;
 		}
 	}
@@ -2986,7 +2998,7 @@ void ParseArgumentsAndRun(int argc, char *argv[])
 	if ((solve_compact && solve_bc) || (solve_compact && solve_benders) ||
 		(solve_compact && solve_cb) || (solve_bc && solve_cb) ||
 		(solve_compact && solve_kernel_search) || (solve_cb && solve_kernel_search) ||
-		(solve_relaxed && solve_kernel_search) || (solve_benders && solve_kernel_search))
+		(solve_relaxed && solve_kernel_search) || (solve_benders && solve_kernel_search) || (solve_alns && solve_simulated_annealing))
 		throw 2;
 	if (baseline && capacity_based)
 		throw 3;
@@ -3241,16 +3253,35 @@ void ParseArgumentsAndRun(int argc, char *argv[])
 		delete initial_solution;
 		initial_solution = nullptr;
 
-		alns.Run(alns_num_iterations, alns_multi_threading);
-		std::cout << ALNSHeuristicSolution::GenerateFileName(alns_num_iterations, alns_pool_size, alns_multi_threading) << "_seed_" << seed << std::endl;
+		std::cout << MetaHeuristicSolution::GenerateALNSFileName(alns_num_iterations, alns_pool_size, metaheuristic_multi_threading) << "_seed_" << seed << std::endl;
+
+		alns.Run(alns_num_iterations, metaheuristic_multi_threading);
 		std::cout << "profits: " << (alns.best_solution())->profits_sum_ << std::endl;
 		std::cout << "last improve iter: " << (alns.best_solution())->last_improve_iteration_ << std::endl;
 		std::cout << "total iter: " << (alns.best_solution())->num_iterations_ << std::endl;
 		std::cout << "time: " << (alns.best_solution())->total_time_spent_ << std::endl;
-		(alns.best_solution())->WriteToFile(inst, ALNSHeuristicSolution::GenerateFileName(alns_num_iterations, alns_pool_size, alns_multi_threading) + "_seed_" + std::to_string(seed), dir_solutions, instance_name);
+		(alns.best_solution())->WriteToFile(inst, MetaHeuristicSolution::GenerateALNSFileName(alns_num_iterations, alns_pool_size, metaheuristic_multi_threading) + "_seed_" + std::to_string(seed), dir_solutions, instance_name);
 	}
 
-	if (!solve_kernel_search && !solve_alns)
+	if (solve_simulated_annealing)
+	{
+		auto initial_solution = InitalSolutionGenerator::GenerateInitialSolution(inst, true);
+		SimulatedAnnealing sa(inst, initial_solution);
+
+		delete initial_solution;
+		initial_solution = nullptr;
+
+		std::cout << MetaHeuristicSolution::GenerateSimulatedAnnealingFileName(sa_temperature_decay_rate, metaheuristic_multi_threading) << "_seed_" << seed << std::endl;
+
+		sa.Run(sa_temperature_decay_rate, metaheuristic_multi_threading);
+		std::cout << "profits: " << (sa.best_solution())->profits_sum_ << std::endl;
+		std::cout << "last improve iter: " << (sa.best_solution())->last_improve_iteration_ << std::endl;
+		std::cout << "total iter: " << (sa.best_solution())->num_iterations_ << std::endl;
+		std::cout << "time: " << (sa.best_solution())->total_time_spent_ << std::endl;
+		(sa.best_solution())->WriteToFile(inst, MetaHeuristicSolution::GenerateSimulatedAnnealingFileName(sa_temperature_decay_rate, metaheuristic_multi_threading) + "_seed_" + std::to_string(seed), dir_solutions, instance_name);
+	}
+
+	if (!solve_kernel_search && !solve_alns && !solve_simulated_annealing)
 	{
 		if (solve_relaxed)
 		{
