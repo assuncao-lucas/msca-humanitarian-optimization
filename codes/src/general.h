@@ -81,7 +81,10 @@ const double K_ALNS_PERTURBATION_PERCENTAGE = 0.75;
 const bool K_ALNS_MULTI_THREAD = true;
 
 // DEFAULT SIMULATED ANNEALING PARAMETERS
-const double K_SA_TEMP_DECAY_RATE = 0.95;
+const double K_SA_TEMP_DECAY_RATE = 0.98;
+const double K_SA_TARGET_ACCEPTANCE_PROBABILITY = 0.9;
+const size_t K_SA_SAMPLING_SIZE = 20;
+const size_t K_SA_MIN_SAMPLING = 5;
 
 // Path Relinking parameters
 const bool K_PATH_RELINKING = false;

@@ -1188,7 +1188,7 @@ MetaHeuristicSolution::MetaHeuristicSolution(int num_vertices, int num_arcs, int
 {
 }
 
-MetaHeuristicSolution::MetaHeuristicSolution(HeuristicSolution *sol) : HeuristicSolution(sol->num_vertices_, sol->num_arcs_, sol->num_routes_)
+MetaHeuristicSolution::MetaHeuristicSolution(const HeuristicSolution *sol) : HeuristicSolution(sol->num_vertices_, sol->num_arcs_, sol->num_routes_)
 {
 	is_infeasible_ = sol->is_infeasible_;
 	is_feasible_ = sol->is_feasible_;

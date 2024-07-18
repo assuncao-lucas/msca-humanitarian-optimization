@@ -128,7 +128,7 @@ class MetaHeuristicSolution : public HeuristicSolution
 public:
 	MetaHeuristicSolution();
 	MetaHeuristicSolution(const MetaHeuristicSolution *);
-	MetaHeuristicSolution(HeuristicSolution *);
+	MetaHeuristicSolution(const HeuristicSolution *);
 	MetaHeuristicSolution(int dimension, int dimension2, int num_routes);
 	~MetaHeuristicSolution();
 	int num_iterations_ = 0;

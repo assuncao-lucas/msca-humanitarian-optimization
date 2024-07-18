@@ -2852,6 +2852,8 @@ static const struct option longOpts[] = {
 	{"metaheuristic-multi-threading", no_argument, NULL, 'E'}, // Exact and Kernel search will always be multithreading!
 	{"simulated-annealing", no_argument, NULL, 'F'},
 	{"sa-temperature-decay-rate", required_argument, NULL, 'G'},
+	{"sa-sampling-size", required_argument, NULL, 'H'},
+	{"sa-target-acceptance-probability", required_argument, NULL, 'I'},
 	{NULL, no_argument, NULL, 0}};
 
 void ParseArgumentsAndRun(int argc, char *argv[])
@@ -2876,11 +2878,12 @@ void ParseArgumentsAndRun(int argc, char *argv[])
 	bool solve_simulated_annealing = false;
 	HeuristicSolution *initial_sol = nullptr;
 	int alns_num_iterations = K_ALNS_NUM_ITERATIONS, alns_pool_size = K_ALNS_SIZE_OF_POOL;
-	double sa_temperature_decay_rate = K_SA_TEMP_DECAY_RATE;
+	double sa_temperature_decay_rate = K_SA_TEMP_DECAY_RATE, sa_target_acceptance_probability = K_SA_TARGET_ACCEPTANCE_PROBABILITY;
+	size_t sa_sampling_size = K_SA_SAMPLING_SIZE;
 
 	std::vector<bool> *CALLBACKS_SELECTION = GetCallbackSelection();
 
-	while ((c = getopt_long(argc, argv, "g:h:j:k:l:v:w:x:y:z:A:C:D:G:", longOpts, NULL)) != -1)
+	while ((c = getopt_long(argc, argv, "g:h:j:k:l:v:w:x:y:z:A:C:D:G:H:I:", longOpts, NULL)) != -1)
 	{
 		switch (c)
 		{
@@ -2991,6 +2994,14 @@ void ParseArgumentsAndRun(int argc, char *argv[])
 		case 'G':
 			if (optarg)
 				sa_temperature_decay_rate = std::atof(optarg);
+			break;
+		case 'H':
+			if (optarg)
+				sa_sampling_size = std::atoi(optarg);
+			break;
+		case 'I':
+			if (optarg)
+				sa_target_acceptance_probability = std::atof(optarg);
 			break;
 		}
 	}
@@ -3273,7 +3284,7 @@ void ParseArgumentsAndRun(int argc, char *argv[])
 
 		std::cout << MetaHeuristicSolution::GenerateSimulatedAnnealingFileName(sa_temperature_decay_rate, metaheuristic_multi_threading) << "_seed_" << seed << std::endl;
 
-		sa.Run(sa_temperature_decay_rate, metaheuristic_multi_threading);
+		sa.Run(sa_temperature_decay_rate, sa_sampling_size, sa_target_acceptance_probability, metaheuristic_multi_threading);
 		std::cout << "profits: " << (sa.best_solution())->profits_sum_ << std::endl;
 		std::cout << "last improve iter: " << (sa.best_solution())->last_improve_iteration_ << std::endl;
 		std::cout << "total iter: " << (sa.best_solution())->num_iterations_ << std::endl;

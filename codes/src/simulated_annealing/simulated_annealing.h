@@ -12,14 +12,14 @@ public:
     explicit SimulatedAnnealing(Instance &instance, HeuristicSolution *initial_sol);
     ~SimulatedAnnealing();
     // void Reset();
-    void Run(double temperature_decrease_rate, bool multithreading);
+    void Run(double temperature_decrease_rate, size_t sampling_size, double target_acceptance_probability, bool multithreading);
     MetaHeuristicSolution *best_solution();
 
 private:
     void CheckUpdateBestSolution(MetaHeuristicSolution *current_solution);
     void RunOneThread(int num_thread, MetaHeuristicSolution *initial_sol);
     MetaHeuristicSolution *RunOneStep(MetaHeuristicSolution *current_solution);
-    void ComputeAndSetInitialTemperature(int sampling_size, double target_acceptance_probability);
+    void ComputeAndSetInitialTemperature(size_t sampling_size, double target_acceptance_probability);
     Instance *curr_instance_;
     int last_improve_iteration_ = 0;
     int total_iter_ = 0;

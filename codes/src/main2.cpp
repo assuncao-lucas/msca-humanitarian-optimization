@@ -1442,7 +1442,7 @@ int main()
 		(alns.best_solution())->WriteToFile(inst, MetaHeuristicSolution::GenerateALNSFileName(K_ALNS_NUM_ITERATIONS, K_ALNS_SIZE_OF_POOL, K_ALNS_MULTI_THREAD) + "_seed_" + std::to_string(seed), "", instance_name);
 
 		timer->Clock(ti);
-		sa.Run(K_SA_TEMP_DECAY_RATE, K_ALNS_MULTI_THREAD);
+		sa.Run(K_SA_TEMP_DECAY_RATE, K_SA_SAMPLING_SIZE, K_SA_TARGET_ACCEPTANCE_PROBABILITY, K_ALNS_MULTI_THREAD);
 		std::cout << MetaHeuristicSolution::GenerateSimulatedAnnealingFileName(K_SA_TEMP_DECAY_RATE, K_ALNS_MULTI_THREAD) << "_seed_" << seed << std::endl;
 		std::cout << "best solution: " << sa.best_solution()->profits_sum_ << std::endl;
 		std::cout << "elapsed time: " << timer->CurrentElapsedTime(ti) << " s" << std::endl;

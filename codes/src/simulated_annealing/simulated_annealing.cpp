@@ -76,22 +76,24 @@ MetaHeuristicSolution *SimulatedAnnealing::RunOneStep(MetaHeuristicSolution *cur
     return possibly_improved_solution;
 }
 
-void SimulatedAnnealing::ComputeAndSetInitialTemperature(int sampling_size, double target_acceptance_probability)
+void SimulatedAnnealing::ComputeAndSetInitialTemperature(size_t sampling_size, double target_acceptance_probability)
 {
     std::vector<std::pair<double, double>> degrading_sampling;
     MetaHeuristicSolution *initial_solution = new MetaHeuristicSolution(best_solution_), *possibly_degraded_solution = nullptr;
 
     // Do initial sampling.
     bool converged_sampling = false;
-    size_t count = 0, sampling_iter = 0, min_sampling = 5;
+    size_t count = 0, sampling_iter = 0;
+    double previous_profit_sum = 0.0;
     do
     {
+        previous_profit_sum = initial_solution->profits_sum_;
         possibly_degraded_solution = RunOneStep(initial_solution);
 
         // if step degrades solution quality/cost, add it to sampling.
-        if (double_less(possibly_degraded_solution->profits_sum_, initial_solution->profits_sum_))
+        if (double_less(possibly_degraded_solution->profits_sum_, previous_profit_sum))
         {
-            degrading_sampling.push_back({possibly_degraded_solution->profits_sum_, initial_solution->profits_sum_});
+            degrading_sampling.push_back({possibly_degraded_solution->profits_sum_, previous_profit_sum});
             ++count;
         }
         else
@@ -101,15 +103,16 @@ void SimulatedAnnealing::ComputeAndSetInitialTemperature(int sampling_size, doub
         }
 
         ++sampling_iter;
-        if (sampling_iter >= sampling_size && count > min_sampling)
+        ++total_iter_; // already counts as an iteration of the SA.
+        if (sampling_iter >= sampling_size && count >= K_SA_MIN_SAMPLING)
             converged_sampling = true;
 
-        delete possibly_degraded_solution;
-        possibly_degraded_solution = nullptr;
+        delete initial_solution;
+        initial_solution = possibly_degraded_solution;
     } while (!converged_sampling);
 
-    delete initial_solution;
-    initial_solution = nullptr;
+    delete possibly_degraded_solution;
+    possibly_degraded_solution = nullptr;
 
     // compute input temperature.
     double sum_deltas = 0.0;
@@ -117,15 +120,19 @@ void SimulatedAnnealing::ComputeAndSetInitialTemperature(int sampling_size, doub
         sum_deltas += (max - min);
 
     double input_temp = -sum_deltas / (degrading_sampling.size() * log(target_acceptance_probability));
-    std::cout << "input temp: " << input_temp << std::endl;
+    // std::cout << "input temp: " << input_temp << std::endl;
 
     bool converged = false;
     double convergence_tolerance = 0.001, current_acceptance_probability = 0.0;
     double sum_min = 0.0, sum_max = 0.0;
-    double current_temp = input_temp;
-    // compute the initial temperature based on sampling and input temperature.
+    double current_temp = input_temp, previous_temp = 0.0;
+    double temp_delta = 0.0, previous_temp_delta = 0.0;
+    double p_factor = 1.0;
+
+    // compute the ideal initial temperature based on sampling and input temperature.
     do
     {
+        // std::cout << "current_temp: " << current_temp << std::endl;
         sum_min = 0.0;
         sum_max = 0.0;
         for (const auto &[min, max] : degrading_sampling)
@@ -134,13 +141,30 @@ void SimulatedAnnealing::ComputeAndSetInitialTemperature(int sampling_size, doub
             sum_max += exp(-max / current_temp);
         }
         current_acceptance_probability = sum_max / sum_min;
-        current_temp *= (log(current_acceptance_probability) / log(target_acceptance_probability));
-        std::cout << "current_temp: " << current_temp << std::endl;
-        std::cout << "current_acceptance_probability: " << current_acceptance_probability << std::endl;
+        // std::cout << "current_acceptance_probability: " << current_acceptance_probability << std::endl;
 
-    } while (double_greater(fabs(current_acceptance_probability - target_acceptance_probability), 0.0, convergence_tolerance));
+        if (!double_greater(fabs(current_acceptance_probability - target_acceptance_probability), convergence_tolerance))
+        {
+            converged = true;
+        }
+        else
+        {
+            previous_temp = current_temp;
+            current_temp *= pow(log(current_acceptance_probability) / log(target_acceptance_probability), 1.0 / p_factor);
+            previous_temp_delta = temp_delta;
+            temp_delta = current_temp - previous_temp;
 
-    std::cout << "initial temp: " << current_temp << std::endl;
+            // check oscilation in temperature increase and adjust parameter p to gaarantee convergence.
+            if (double_less(temp_delta * previous_temp_delta, 0.0))
+            {
+                p_factor *= 2.0;
+                // std::cout << "fez ajuste!" << std::endl;
+            }
+        }
+
+    } while (!converged);
+
+    // std::cout << "initial temp: " << current_temp << std::endl;
     current_temperature_ = current_temp;
 }
 
@@ -207,7 +231,7 @@ void SimulatedAnnealing::CheckUpdateBestSolution(MetaHeuristicSolution *current_
     (mutex_).unlock();
 }
 
-void SimulatedAnnealing::Run(double temperature_decrease_rate, bool multithreading)
+void SimulatedAnnealing::Run(double temperature_decrease_rate, size_t sampling_size, double target_acceptance_probability, bool multithreading)
 {
     temperature_decrease_rate_ = temperature_decrease_rate;
     Timestamp *ti = NewTimestamp();
@@ -241,7 +265,10 @@ void SimulatedAnnealing::Run(double temperature_decrease_rate, bool multithreadi
 
         curr_sol->BuildBitset(*(curr_instance_));
 
-        ComputeAndSetInitialTemperature(50, 0.9);
+        ComputeAndSetInitialTemperature(sampling_size, target_acceptance_probability);
+        // NOTE: at this point, the curr_sol might have been deleted, because ComputeAndSetInitialTemperature might update best_solution!!
+        // this is why, either in single or multithread, the best solution is retrieved once again!
+        // current_temperature_ = 100;
 
         int num_cores = (int)std::thread::hardware_concurrency();
         // std::cout << "cores: " << num_cores << std::endl;
@@ -266,7 +293,7 @@ void SimulatedAnnealing::Run(double temperature_decrease_rate, bool multithreadi
             delete curr_sol;
         }
         else
-            RunOneThread(0, curr_sol);
+            RunOneThread(0, best_solution());
 
         curr_sol = best_solution();
         /*std::cout << curr_sol->profits_sum_ << std::endl;
