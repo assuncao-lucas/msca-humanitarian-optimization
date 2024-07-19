@@ -6,7 +6,7 @@
 #include "src/instance.h"
 #include "src/graph.h"
 #include "src/general.h"
-#include "src/formulations.h"
+#include "src/exact/formulations.h"
 #include "src/timer.h"
 #include "src/graph_algorithms.h"
 #include "src/heuristic_solution.h"
@@ -1391,16 +1391,20 @@ int main()
 
 	// std::cout << inst << std::endl;
 
-	FeasibilityPump fp;
-	// fp.Init(inst);
-	// std::cout << (fp.solution_).GenerateFileName() + "_seed_" + std::to_string(seed) << std::endl;
-	// fp.Run();
-	// (fp.solution_).WriteToFile(inst, (fp.solution_).GenerateFileName() + "_seed_" + std::to_string(seed), "//", instance_name);
-
-	// std::cout << fp.solution_.profits_sum_ << std::endl;
-
 	Timestamp *ti = NewTimestamp();
 	Timer *timer = GetTimer();
+	timer->Clock(ti);
+	FeasibilityPump fp;
+	fp.Init(inst);
+	std::cout << (fp.solution_).GenerateFileName() + "_seed_" + std::to_string(seed) << std::endl;
+	fp.Run();
+	(fp.solution_).WriteToFile(inst, (fp.solution_).GenerateFileName() + "_seed_" + std::to_string(seed), "//", instance_name);
+
+	std::cout << fp.solution_.profits_sum_ << std::endl;
+	std::cout << "time: " << timer->CurrentElapsedTime(ti) << std::endl;
+
+	return 0;
+
 	timer->Clock(ti);
 	try
 	{

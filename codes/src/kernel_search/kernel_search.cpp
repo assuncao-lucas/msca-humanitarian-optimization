@@ -2,7 +2,7 @@
 #include <algorithm>
 #include "src/kernel_search/kernel_search.h"
 #include "src/graph_algorithms.h"
-#include "src/formulations.h"
+#include "src/exact/formulations.h"
 #include "src/general.h"
 
 KernelSearch::KernelSearch(Instance &instance) : instance_(instance)

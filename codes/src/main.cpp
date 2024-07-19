@@ -13,7 +13,7 @@
 #include <boost/dynamic_bitset.hpp>
 #include "src/graph.h"
 #include "src/instance.h"
-#include "src/formulations.h"
+#include "src/exact/formulations.h"
 #include "src/timer.h"
 #include "src/matrix.hpp"
 #include "src/general.h"
@@ -3006,6 +3006,8 @@ void ParseArgumentsAndRun(int argc, char *argv[])
 		}
 	}
 
+	srand(seed);
+
 	if ((solve_compact && solve_bc) || (solve_compact && solve_benders) ||
 		(solve_compact && solve_cb) || (solve_bc && solve_cb) ||
 		(solve_compact && solve_kernel_search) || (solve_cb && solve_kernel_search) ||
@@ -3029,19 +3031,52 @@ void ParseArgumentsAndRun(int argc, char *argv[])
 	// std::cout << inst << std::endl;
 	if (compute_initial_solution_heuristic)
 	{
-		Formulation formulation;
-		if (baseline)
+		if (solve_kernel_search)
 		{
-			formulation = Formulation::baseline;
-		}
-		if (capacity_based)
-		{
-			formulation = Formulation::single_commodity;
+			Formulation formulation;
+			if (baseline)
+			{
+				formulation = Formulation::baseline;
+			}
+			if (capacity_based)
+			{
+				formulation = Formulation::single_commodity;
+			}
+
+			KernelSearch ks(inst);
+			std::cout << KSHeuristicSolution::GenerateFileName(formulation, ks_max_size_bucket, ks_min_time_limit, ks_max_time_limit, ks_decay_factor, ks_feasibility_emphasis) << std::endl;
+			initial_sol = ks.Run(formulation, ks_max_size_bucket, ks_min_time_limit, ks_max_time_limit, ks_decay_factor, ks_feasibility_emphasis, true);
 		}
 
-		KernelSearch ks(inst);
-		std::cout << KSHeuristicSolution::GenerateFileName(formulation, ks_max_size_bucket, ks_min_time_limit, ks_max_time_limit, ks_decay_factor, ks_feasibility_emphasis) << std::endl;
-		initial_sol = ks.Run(formulation, ks_max_size_bucket, ks_min_time_limit, ks_max_time_limit, ks_decay_factor, ks_feasibility_emphasis, true);
+		if (solve_alns)
+		{
+			auto initial_solution = InitalSolutionGenerator::GenerateInitialSolution(inst, true);
+			ALNS alns(inst, initial_solution, alns_pool_size);
+
+			delete initial_solution;
+			initial_solution = nullptr;
+
+			std::cout << MetaHeuristicSolution::GenerateALNSFileName(alns_num_iterations, alns_pool_size, metaheuristic_multi_threading) << "_seed_" << seed << std::endl;
+
+			alns.Run(alns_num_iterations, metaheuristic_multi_threading);
+			std::cout << "profits: " << (alns.best_solution())->profits_sum_ << std::endl;
+			initial_sol = new MetaHeuristicSolution(alns.best_solution());
+		}
+
+		if (solve_simulated_annealing)
+		{
+			auto initial_solution = InitalSolutionGenerator::GenerateInitialSolution(inst, true);
+			SimulatedAnnealing sa(inst, initial_solution);
+
+			delete initial_solution;
+			initial_solution = nullptr;
+
+			std::cout << MetaHeuristicSolution::GenerateSimulatedAnnealingFileName(sa_temperature_decay_rate, metaheuristic_multi_threading) << "_seed_" << seed << std::endl;
+
+			sa.Run(sa_temperature_decay_rate, sa_sampling_size, sa_target_acceptance_probability, metaheuristic_multi_threading);
+			std::cout << "profits: " << (sa.best_solution())->profits_sum_ << std::endl;
+			initial_sol = new MetaHeuristicSolution(sa.best_solution());
+		}
 	}
 
 	Solution<double> sol(graph->num_vertices());

@@ -2,7 +2,7 @@
 #include <algorithm>
 #include "src/feasibility_pump/feasibility_pump.h"
 #include "src/graph_algorithms.h"
-#include "src/formulations.h"
+#include "src/exact/formulations.h"
 #include "src/general.h"
 
 bool compare_func3(const std::pair<int, double> &v1, const std::pair<int, double> &v2)
@@ -744,7 +744,7 @@ void FeasibilityPump::Run()
 			stage_2_iter++;
 
 			// std::cout << "alpha: " << curr_alpha_ << std::endl;
-			// std::cout << "iter: " << stage_2_iter << std::endl;
+			std::cout << "iter: " << stage_2_iter << std::endl;
 			//  resolve
 			cplex_.extract(model_);
 			// cplex_.exportModel("FP.lp");

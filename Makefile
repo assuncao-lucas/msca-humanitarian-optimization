@@ -93,8 +93,8 @@ INSTANCE_SRC=$(PROG_DIR)/instance.cpp
 INSTANCE_H=$(PROG_DIR)/instance.h
 INSTANCE_OBJ=$(PROG_BIN)/instance.o
 
-FORM_SRC=$(PROG_DIR)/formulations.cpp
-FORM_H=$(PROG_DIR)/formulations.h
+FORM_SRC=$(PROG_DIR)/exact/formulations.cpp
+FORM_H=$(PROG_DIR)/exact/formulations.h
 FORM_OBJ=$(PROG_BIN)/formulations.o
 
 BENDERS_CALLBACK_SRC=$(PROG_DIR)/benders_generic_callback.cpp

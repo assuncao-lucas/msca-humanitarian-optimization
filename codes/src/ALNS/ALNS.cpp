@@ -3,7 +3,7 @@
 #include "src/general.h"
 #include "src/timer.h"
 #include "src/graph_algorithms.h"
-#include "src/formulations.h"
+#include "src/exact/formulations.h"
 #include "src/local_searches/local_searches.h"
 
 ALNS::~ALNS()

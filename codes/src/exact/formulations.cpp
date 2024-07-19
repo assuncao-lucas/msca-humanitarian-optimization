@@ -1,7 +1,7 @@
 #include <ilcplex/ilocplex.h>
 #include "src/instance.h"
 #include "src/general.h"
-#include "src/formulations.h"
+#include "src/exact/formulations.h"
 #include "src/user_cut.h"
 
 ILOSTLBEGIN
