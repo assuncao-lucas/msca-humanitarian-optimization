@@ -93,7 +93,7 @@ time_limit=3600
 # ./bin/stop --solve-benders --benders-generic-callback --combine-feas-opt-cuts --capacity-based --instance "../instances/R-STOP-DP/RC50_3.txt" --num-vehicles 2 --uncertainty-budget 5 --service-time-deviation 0.5 --time-limit $time_limit
 # ./bin/stop --solve-benders --benders-generic-callback --combine-feas-opt-cuts --separate-benders-cuts-relaxation --capacity-based --instance "../instances/R-STOP-DP/RC50_3.txt" --num-vehicles 2 --uncertainty-budget 5 --service-time-deviation 0.5 --time-limit $time_limit
 
-start_instance="C100_1_v4_d0.50_b1"
+start_instance="C100_1_v4_d0.50_b0"
 files=()
 # total
 num_vehicles_vec=(2 3 4 5)
