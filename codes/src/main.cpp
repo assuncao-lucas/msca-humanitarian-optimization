@@ -3320,7 +3320,10 @@ void ParseArgumentsAndRun(int argc, char *argv[])
 		std::cout << MetaHeuristicSolution::GenerateSimulatedAnnealingFileName(sa_temperature_decay_rate, metaheuristic_multi_threading) << "_seed_" << seed << std::endl;
 
 		sa.Run(sa_temperature_decay_rate, sa_sampling_size, sa_target_acceptance_probability, metaheuristic_multi_threading);
-		std::cout << "profits: " << (sa.best_solution())->profits_sum_ << std::endl;
+		// std::cout << *sa.best_solution() << std::endl;
+		if (sa.best_solution()->is_infeasible_)
+			std::cout << "INFEASIBLE" << std::endl;
+		std::cout << "profits: " << (sa.best_solution())->profits_sum_ << std ::endl;
 		std::cout << "last improve iter: " << (sa.best_solution())->last_improve_iteration_ << std::endl;
 		std::cout << "total iter: " << (sa.best_solution())->num_iterations_ << std::endl;
 		std::cout << "time: " << (sa.best_solution())->total_time_spent_ << std::endl;

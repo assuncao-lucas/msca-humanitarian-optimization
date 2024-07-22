@@ -103,8 +103,9 @@ void SimulatedAnnealing::ComputeAndSetInitialTemperature(size_t sampling_size, d
         }
 
         ++sampling_iter;
+        // std::cout << sampling_iter << " " << count << std::endl;
         ++total_iter_; // already counts as an iteration of the SA.
-        if (sampling_iter >= sampling_size && count >= K_SA_MIN_SAMPLING)
+        if (sampling_iter >= sampling_size)
             converged_sampling = true;
 
         delete initial_solution;
@@ -115,11 +116,15 @@ void SimulatedAnnealing::ComputeAndSetInitialTemperature(size_t sampling_size, d
     possibly_degraded_solution = nullptr;
 
     // compute input temperature.
-    double sum_deltas = 0.0;
-    for (const auto &[min, max] : degrading_sampling)
-        sum_deltas += (max - min);
+    double input_temp = K_SA_DEFAULT_INITIAL_TEMPERATURE;
+    if (count >= K_SA_MIN_SAMPLING)
+    {
+        double sum_deltas = 0.0;
+        for (const auto &[min, max] : degrading_sampling)
+            sum_deltas += (max - min);
+        input_temp = -sum_deltas / (degrading_sampling.size() * log(target_acceptance_probability));
+    }
 
-    double input_temp = -sum_deltas / (degrading_sampling.size() * log(target_acceptance_probability));
     // std::cout << "input temp: " << input_temp << std::endl;
 
     bool converged = false;

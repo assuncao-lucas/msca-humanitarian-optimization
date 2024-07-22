@@ -85,6 +85,7 @@ const double K_SA_TEMP_DECAY_RATE = 0.98;
 const double K_SA_TARGET_ACCEPTANCE_PROBABILITY = 0.9;
 const size_t K_SA_SAMPLING_SIZE = 20;
 const size_t K_SA_MIN_SAMPLING = 5;
+const double K_SA_DEFAULT_INITIAL_TEMPERATURE = 1000.0;
 
 // Path Relinking parameters
 const bool K_PATH_RELINKING = false;

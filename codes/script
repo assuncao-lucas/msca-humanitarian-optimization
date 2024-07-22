@@ -93,7 +93,7 @@ time_limit=3600
 # ./bin/stop --solve-benders --benders-generic-callback --combine-feas-opt-cuts --capacity-based --instance "../instances/R-STOP-DP/RC50_3.txt" --num-vehicles 2 --uncertainty-budget 5 --service-time-deviation 0.5 --time-limit $time_limit
 # ./bin/stop --solve-benders --benders-generic-callback --combine-feas-opt-cuts --separate-benders-cuts-relaxation --capacity-based --instance "../instances/R-STOP-DP/RC50_3.txt" --num-vehicles 2 --uncertainty-budget 5 --service-time-deviation 0.5 --time-limit $time_limit
 
-curr_instance="a"
+start_instance="C100_1_v4_d0.50_b1"
 files=()
 # total
 num_vehicles_vec=(2 3 4 5)
@@ -108,6 +108,8 @@ do
 	files[$cont]="$file"
 	((cont++))	
 done
+
+readarray -t sorted < <(printf '%s\0' "${files[@]}" | sort -z | xargs -0n1)
 
 # for file in ${files[@]}
 # do
@@ -147,30 +149,34 @@ done
 
 # ./bin/stop --solution-dir "test" --warm-start --compact --baseline --time-limit 3600 --instance  "../instances/R-STOP-DP/R50_3.txt" --num-vehicles 2 --uncertainty-budget 5 --service-time-deviation 0.1 --seed 10 --alns --alns-num-iterations 500 --alns-pool-size 20 --metaheuristic-multi-threading
 
+# ./bin/stop --solution-dir "teste" --instance  "../instances/R-STOP-DP/C100_1.txt" --num-vehicles 4 --uncertainty-budget 1 --service-time-deviation 0.5 --seed 1 --simulated-annealing --metaheuristic-multi-threading
+
 # Heuristics
-for file in ${files[@]}
+for file in ${sorted[@]}
 do
-	echo $file
 	substr=$(echo $file | rev | cut -d'/' -f 1 | rev)
-	if [ "$substr" > "$curr_instance" ]
-	then
-		# echo $substr
-		for num_vehicles in ${num_vehicles_vec[@]}
-        do
-			for service_time_deviation in ${service_time_deviation_vec[@]}
-        	do
-				for uncertainty_budget in ${uncertainty_budget_vec[@]}
-        		do
+	substr=${substr//".txt"/}
+
+	for num_vehicles in ${num_vehicles_vec[@]}
+	do
+		for service_time_deviation in ${service_time_deviation_vec[@]}
+		do
+			for uncertainty_budget in ${uncertainty_budget_vec[@]}
+			do
+				# echo $num_vehicles
+				# echo $service_time_deviation
+				# echo $uncertainty_budget
+				curr_instance=$substr"_v"${num_vehicles}"_d"${service_time_deviation}"_b"${uncertainty_budget}
+				if [[ "$curr_instance" > "$start_instance" ]];
+				then
+					echo "* "$curr_instance
 					for seed in ${seeds[@]}
 					do
-						# echo $num_vehicles
-						# echo $service_time_deviation
-						# echo $uncertainty_budget
 						# ./bin/stop --solution-dir $dir_solutions --alns --instance $file --num-vehicles $num_vehicles --uncertainty-budget $uncertainty_budget --service-time-deviation $service_time_deviation --seed $seed --alns-num-iterations 500 --alns-pool-size 20 --multi-threading
 						./bin/stop --solution-dir $dir_solutions --simulated-annealing --instance $file --num-vehicles $num_vehicles --uncertainty-budget $uncertainty_budget --service-time-deviation $service_time_deviation --seed $seed --sa-temperature-decay-rate 0.98 --metaheuristic-multi-threading
 					done
-				done
+				fi
 			done
-		done 
-	fi
+		done
+	done 
 done
