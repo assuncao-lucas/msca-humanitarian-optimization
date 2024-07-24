@@ -3290,10 +3290,11 @@ void ParseArgumentsAndRun(int argc, char *argv[])
 		std::cout << KSHeuristicSolution::GenerateFileName(formulation, ks_max_size_bucket, ks_min_time_limit, ks_max_time_limit, ks_decay_factor, ks_feasibility_emphasis) << std::endl;
 		const auto *kernel_search_sol = ks.Run(formulation, ks_max_size_bucket, ks_min_time_limit, ks_max_time_limit, ks_decay_factor, ks_feasibility_emphasis, true);
 		kernel_search_sol->WriteToFile(inst, KSHeuristicSolution::GenerateFileName(formulation, ks_max_size_bucket, ks_min_time_limit, ks_max_time_limit, ks_decay_factor, ks_feasibility_emphasis), dir_solutions, instance_name);
-		//  if (kernel_search_sol->is_feasible_)
-		//  	std::cout << " lb: " << kernel_search_sol->profits_sum_ << std::endl;
-		//  if (kernel_search_sol->is_infeasible_)
-		//  	std::cout << " infeasible " << std::endl;
+		if (kernel_search_sol->is_feasible_)
+			std::cout << " lb: " << kernel_search_sol->profits_sum_ << std::endl;
+		if (kernel_search_sol->is_infeasible_)
+			std::cout << " infeasible " << std::endl;
+		std::cout << "time: " << kernel_search_sol->total_time_spent_ << std::endl;
 
 		// if (kernel_search_sol->is_feasible_)
 		// 	std::cout << -kernel_search_sol->profits_sum_ << std::endl;
