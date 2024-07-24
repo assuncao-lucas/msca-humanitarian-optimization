@@ -3,6 +3,7 @@
 #include "src/general.h"
 #include "src/exact/formulations.h"
 #include "src/user_cut.h"
+#include "src/initial_solution/initial_solution.h"
 
 ILOSTLBEGIN
 
@@ -247,12 +248,13 @@ static UserCut *GenerateCliqueConflictCuts(Instance &instance, std::vector<bool>
           )
           {
             found_from_source = true;
-            // std::cout << "achou CCC" << std::endl;
+            std::cout << "achou CCC " << curr_max_flow << " " << curr_conflict_nodes_sum << std::endl;
             curr_cut = new UserCut(num_arcs, num_vertices, curr_conflict_nodes_sum - curr_max_flow, K_TYPE_CLIQUE_CONFLICT_CUT);
             // curr_cut->rhs_nonzero_coefficients_indexes_.push_back(v1);
             // curr_cut->rhs_nonzero_coefficients_indexes_.push_back(v2);
             for (std::list<int>::iterator it2 = curr_conflict.begin(); it2 != curr_conflict.end(); it2++)
             {
+              std::cout << *it2 << std::endl;
               curr_cut->AddRhsElement(*it2);
               if (visited_nodes[*it2])
               {
@@ -287,6 +289,7 @@ static UserCut *GenerateCliqueConflictCuts(Instance &instance, std::vector<bool>
                   //(curr_cut->lhs_nonzero_coefficients_indexes_).push_back(std::pair<int,int>(v3,v4));
                   //(curr_cut->lhs_coefficients_)[graph->pos(v3,v4)] = 1;
                   curr_cut->AddLhsElement(v3, v4, graph->pos(v3, v4));
+                  // std::cout << "add " << v3 << ", " << v4 << std::endl;
                   // sum1 += lps[graph->pos(v3,v4)];
                   //(curr_cut->lhs_num_nonzero_coefs_)++;
                 }
@@ -348,12 +351,14 @@ static UserCut *GenerateCliqueConflictCuts(Instance &instance, std::vector<bool>
           )
           {
             // std::cout << "achou!!!" << std::endl;
+            std::cout << "achou CCC 2" << curr_max_flow << " " << curr_conflict_nodes_sum << std::endl;
             // std::cout << curr_max_flow << " < " << curr_conflict_nodes_sum << std::endl;
             curr_cut = new UserCut(num_arcs, num_vertices, curr_conflict_nodes_sum - curr_max_flow, K_TYPE_CLIQUE_CONFLICT_CUT);
             // curr_cut->rhs_nonzero_coefficients_indexes_.push_back(v1);
             // curr_cut->rhs_nonzero_coefficients_indexes_.push_back(v2);
             for (std::list<int>::iterator it2 = curr_conflict.begin(); it2 != curr_conflict.end(); it2++)
             {
+              std::cout << *it2 << std::endl;
               curr_cut->AddRhsElement(*it2);
               if (visited_nodes[*it2])
               {
@@ -427,6 +432,7 @@ static UserCut *GenerateCliqueConflictCuts(Instance &instance, std::vector<bool>
 
 static bool FindAndAddValidInqualities(IloCplex &cplex, IloEnv &env, IloModel &model, IloNumVarArray &y, IloNumVarArray &x, IloNumArray &values_y, IloNumArray &values_x, Instance &instance, Solution<double> &sol, std::list<UserCutGeneral *> *root_cuts)
 {
+  // std::cout << " ***************** looking for cuts" << std::endl;
   std::vector<bool> *CALLBACKS_SELECTION = GetCallbackSelection();
   bool found_cut = false;
   (sol.num_calls_to_callback_lp_) += 1;
@@ -449,7 +455,7 @@ static bool FindAndAddValidInqualities(IloCplex &cplex, IloEnv &env, IloModel &m
   std::vector<double> nodes_sum(num_vertices, 0.0);
   std::unordered_map<int, int> subgraph_to_graph_map;
   std::unordered_map<int, int> graph_to_subgraph_map;
-  nodes_sum[0] = nodes_sum[num_vertices - 1] = 1.0;
+  nodes_sum[0] = 1.0;
   std::list<int> visited_nodes_list;
   // std::list<std::pair<std::pair<int,int>,double>> visited_arcs;
 
@@ -541,6 +547,14 @@ static bool FindAndAddValidInqualities(IloCplex &cplex, IloEnv &env, IloModel &m
 
       sol.set_cut_added(best_cut->type_, true);
       model.add(exp >= 0);
+      // std::cout << "added cut to LP: " << std::endl;
+      // for (auto i : best_cut->rhs_nonzero_coefficients_indexes_)
+      //   std::cout << i << std::endl;
+      // std::cout << std::endl;
+
+      // for (auto [i, j] : best_cut->lhs_nonzero_coefficients_indexes_)
+      //   std::cout << i << ", " << j << std::endl;
+      // std::cout << std::endl;
 
       if (root_cuts != nullptr)
       {
@@ -579,6 +593,14 @@ static bool FindAndAddValidInqualities(IloCplex &cplex, IloEnv &env, IloModel &m
 
           sol.set_cut_added(curr_cut->type_, true);
           model.add(exp2 >= 0);
+          // std::cout << "added cut to LP 2: " << std::endl;
+          // for (auto i : curr_cut->rhs_nonzero_coefficients_indexes_)
+          //   std::cout << i << std::endl;
+          // std::cout << std::endl;
+
+          // for (auto [i, j] : curr_cut->lhs_nonzero_coefficients_indexes_)
+          //   std::cout << i << ", " << j << std::endl;
+          // std::cout << std::endl;
 
           if (root_cuts != nullptr)
           {
@@ -663,12 +685,23 @@ static void addArcVertexInferenceCuts(IloCplex &cplex, IloModel &model, IloEnv &
     }
   }
 
+  // cplex.exportModel("Testando.lp");
+  // getchar();
+  // getchar();
   if (cont > 0)
   {
     // if only solve relaxed problem, then add already as cuts/restrictions
-    solve_relax ? model.add(cuts) : cplex.addUserCuts(cuts);
-    cuts.endElements();
+    if (solve_relax)
+    {
+      model.add(cuts);
+    }
+    else
+    {
+      cplex.addUserCuts(cuts);
+      cuts.endElements(); // only delete like this if user cuts...if constraints, this command would delete them from model!
+    }
     cuts.end();
+    std::cout << "added arc vertex inference cuts!" << std::endl;
   }
   // cplex.exportModel("Testando.lp");
 }
@@ -704,6 +737,14 @@ cplex.setPriorities(x, pri_order);*/
 
 void optimize(IloCplex &cplex, IloEnv &env, IloModel &model, std::optional<Formulation> formulation, MasterVariables &master_vars, Instance &instance, double total_time_limit, bool solve_relax, bool apply_benders, bool apply_benders_generic_callback, bool combine_feas_op_cuts, bool separate_benders_cuts_relaxation, bool use_valid_inequalities, bool find_root_cuts, double *R0, double *Rn, std::list<UserCutGeneral *> *initial_cuts, HeuristicSolution *initial_sol, bool export_model, std::list<UserCutGeneral *> *root_cuts, Solution<double> &solution)
 {
+  // if initial solution already proves the problem to be infeasible, return.
+  if (initial_sol != nullptr && initial_sol->is_infeasible_)
+  {
+    solution.milp_time_ += initial_sol->total_time_spent_;
+    solution.is_feasible_ = false;
+    return;
+  }
+
   const Graph *graph = instance.graph();
   int num_vertices = graph->num_vertices();
   int num_arcs = graph->num_arcs();
@@ -719,10 +760,10 @@ void optimize(IloCplex &cplex, IloEnv &env, IloModel &model, std::optional<Formu
   BendersGenericCallbackI *generic_callback = nullptr;
   CallbackArguments arguments{.R0 = R0, .Rn = Rn, .instance = &instance};
 
-  // cplex.setParam(IloCplex::Param::WorkMem, 50000);
-  // std::cout << "limit of memory 50000MB" << std::endl;
-  // cplex.setParam(IloCplex::IloCplex::Param::MIP::Strategy::File, 3);
-  cplex.setOut(env.getNullStream());
+  cplex.setParam(IloCplex::Param::WorkMem, 5000);
+  std::cout << "limit of memory 5000MB" << std::endl;
+  cplex.setParam(IloCplex::IloCplex::Param::MIP::Strategy::File, 3);
+  // cplex.setOut(env.getNullStream());
 
   std::vector<bool> *CALLBACKS_SELECTION = GetCallbackSelection();
 
@@ -852,7 +893,7 @@ void optimize(IloCplex &cplex, IloEnv &env, IloModel &model, std::optional<Formu
   //   initial_sol->dual_bound_ = worker->worker_cplex().getObjValue();
   // }
 
-  if ((initial_sol != nullptr) && (initial_sol->is_feasible_))
+  if (!solve_relax && (initial_sol != nullptr) && (initial_sol->is_feasible_))
   {
     // std::cout << "antes" << std::endl;
     IloNumVarArray start_vars(env, num_vertices + num_arcs);
@@ -930,6 +971,7 @@ void optimize(IloCplex &cplex, IloEnv &env, IloModel &model, std::optional<Formu
 
         root_cuts.add(exp >= 0);
         solution.set_cut_added((*it)->type_, false);
+        std::cout << "added clique cut" << std::endl;
 
         exp.end();
         break;
@@ -1005,17 +1047,18 @@ void optimize(IloCplex &cplex, IloEnv &env, IloModel &model, std::optional<Formu
       tf = nullptr;
       return;
     }
-    // curr_bound = cplex.getObjValue();
-    // std::cout << cplex.getCplexStatus() << ": " << curr_bound << std::endl;
     // getchar(); getchar();
     // cont++;
     // std::cout << cont << std::endl;
     found_cuts = false;
 
-    // std::cout << previous_bound << " " << curr_bound << std::endl;
     //  have to add ALL benders cuts, even if stuck at the same bound!
     if (solve_relax) // && double_less(curr_bound,previous_bound,K_TAILING_OFF_TOLERANCE))
     {
+      curr_bound = cplex.getObjValue();
+      // std::cout << cplex.getCplexStatus() << ": " << curr_bound << std::endl;
+      std::cout << " ****" << previous_bound << " " << curr_bound << std::endl;
+
       IloNumArray x_values(env);
       IloNumArray y_values(env);
       cplex.getValues(y_values, master_vars.y);
@@ -1136,7 +1179,7 @@ void optimize(IloCplex &cplex, IloEnv &env, IloModel &model, std::optional<Formu
   else
     solution.milp_time_ += (timer->ElapsedTime(ti, tf) + instance.time_spent_in_preprocessing());
 
-  std::cout << "time spent: " << solution.milp_time_ << std::endl;
+  // std::cout << "time spent: " << solution.milp_time_ << std::endl;
   SetSolutionStatus(cplex, solution, solve_relax);
 
   delete (ti);

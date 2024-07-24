@@ -24,7 +24,6 @@ private:
 	bool found_maximal_cliques_ = false;
 	double time_spent_in_preprocessing_ = 0.0;
 	std::vector<std::list<int>> *conflict_graph_ = nullptr;
-	Matrix<bool> conflict_matrix_;
 	std::list<int> mandatory_list_;
 	std::vector<std::list<int>> conflicts_list_; // list of cliques
 

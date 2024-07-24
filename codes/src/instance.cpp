@@ -398,8 +398,6 @@ void Instance::ComputeConflictGraph()
     timer->Clock(ti);
     const auto &vertices_info = graph->vertices_info();
 
-    conflict_matrix_ = Matrix<bool>(num_vertices, num_vertices, false);
-
     if (conflict_graph_)
     {
         delete conflict_graph_;
@@ -413,11 +411,11 @@ void Instance::ComputeConflictGraph()
 
     min_paths_dist = FloydWarshall(graph);
 
-    for (int i = 1; i < num_vertices - 1; i++)
+    for (int i = 1; i < num_vertices; i++)
     {
         if (!(graph->AdjVerticesOut(i).empty())) // if vertice is reachable
         {
-            for (int j = i + 1; j < num_vertices - 1; j++)
+            for (int j = i + 1; j < num_vertices; j++)
             {
                 if (!(graph->AdjVerticesOut(j).empty())) // if vertice is reachable
                 {
@@ -440,7 +438,6 @@ void Instance::ComputeConflictGraph()
                         // std::cout << " COLOCOU A MAIS!" << std::endl;
                         ((*(conflict_graph_))[i]).push_back(j);
                         ((*(conflict_graph_))[j]).push_back(i);
-                        (conflict_matrix_)[i][j] = (conflict_matrix_)[j][i] = true;
                     }
                 }
             }

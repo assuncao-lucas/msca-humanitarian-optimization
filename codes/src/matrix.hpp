@@ -152,6 +152,8 @@ T *Matrix<T>::operator[](int i) const
 	if (i >= lines_)
 	{
 		std::cout << "line " << i << " is greater than dimension " << lines_ << std::endl;
+		getchar();
+		getchar();
 	}
 	return (this->matrix_)[i];
 }

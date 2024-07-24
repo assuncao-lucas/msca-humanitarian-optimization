@@ -1257,6 +1257,8 @@ int main()
 	std::string instance_name = "test.txt";
 	Instance inst("/home/lucas/Documentos/Research/msca-humanitarian-optimization/instances/R-STOP-DP/", instance_name, num_routes, dev, uncertainty_budget, false);
 
+	inst.ComputeConflictGraph();
+	return 0;
 	// std::cout << inst << std::endl;
 	// std::list<int> x{1, 2};
 	// for (std::list<int>::iterator it = x.begin(); it != x.end(); ++it)

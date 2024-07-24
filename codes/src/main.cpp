@@ -2866,7 +2866,7 @@ void ParseArgumentsAndRun(int argc, char *argv[])
 	bool solve_relaxed = false, solve_benders = false, solve_generic_callback = false, combine_feas_opt_cuts = false;
 	double time_limit = -1.0, service_time_deviation = 0.0;
 	bool force_use_all_vehicles = false;
-	bool export_model = false;
+	bool export_model = true;
 	bool separate_benders_cuts_relaxation = false;
 	bool compute_initial_solution_heuristic = false;
 	bool solve_kernel_search = false;
@@ -3011,7 +3011,9 @@ void ParseArgumentsAndRun(int argc, char *argv[])
 	if ((solve_compact && solve_bc) || (solve_compact && solve_benders) ||
 		(solve_compact && solve_cb) || (solve_bc && solve_cb) ||
 		(solve_compact && solve_kernel_search) || (solve_cb && solve_kernel_search) ||
-		(solve_relaxed && solve_kernel_search) || (solve_benders && solve_kernel_search) || (solve_alns && solve_simulated_annealing))
+		(solve_relaxed && compute_initial_solution_heuristic) || (solve_relaxed && solve_alns) ||
+		(solve_relaxed && solve_simulated_annealing) || (solve_relaxed && solve_kernel_search) ||
+		(solve_benders && solve_kernel_search) || (solve_alns && solve_simulated_annealing))
 		throw 2;
 	if (baseline && capacity_based)
 		throw 3;
@@ -3076,6 +3078,13 @@ void ParseArgumentsAndRun(int argc, char *argv[])
 			sa.Run(sa_temperature_decay_rate, sa_sampling_size, sa_target_acceptance_probability, metaheuristic_multi_threading);
 			std::cout << "profits: " << (sa.best_solution())->profits_sum_ << std::endl;
 			initial_sol = new MetaHeuristicSolution(sa.best_solution());
+		}
+
+		// in case no warm start is given, default one solving the integer problem considering only the mandatory vertices.
+		if (initial_sol == nullptr)
+		{
+			std::cout << "generating DEFAULT initial sol" << std::endl;
+			initial_sol = InitalSolutionGenerator::GenerateInitialSolution(inst, true);
 		}
 	}
 
@@ -3158,6 +3167,10 @@ void ParseArgumentsAndRun(int argc, char *argv[])
 			bool find_root_cuts = true;
 
 			CompactSingleCommodity(inst, R0, Rn, time_limit, true, use_valid_inequalities, find_root_cuts, nullptr, nullptr, force_use_all_vehicles, export_model, root_cuts, sol);
+
+			// std::cout << root_cuts->size() << std::endl;
+			// getchar();
+			// getchar();
 
 			if (time_limit != -1)
 				time_limit = std::max(0.0, time_limit - sol.root_time_);
@@ -3261,7 +3274,7 @@ void ParseArgumentsAndRun(int argc, char *argv[])
 		}
 	}
 
-	if (solve_kernel_search)
+	if (!compute_initial_solution_heuristic && solve_kernel_search)
 	{
 		Formulation formulation;
 		if (baseline)
@@ -3291,7 +3304,7 @@ void ParseArgumentsAndRun(int argc, char *argv[])
 		kernel_search_sol = nullptr;
 	}
 
-	if (solve_alns)
+	if (!compute_initial_solution_heuristic && solve_alns)
 	{
 		auto initial_solution = InitalSolutionGenerator::GenerateInitialSolution(inst, true);
 		ALNS alns(inst, initial_solution, alns_pool_size);
@@ -3309,7 +3322,7 @@ void ParseArgumentsAndRun(int argc, char *argv[])
 		(alns.best_solution())->WriteToFile(inst, MetaHeuristicSolution::GenerateALNSFileName(alns_num_iterations, alns_pool_size, metaheuristic_multi_threading) + "_seed_" + std::to_string(seed), dir_solutions, instance_name);
 	}
 
-	if (solve_simulated_annealing)
+	if (!compute_initial_solution_heuristic && solve_simulated_annealing)
 	{
 		auto initial_solution = InitalSolutionGenerator::GenerateInitialSolution(inst, true);
 		SimulatedAnnealing sa(inst, initial_solution);
@@ -3328,9 +3341,10 @@ void ParseArgumentsAndRun(int argc, char *argv[])
 		std::cout << "total iter: " << (sa.best_solution())->num_iterations_ << std::endl;
 		std::cout << "time: " << (sa.best_solution())->total_time_spent_ << std::endl;
 		(sa.best_solution())->WriteToFile(inst, MetaHeuristicSolution::GenerateSimulatedAnnealingFileName(sa_temperature_decay_rate, metaheuristic_multi_threading) + "_seed_" + std::to_string(seed), dir_solutions, instance_name);
+		// std::cout << *(sa.best_solution()) << std::endl;
 	}
 
-	if (!solve_kernel_search && !solve_alns && !solve_simulated_annealing)
+	if (!solve_compact || !solve_cb || solve_benders)
 	{
 		if (solve_relaxed)
 		{
@@ -3338,8 +3352,15 @@ void ParseArgumentsAndRun(int argc, char *argv[])
 		}
 		else
 		{
-			sol.is_optimal_ ? std::cout << " optimal: " << sol.lb_ << std::endl
-							: std::cout << " non optimal: [" << sol.lb_ << ", " << sol.ub_ << "]" << std::endl;
+			if (!sol.is_feasible_)
+			{
+				std::cout << " * infeasible" << std::endl;
+			}
+			else
+			{
+				sol.is_optimal_ ? std::cout << " optimal: " << sol.lb_ << std::endl
+								: std::cout << " non optimal: [" << sol.lb_ << ", " << sol.ub_ << "]" << std::endl;
+			}
 		}
 		std::cout << "num cuts: " << sol.num_cuts_found_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << "/" << sol.num_cuts_added_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << std::endl;
 
