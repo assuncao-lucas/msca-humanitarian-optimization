@@ -93,7 +93,8 @@ time_limit=3600
 # ./bin/stop --solve-benders --benders-generic-callback --combine-feas-opt-cuts --capacity-based --instance "../instances/R-STOP-DP/RC50_3.txt" --num-vehicles 2 --uncertainty-budget 5 --service-time-deviation 0.5 --time-limit $time_limit
 # ./bin/stop --solve-benders --benders-generic-callback --combine-feas-opt-cuts --separate-benders-cuts-relaxation --capacity-based --instance "../instances/R-STOP-DP/RC50_3.txt" --num-vehicles 2 --uncertainty-budget 5 --service-time-deviation 0.5 --time-limit $time_limit
 
-start_instance="C100_1_v4_d0.50_b0"
+# start_instance="C100_1_v4_d0.50_b0"
+start_instance="0"
 files=()
 # total
 # num_vehicles_vec=(2 3 4 5)
@@ -156,39 +157,39 @@ readarray -t sorted < <(printf '%s\0' "${files[@]}" | sort -z | xargs -0n1)
 # ./bin/stop --solution-dir "teste" --instance  "../instances/R-STOP-DP/C100_4.txt" --num-vehicles 2 --uncertainty-budget 10 --service-time-deviation 0.25 --seed 1 --simulated-annealing --metaheuristic-multi-threading
 
 # Exact and Kernel Search
-for file in ${sorted[@]}
-do
-	substr=$(echo $file | rev | cut -d'/' -f 1 | rev)
-	substr=${substr//".txt"/}
+# for file in ${sorted[@]}
+# do
+# 	substr=$(echo $file | rev | cut -d'/' -f 1 | rev)
+# 	substr=${substr//".txt"/}
 
-	for num_vehicles in ${num_vehicles_vec[@]}
-	do
-		for service_time_deviation in ${service_time_deviation_vec[@]}
-		do
-			for uncertainty_budget in ${uncertainty_budget_vec[@]}
-			do
-				# echo $num_vehicles
-				# echo $service_time_deviation
-				# echo $uncertainty_budget
-				curr_instance=$substr"_v"${num_vehicles}"_d"${service_time_deviation}"_b"${uncertainty_budget}
-				if [[ "$curr_instance" > "$start_instance" ]];
-				then
-					echo "* "$curr_instance
-					# Compact 
-					# ./bin/stop --solution-dir $dir_solutions --compact --baseline --warm-start --time-limit $time_limit --instance $file --num-vehicles $num_vehicles --uncertainty-budget $uncertainty_budget --service-time-deviation $service_time_deviation
-					./bin/stop --solution-dir $dir_solutions --compact --capacity-based --warm-start --time-limit $time_limit --instance $file --num-vehicles $num_vehicles --uncertainty-budget $uncertainty_budget --service-time-deviation $service_time_deviation
+# 	for num_vehicles in ${num_vehicles_vec[@]}
+# 	do
+# 		for service_time_deviation in ${service_time_deviation_vec[@]}
+# 		do
+# 			for uncertainty_budget in ${uncertainty_budget_vec[@]}
+# 			do
+# 				# echo $num_vehicles
+# 				# echo $service_time_deviation
+# 				# echo $uncertainty_budget
+# 				curr_instance=$substr"_v"${num_vehicles}"_d"${service_time_deviation}"_b"${uncertainty_budget}
+# 				if [[ "$curr_instance" > "$start_instance" ]];
+# 				then
+# 					echo "* "$curr_instance
+# 					# Compact 
+# 					# ./bin/stop --solution-dir $dir_solutions --compact --baseline --warm-start --time-limit $time_limit --instance $file --num-vehicles $num_vehicles --uncertainty-budget $uncertainty_budget --service-time-deviation $service_time_deviation
+# 					./bin/stop --solution-dir $dir_solutions --compact --capacity-based --warm-start --time-limit $time_limit --instance $file --num-vehicles $num_vehicles --uncertainty-budget $uncertainty_budget --service-time-deviation $service_time_deviation
 
-					# Cut and branch
-					./bin/stop --solution-dir $dir_solutions --cutting-plane --AVICs --CCCs --capacity-based --warm-start --simulated-annealing --sa-temperature-decay-rate 0.98 --metaheuristic-multi-threading --time-limit $time_limit --instance $file --num-vehicles $num_vehicles --uncertainty-budget $uncertainty_budget --service-time-deviation $service_time_deviation
+# 					# Cut and branch
+# 					./bin/stop --solution-dir $dir_solutions --cutting-plane --AVICs --CCCs --capacity-based --warm-start --simulated-annealing --sa-temperature-decay-rate 0.98 --metaheuristic-multi-threading --time-limit $time_limit --instance $file --num-vehicles $num_vehicles --uncertainty-budget $uncertainty_budget --service-time-deviation $service_time_deviation
 
-					# Kernel Search
-					# ./bin/stop --solution-dir $dir_solutions --kernel-search --baseline --instance $file --num-vehicles $num_vehicles --uncertainty-budget $uncertainty_budget --service-time-deviation $service_time_deviation --ks-max-size-bucket 5 --ks-min-time-limit 19 --ks-max-time-limit 84 --ks-decay-factor 0.96 --ks-feasibility-emphasis 1
-					./bin/stop --solution-dir $dir_solutions --kernel-search --capacity-based --instance $file --num-vehicles $num_vehicles --uncertainty-budget $uncertainty_budget --service-time-deviation $service_time_deviation --ks-max-size-bucket 5 --ks-min-time-limit 25 --ks-max-time-limit 72 --ks-decay-factor 0.86 --ks-feasibility-emphasis 0	
-				fi
-			done
-		done
-	done 
-done
+# 					# Kernel Search
+# 					# ./bin/stop --solution-dir $dir_solutions --kernel-search --baseline --instance $file --num-vehicles $num_vehicles --uncertainty-budget $uncertainty_budget --service-time-deviation $service_time_deviation --ks-max-size-bucket 5 --ks-min-time-limit 19 --ks-max-time-limit 84 --ks-decay-factor 0.96 --ks-feasibility-emphasis 1
+# 					./bin/stop --solution-dir $dir_solutions --kernel-search --capacity-based --instance $file --num-vehicles $num_vehicles --uncertainty-budget $uncertainty_budget --service-time-deviation $service_time_deviation --ks-max-size-bucket 5 --ks-min-time-limit 25 --ks-max-time-limit 72 --ks-decay-factor 0.86 --ks-feasibility-emphasis 0	
+# 				fi
+# 			done
+# 		done
+# 	done 
+# done
 
 # Metaheuristics
 for file in ${sorted[@]}

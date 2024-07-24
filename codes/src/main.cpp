@@ -3344,7 +3344,7 @@ void ParseArgumentsAndRun(int argc, char *argv[])
 		// std::cout << *(sa.best_solution()) << std::endl;
 	}
 
-	if (!solve_compact || !solve_cb || solve_benders)
+	if (solve_compact || solve_cb || solve_benders)
 	{
 		if (solve_relaxed)
 		{

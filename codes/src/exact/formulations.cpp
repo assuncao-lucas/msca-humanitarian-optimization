@@ -772,12 +772,26 @@ void optimize(IloCplex &cplex, IloEnv &env, IloModel &model, std::optional<Formu
     if ((*CALLBACKS_SELECTION)[K_TYPE_CLIQUE_CONFLICT_CUT])
     {
       if (!instance.FoundConflictGraph())
+      {
         instance.ComputeConflictGraph();
+        solution.num_conflicts_ = instance.num_conflicts();
+      }
       if (!(instance.found_maximal_cliques()))
       {
         instance.FindAllMaximalConflictCliquesTomita();
         instance.BuildVerticesToCliquesMapping();
         instance.ResetConflictsCliques();
+        solution.num_maximal_cliques_ = instance.conflicts_list().size();
+
+        // int count = 0;
+        // for (auto &conflict : instance.conflicts_list())
+        // {
+        //   ++count;
+        //   std::cout << "clique :" << count << " :";
+        //   for (auto vertex : conflict)
+        //     std::cout << " " << vertex;
+        //   std::cout << std::endl;
+        // }
       }
     }
 

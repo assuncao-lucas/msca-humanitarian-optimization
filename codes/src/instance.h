@@ -21,6 +21,7 @@ private:
 	double limit_ = 0.0;
 	std::string raw_file_name_;
 	int num_mandatory_ = 0;
+	int num_conflicts_ = 0;
 	bool found_maximal_cliques_ = false;
 	double time_spent_in_preprocessing_ = 0.0;
 	std::vector<std::list<int>> *conflict_graph_ = nullptr;
@@ -70,6 +71,7 @@ public:
 	void SelectMaximumCliquesPerVertex();
 	void ComputeConflictGraph();
 	void ResetConflictsCliques();
+	int num_conflicts() { return num_conflicts_; }
 	int getOriginalVertexPosition(int new_pos) { return map_reordered_vertices_to_original_positions_[new_pos]; }			 // position before reordering vertices.
 	int getReorderedVertexPosition(int original_pos) { return map_original_positions_to_reordered_vertices_[original_pos]; } // position after reordering vertices.
 	int num_vehicles() const { return num_vehicles_; }

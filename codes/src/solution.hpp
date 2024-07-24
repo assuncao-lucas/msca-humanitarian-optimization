@@ -33,6 +33,7 @@ public:
 	int num_calls_to_callback_lp_;
 	int num_tailing_offs_;
 	int num_nodes_;
+	int num_conflicts_ = 0;
 	int num_maximal_cliques_;
 	int num_benders_opt_cuts_;
 	int num_benders_feas_cuts_;
@@ -86,6 +87,7 @@ Solution<T>::Solution(void)
 	this->milp_time_ = 0.0;
 	this->pre_processing_time_ = 0.0;
 	this->num_nodes_ = 0;
+	this->num_conflicts_ = 0;
 	this->num_tailing_offs_ = 0;
 	this->num_maximal_cliques_ = 0;
 	this->num_cuts_added_ = std::vector<int>(K_NUM_TYPES_CALLBACKS, 0);
@@ -119,6 +121,7 @@ Solution<T>::Solution(int dimension)
 	this->milp_time_ = 0.0;
 	this->pre_processing_time_ = 0.0;
 	this->num_nodes_ = 0;
+	this->num_conflicts_ = 0;
 	this->num_tailing_offs_ = 0;
 	this->num_maximal_cliques_ = 0;
 	this->num_cuts_added_ = std::vector<int>(K_NUM_TYPES_CALLBACKS, 0);
@@ -169,6 +172,7 @@ void Solution<T>::reset()
 	this->num_benders_feas_cuts_ = 0;
 
 	this->num_nodes_ = 0;
+	this->num_conflicts_ = 0;
 	this->num_tailing_offs_ = 0;
 	this->num_maximal_cliques_ = 0;
 	this->is_root_node_ = true;
@@ -272,6 +276,7 @@ void Solution<T>::write_to_file(std::string algo, std::string folder, std::strin
 	file << "# tailing offs treated: " << this->num_tailing_offs_ << std::endl;
 	file << "# maximal cliques: " << this->num_maximal_cliques_ << std::endl;
 	file << "Pre Processing time (s): " << this->pre_processing_time_ << std::endl;
+	file << "# num conflicts: " << this->num_conflicts_ << std::endl;
 
 	file.close();
 }
