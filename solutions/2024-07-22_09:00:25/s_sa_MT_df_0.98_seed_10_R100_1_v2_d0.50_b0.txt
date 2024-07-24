@@ -1,0 +1,9 @@
+STATUS: INFEASIBLE
+profits sum: 0.00000
+initial profits sum: 0.00000
+# iterations: 0
+time(s): 1.15199
+last iteration of improvement: 0
+***********************************
+Total profit sum: 0.00000
+Num routes: 0
