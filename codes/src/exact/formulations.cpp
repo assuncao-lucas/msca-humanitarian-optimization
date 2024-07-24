@@ -760,10 +760,10 @@ void optimize(IloCplex &cplex, IloEnv &env, IloModel &model, std::optional<Formu
   BendersGenericCallbackI *generic_callback = nullptr;
   CallbackArguments arguments{.R0 = R0, .Rn = Rn, .instance = &instance};
 
-  cplex.setParam(IloCplex::Param::WorkMem, 5000);
-  std::cout << "limit of memory 5000MB" << std::endl;
+  cplex.setParam(IloCplex::Param::WorkMem, 100000);
+  std::cout << "limit of memory 100000MB" << std::endl;
   cplex.setParam(IloCplex::IloCplex::Param::MIP::Strategy::File, 3);
-  // cplex.setOut(env.getNullStream());
+  cplex.setOut(env.getNullStream());
 
   std::vector<bool> *CALLBACKS_SELECTION = GetCallbackSelection();
 
