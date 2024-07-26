@@ -156,6 +156,43 @@ readarray -t sorted < <(printf '%s\0' "${files[@]}" | sort -z | xargs -0n1)
 
 # ./bin/stop --solution-dir "teste" --instance  "../instances/R-STOP-DP/C100_4.txt" --num-vehicles 2 --uncertainty-budget 10 --service-time-deviation 0.25 --seed 1 --simulated-annealing --metaheuristic-multi-threading
 
+# Relaxation
+for file in ${sorted[@]}
+do
+	substr=$(echo $file | rev | cut -d'/' -f 1 | rev)
+	substr=${substr//".txt"/}
+
+	for num_vehicles in ${num_vehicles_vec[@]}
+	do
+		for service_time_deviation in ${service_time_deviation_vec[@]}
+		do
+			for uncertainty_budget in ${uncertainty_budget_vec[@]}
+			do
+				# echo $num_vehicles
+				# echo $service_time_deviation
+				# echo $uncertainty_budget
+				curr_instance=$substr"_v"${num_vehicles}"_d"${service_time_deviation}"_b"${uncertainty_budget}
+				if [[ "$curr_instance" > "$start_instance" ]];
+				then
+					echo "* "$curr_instance
+					# Compact 
+					./bin/stop --solution-dir $dir_solutions --compact --baseline --instance $file --num-vehicles $num_vehicles --uncertainty-budget $uncertainty_budget --service-time-deviation $service_time_deviation --solve-relaxed
+					./bin/stop --solution-dir $dir_solutions --compact --capacity-based --instance $file --num-vehicles $num_vehicles --uncertainty-budget $uncertainty_budget --service-time-deviation $service_time_deviation --solve-relaxed
+
+					# Cut and branch
+					./bin/stop --solution-dir $dir_solutions --cutting-plane --AVICs --baseline --instance $file --num-vehicles $num_vehicles --uncertainty-budget $uncertainty_budget --service-time-deviation $service_time_deviation --solve-relaxed
+					./bin/stop --solution-dir $dir_solutions --cutting-plane --CCCs --baseline --instance $file --num-vehicles $num_vehicles --uncertainty-budget $uncertainty_budget --service-time-deviation $service_time_deviation --solve-relaxed
+					./bin/stop --solution-dir $dir_solutions --cutting-plane --AVICs --CCCs --baseline --instance $file --num-vehicles $num_vehicles --uncertainty-budget $uncertainty_budget --service-time-deviation $service_time_deviation --solve-relaxed
+
+					./bin/stop --solution-dir $dir_solutions --cutting-plane --AVICs --capacity-based --instance $file --num-vehicles $num_vehicles --uncertainty-budget $uncertainty_budget --service-time-deviation $service_time_deviation --solve-relaxed
+					./bin/stop --solution-dir $dir_solutions --cutting-plane --CCCs --capacity-based --instance $file --num-vehicles $num_vehicles --uncertainty-budget $uncertainty_budget --service-time-deviation $service_time_deviation --solve-relaxed
+					./bin/stop --solution-dir $dir_solutions --cutting-plane --AVICs --CCCs --capacity-based --instance $file --num-vehicles $num_vehicles --uncertainty-budget $uncertainty_budget --service-time-deviation $service_time_deviation --solve-relaxed
+				fi
+			done
+		done
+	done 
+done
+
 # Exact and Kernel Search
 for file in ${sorted[@]}
 do

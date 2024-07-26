@@ -2797,27 +2797,6 @@ void AddInstances(std::vector<std::string> &instances)
 	AddInstancesFromDirectory(".//instances//STOP//Set_102_234//Set_0.05//",instances);*/
 }
 
-std::string GenerateAlgorithmName()
-{
-	std::vector<bool> *CALLBACKS_SELECTION = GetCallbackSelection();
-	std::string algo;
-
-	if ((*CALLBACKS_SELECTION)[K_TYPE_INITIAL_FLOW_BOUNDS_CUT])
-		algo += "FBs_";
-	if ((*CALLBACKS_SELECTION)[K_TYPE_GCC_CUT])
-		algo += "GCCs_";
-	if ((*CALLBACKS_SELECTION)[K_TYPE_CONFLICT_CUT])
-		algo += "CCs_";
-	if ((*CALLBACKS_SELECTION)[K_TYPE_CLIQUE_CONFLICT_CUT])
-		algo += "CCCs_";
-	if ((*CALLBACKS_SELECTION)[K_TYPE_COVER_BOUND_CUT])
-		algo += "LCIs_";
-	if ((*CALLBACKS_SELECTION)[K_TYPE_INITIAL_ARC_VERTEX_INFERENCE_CUT])
-		algo += "AVICs_";
-
-	return algo;
-}
-
 static const struct option longOpts[] = {
 	{"solution-dir", required_argument, NULL, 'a'},
 	{"compact", no_argument, NULL, 'b'},
@@ -2866,7 +2845,7 @@ void ParseArgumentsAndRun(int argc, char *argv[])
 	bool solve_relaxed = false, solve_benders = false, solve_generic_callback = false, combine_feas_opt_cuts = false;
 	double time_limit = -1.0, service_time_deviation = 0.0;
 	bool force_use_all_vehicles = false;
-	bool export_model = true;
+	bool export_model = false;
 	bool separate_benders_cuts_relaxation = false;
 	bool compute_initial_solution_heuristic = false;
 	bool solve_kernel_search = false;
@@ -3030,6 +3009,11 @@ void ParseArgumentsAndRun(int argc, char *argv[])
 	std::string instance_name = inst.GetInstanceName();
 	std::cout << instance_name << std::endl;
 
+	Solution<double> sol(graph->num_vertices());
+
+	double *R0 = Dijkstra(graph, false, false);
+	double *Rn = Dijkstra(graph, true, false);
+
 	// std::cout << inst << std::endl;
 	if (compute_initial_solution_heuristic)
 	{
@@ -3088,13 +3072,11 @@ void ParseArgumentsAndRun(int argc, char *argv[])
 		}
 	}
 
-	Solution<double> sol(graph->num_vertices());
-
-	double *R0 = Dijkstra(graph, false, false);
-	double *Rn = Dijkstra(graph, true, false);
-
 	if (solve_compact)
 	{
+		auto algo = Solution<double>::GenerateAlgorithmName(solve_relaxed, solve_cb, solve_benders, (*CALLBACKS_SELECTION)[K_TYPE_CLIQUE_CONFLICT_CUT], (*CALLBACKS_SELECTION)[K_TYPE_INITIAL_ARC_VERTEX_INFERENCE_CUT], baseline, capacity_based,
+															combine_feas_opt_cuts, separate_benders_cuts_relaxation, solve_generic_callback);
+		std::cout << algo << std::endl;
 		if (baseline)
 		{
 			std::list<UserCutGeneral *> *root_cuts = nullptr;
@@ -3106,11 +3088,7 @@ void ParseArgumentsAndRun(int argc, char *argv[])
 
 			if (!solve_relaxed)
 				CompactBaseline(inst, R0, Rn, time_limit, false, use_valid_inequalities, find_root_cuts, nullptr, initial_sol, force_use_all_vehicles, export_model, root_cuts, sol);
-			std::string algo;
-			if (solve_relaxed)
-				algo += "relax_";
-			algo += "baseline";
-			// std::cout << algo << std::endl;
+
 			sol.write_to_file(algo, dir_solutions, instance_name);
 		}
 
@@ -3125,11 +3103,7 @@ void ParseArgumentsAndRun(int argc, char *argv[])
 
 			if (!solve_relaxed)
 				CompactSingleCommodity(inst, R0, Rn, time_limit, false, use_valid_inequalities, find_root_cuts, nullptr, initial_sol, force_use_all_vehicles, export_model, root_cuts, sol);
-			std::string algo;
-			if (solve_relaxed)
-				algo += "relax_";
-			algo += "csc";
-			// std::cout << algo << std::endl;
+
 			sol.write_to_file(algo, dir_solutions, instance_name);
 		}
 	}
@@ -3137,7 +3111,10 @@ void ParseArgumentsAndRun(int argc, char *argv[])
 	if (solve_cb && !solve_benders)
 	{
 		auto root_cuts = new std::list<UserCutGeneral *>();
+		auto algo = Solution<double>::GenerateAlgorithmName(solve_relaxed, solve_cb, solve_benders, (*CALLBACKS_SELECTION)[K_TYPE_CLIQUE_CONFLICT_CUT], (*CALLBACKS_SELECTION)[K_TYPE_INITIAL_ARC_VERTEX_INFERENCE_CUT], baseline, capacity_based,
+															combine_feas_opt_cuts, separate_benders_cuts_relaxation, solve_generic_callback);
 
+		std::cout << algo << std::endl;
 		if (baseline)
 		{
 			bool use_valid_inequalities = false;
@@ -3153,11 +3130,6 @@ void ParseArgumentsAndRun(int argc, char *argv[])
 			if (!solve_relaxed)
 				CompactBaseline(inst, R0, Rn, time_limit, false, use_valid_inequalities, find_root_cuts, root_cuts, initial_sol, force_use_all_vehicles, export_model, nullptr, sol);
 
-			std::string algo;
-			if (solve_relaxed)
-				algo += "relax_";
-			algo += "cb_baseline";
-			// std::cout << algo << std::endl;
 			sol.write_to_file(algo, dir_solutions, instance_name);
 		}
 
@@ -3181,11 +3153,6 @@ void ParseArgumentsAndRun(int argc, char *argv[])
 			if (!solve_relaxed)
 				CompactSingleCommodity(inst, R0, Rn, time_limit, false, use_valid_inequalities, find_root_cuts, root_cuts, initial_sol, force_use_all_vehicles, export_model, nullptr, sol);
 
-			std::string algo;
-			if (solve_relaxed)
-				algo += "relax_";
-			algo += "cb_csc";
-			// std::cout << algo << std::endl;
 			sol.write_to_file(algo, dir_solutions, instance_name);
 		}
 
@@ -3199,20 +3166,20 @@ void ParseArgumentsAndRun(int argc, char *argv[])
 
 	if (solve_benders)
 	{
+		auto algo = Solution<double>::GenerateAlgorithmName(solve_relaxed, solve_cb, solve_benders, (*CALLBACKS_SELECTION)[K_TYPE_CLIQUE_CONFLICT_CUT], (*CALLBACKS_SELECTION)[K_TYPE_INITIAL_ARC_VERTEX_INFERENCE_CUT], baseline, capacity_based,
+															combine_feas_opt_cuts, separate_benders_cuts_relaxation, solve_generic_callback);
+		std::cout << algo << std::endl;
 		auto root_cuts = new std::list<UserCutGeneral *>();
 
 		Formulation formulation;
-		std::string formulation_name;
 
 		if (baseline)
 		{
 			formulation = Formulation::baseline;
-			formulation_name = "baseline";
 		}
 		if (capacity_based)
 		{
 			formulation = Formulation::single_commodity;
-			formulation_name = "csc";
 		}
 
 		bool use_valid_inequalities = false;
@@ -3243,27 +3210,6 @@ void ParseArgumentsAndRun(int argc, char *argv[])
 		// std::cout << "# feas cuts: " << sol.num_benders_feas_cuts_ << std::endl;
 		// std::cout << "num cuts: " << sol.num_cuts_found_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << "/" << sol.num_cuts_added_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << std::endl;
 
-		std::string algo;
-		if (solve_relaxed)
-			algo += "relax_";
-		if (solve_bc)
-			algo += "cb_";
-
-		algo += formulation_name + "_";
-		if (combine_feas_opt_cuts)
-			algo += "benders_combined";
-		else
-			algo += "benders";
-
-		if (separate_benders_cuts_relaxation)
-			algo += "_cuts_relaxation";
-
-		if (solve_generic_callback)
-			algo += "_generic_callback";
-		else
-			algo += "_lazy_callback";
-
-		std::cout << algo << std::endl;
 		sol.write_to_file(algo, dir_solutions, instance_name);
 
 		DeleteCuts(root_cuts);
@@ -3363,11 +3309,15 @@ void ParseArgumentsAndRun(int argc, char *argv[])
 								: std::cout << " non optimal: [" << sol.lb_ << ", " << sol.ub_ << "]" << std::endl;
 			}
 		}
-		std::cout << "num cuts: " << sol.num_cuts_found_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << "/" << sol.num_cuts_added_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << std::endl;
+		std::cout << "num cuts: " << sol.num_cuts_added_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << "/" << sol.num_cuts_found_lp_[K_TYPE_CLIQUE_CONFLICT_CUT] << std::endl;
 
-		std::cout << "# opt cuts: " << sol.num_benders_opt_cuts_ << std::endl;
-		std::cout << "# feas cuts: " << sol.num_benders_feas_cuts_ << std::endl
-				  << std::endl;
+		if (solve_benders)
+		{
+			std::cout << "# opt cuts: " << sol.num_benders_opt_cuts_ << std::endl;
+			std::cout << "# feas cuts: " << sol.num_benders_feas_cuts_ << std::endl;
+		}
+		std::cout << "root time: " << sol.root_time_ << std::endl;
+		std::cout << "milp time: " << sol.milp_time_ << std::endl;
 	}
 
 	delete[] R0;

@@ -51,6 +51,7 @@ public:
 	void reset();
 	void increment_elaspsed_time(double time);
 	void write_to_file(std::string algo, std::string folder, std::string file_name);
+	static std::string GenerateAlgorithmName(bool solve_relaxed, bool solve_cutting_plane, bool solve_benders, bool cccs, bool avics, bool baseline, bool capacity_based, bool benders_combine_feas_opt_cuts, bool benders_separate_benders_cuts_relaxation, bool benders_solve_generic_callback);
 
 	std::vector<int> num_cuts_found_;
 	std::vector<int> num_cuts_added_;
@@ -229,6 +230,43 @@ void Solution<T>::increment_elaspsed_time(double time)
 	(this->mutex_time_count_).lock();
 	(this->separation_time_) += time;
 	(this->mutex_time_count_).unlock();
+}
+
+template <typename T>
+std::string Solution<T>::GenerateAlgorithmName(bool solve_relaxed, bool solve_cutting_plane, bool solve_benders, bool cccs, bool avics, bool baseline, bool capacity_based, bool benders_combine_feas_opt_cuts, bool benders_separate_benders_cuts_relaxation, bool benders_solve_generic_callback)
+{
+	std::string algo;
+	if (solve_relaxed)
+		algo += "relax_";
+	if (solve_cutting_plane)
+	{
+		algo += "cb_";
+		if (avics)
+			algo += "AVICs_";
+		if (cccs)
+			algo += "CCCs_";
+	}
+	if (solve_benders)
+	{
+		if (benders_combine_feas_opt_cuts)
+			algo += "benders_combined_";
+		else
+			algo += "benders_";
+
+		if (benders_separate_benders_cuts_relaxation)
+			algo += "cuts_relaxation_";
+
+		if (benders_solve_generic_callback)
+			algo += "generic_callback_";
+		else
+			algo += "lazy_callback_";
+	}
+	if (baseline)
+		algo += "baseline";
+	if (capacity_based)
+		algo += "csc";
+
+	return algo;
 }
 
 template <typename T>

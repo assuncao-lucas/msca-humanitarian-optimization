@@ -199,6 +199,8 @@ static UserCut *GenerateCliqueConflictCuts(Instance &instance, std::vector<bool>
   // boost::dynamic_bitset<> clique_is_active((instance.conflicts_list_).size());
   // clique_is_active.set();
   // std::vector<bool> clique_is_active((instance.conflicts_list_).size(),true);
+  // std::cout << "init search" << std::endl;
+  // std::cout << "num active cliques: " << clique_is_active.count() << "/" << clique_is_active.size() << std::endl;
   bool found_from_source = false;
 
   auto conflicts_list = instance.conflicts_list();
@@ -218,7 +220,7 @@ static UserCut *GenerateCliqueConflictCuts(Instance &instance, std::vector<bool>
           // curr_conflict_nodes_sum = nodes_sum[v1] + nodes_sum[v2];
           std::list<LemonGraph::Arc> artificial_arcs;
           // int cont = 0;
-          for (std::list<int>::iterator it2 = curr_conflict.begin(); it2 != curr_conflict.end(); it2++)
+          for (std::list<int>::iterator it2 = curr_conflict.begin(); it2 != curr_conflict.end(); ++it2)
           {
             if (visited_nodes[*it2])
             {
@@ -237,6 +239,8 @@ static UserCut *GenerateCliqueConflictCuts(Instance &instance, std::vector<bool>
           {
             // std::cout << "negativo no source!!" << std::endl;
             // getchar(); getchar();
+            for (auto it3 = artificial_arcs.begin(); it3 != artificial_arcs.end(); ++it3)
+              g.erase(*it3);
             continue;
           }
 
@@ -248,13 +252,13 @@ static UserCut *GenerateCliqueConflictCuts(Instance &instance, std::vector<bool>
           )
           {
             found_from_source = true;
-            std::cout << "achou CCC " << curr_max_flow << " " << curr_conflict_nodes_sum << std::endl;
+            // std::cout << "achou CCC: " << curr_max_flow << " " << curr_conflict_nodes_sum << std::endl;
             curr_cut = new UserCut(num_arcs, num_vertices, curr_conflict_nodes_sum - curr_max_flow, K_TYPE_CLIQUE_CONFLICT_CUT);
             // curr_cut->rhs_nonzero_coefficients_indexes_.push_back(v1);
             // curr_cut->rhs_nonzero_coefficients_indexes_.push_back(v2);
-            for (std::list<int>::iterator it2 = curr_conflict.begin(); it2 != curr_conflict.end(); it2++)
+            for (std::list<int>::iterator it2 = curr_conflict.begin(); it2 != curr_conflict.end(); ++it2)
             {
-              std::cout << *it2 << std::endl;
+              // std::cout << *it2 << std::endl;
               curr_cut->AddRhsElement(*it2);
               if (visited_nodes[*it2])
               {
@@ -279,7 +283,7 @@ static UserCut *GenerateCliqueConflictCuts(Instance &instance, std::vector<bool>
             for (v3 = 0; v3 < num_vertices; v3++)
             {
               auto &v3_out_vertices = graph->AdjVerticesOut(v3);
-              for (std::list<int>::iterator it3 = v3_out_vertices.begin(); it3 != v3_out_vertices.end(); it3++)
+              for (std::list<int>::iterator it3 = v3_out_vertices.begin(); it3 != v3_out_vertices.end(); ++it3)
               {
                 v4 = *it3;
                 // if the arc traverses the cut
@@ -314,7 +318,7 @@ static UserCut *GenerateCliqueConflictCuts(Instance &instance, std::vector<bool>
             // exp2.end();
           }
 
-          for (auto it3 = artificial_arcs.begin(); it3 != artificial_arcs.end(); it3++)
+          for (auto it3 = artificial_arcs.begin(); it3 != artificial_arcs.end(); ++it3)
             g.erase(*it3);
         }
 
@@ -322,7 +326,7 @@ static UserCut *GenerateCliqueConflictCuts(Instance &instance, std::vector<bool>
         {
 
           std::list<LemonGraph::Arc> artificial_arcs_inv;
-          for (std::list<int>::iterator it2 = curr_conflict.begin(); it2 != curr_conflict.end(); it2++)
+          for (std::list<int>::iterator it2 = curr_conflict.begin(); it2 != curr_conflict.end(); ++it2)
           {
             if (visited_nodes[*it2])
             {
@@ -340,6 +344,8 @@ static UserCut *GenerateCliqueConflictCuts(Instance &instance, std::vector<bool>
           if (double_less(curr_max_flow, 0.0))
           {
             // std::cout << "negativo no sink!!" << std::endl;
+            for (auto it3 = artificial_arcs_inv.begin(); it3 != artificial_arcs_inv.end(); ++it3)
+              g_inv.erase(*it3);
             continue;
           }
           // if found a violated cut and conflict nodes and source belong to this cut on the conflict artificial node side.
@@ -351,14 +357,14 @@ static UserCut *GenerateCliqueConflictCuts(Instance &instance, std::vector<bool>
           )
           {
             // std::cout << "achou!!!" << std::endl;
-            std::cout << "achou CCC 2" << curr_max_flow << " " << curr_conflict_nodes_sum << std::endl;
+            // std::cout << "achou CCC 2: " << curr_max_flow << " " << curr_conflict_nodes_sum << std::endl;
             // std::cout << curr_max_flow << " < " << curr_conflict_nodes_sum << std::endl;
             curr_cut = new UserCut(num_arcs, num_vertices, curr_conflict_nodes_sum - curr_max_flow, K_TYPE_CLIQUE_CONFLICT_CUT);
             // curr_cut->rhs_nonzero_coefficients_indexes_.push_back(v1);
             // curr_cut->rhs_nonzero_coefficients_indexes_.push_back(v2);
-            for (std::list<int>::iterator it2 = curr_conflict.begin(); it2 != curr_conflict.end(); it2++)
+            for (std::list<int>::iterator it2 = curr_conflict.begin(); it2 != curr_conflict.end(); ++it2)
             {
-              std::cout << *it2 << std::endl;
+              // std::cout << *it2 << std::endl;
               curr_cut->AddRhsElement(*it2);
               if (visited_nodes[*it2])
               {
@@ -380,7 +386,7 @@ static UserCut *GenerateCliqueConflictCuts(Instance &instance, std::vector<bool>
             // IloExpr exp2(env);
             // double sum1 = 0, sum2 = 0, sum3 =0;
             // std::cout << "S(lemon): ";
-            for (v3 = 0; v3 < num_vertices; v3++)
+            for (v3 = 0; v3 < num_vertices; ++v3)
             {
               auto &out_vertices = graph->AdjVerticesOut(v3);
               for (std::list<int>::iterator it3 = out_vertices.begin(); it3 != out_vertices.end(); ++it3)
@@ -417,7 +423,7 @@ static UserCut *GenerateCliqueConflictCuts(Instance &instance, std::vector<bool>
             // exp2.end();
           }
 
-          for (auto it3 = artificial_arcs_inv.begin(); it3 != artificial_arcs_inv.end(); it3++)
+          for (auto it3 = artificial_arcs_inv.begin(); it3 != artificial_arcs_inv.end(); ++it3)
             g_inv.erase(*it3);
         }
       }
@@ -701,7 +707,7 @@ static void addArcVertexInferenceCuts(IloCplex &cplex, IloModel &model, IloEnv &
       cuts.endElements(); // only delete like this if user cuts...if constraints, this command would delete them from model!
     }
     cuts.end();
-    std::cout << "added arc vertex inference cuts!" << std::endl;
+    // std::cout << "added arc vertex inference cuts!" << std::endl;
   }
   // cplex.exportModel("Testando.lp");
 }
@@ -985,7 +991,7 @@ void optimize(IloCplex &cplex, IloEnv &env, IloModel &model, std::optional<Formu
 
         root_cuts.add(exp >= 0);
         solution.set_cut_added((*it)->type_, false);
-        std::cout << "added clique cut" << std::endl;
+        // std::cout << "added clique cut" << std::endl;
 
         exp.end();
         break;
@@ -1071,7 +1077,7 @@ void optimize(IloCplex &cplex, IloEnv &env, IloModel &model, std::optional<Formu
     {
       curr_bound = cplex.getObjValue();
       // std::cout << cplex.getCplexStatus() << ": " << curr_bound << std::endl;
-      std::cout << " ****" << previous_bound << " " << curr_bound << std::endl;
+      // std::cout << " ****" << previous_bound << " " << curr_bound << std::endl;
 
       IloNumArray x_values(env);
       IloNumArray y_values(env);
