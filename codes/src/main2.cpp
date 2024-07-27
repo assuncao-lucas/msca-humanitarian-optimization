@@ -1257,8 +1257,6 @@ int main()
 	std::string instance_name = "test.txt";
 	Instance inst("/home/lucas/Documentos/Research/msca-humanitarian-optimization/instances/R-STOP-DP/", instance_name, num_routes, dev, uncertainty_budget, false);
 
-	inst.ComputeConflictGraph();
-	return 0;
 	// std::cout << inst << std::endl;
 	// std::list<int> x{1, 2};
 	// for (std::list<int>::iterator it = x.begin(); it != x.end(); ++it)
@@ -1279,6 +1277,7 @@ int main()
 	// return 0;
 
 	auto graph = inst.graph();
+
 	// MetaHeuristicSolution sol(graph->num_vertices(), graph->num_arcs(), num_routes);
 
 	// std::cout << inst << std::endl;
@@ -1404,8 +1403,6 @@ int main()
 
 	std::cout << fp.solution_.profits_sum_ << std::endl;
 	std::cout << "time: " << timer->CurrentElapsedTime(ti) << std::endl;
-
-	return 0;
 
 	timer->Clock(ti);
 	try

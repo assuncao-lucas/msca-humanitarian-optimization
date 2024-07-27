@@ -2987,7 +2987,8 @@ void ParseArgumentsAndRun(int argc, char *argv[])
 
 	srand(seed);
 
-	if ((solve_compact && solve_bc) || (solve_compact && solve_benders) ||
+	if (((solve_compact || solve_cb || solve_benders) && !baseline && !capacity_based) ||
+		(solve_compact && solve_bc) || (solve_compact && solve_benders) ||
 		(solve_compact && solve_cb) || (solve_bc && solve_cb) ||
 		(solve_compact && solve_kernel_search) || (solve_cb && solve_kernel_search) ||
 		(solve_relaxed && compute_initial_solution_heuristic) || (solve_relaxed && solve_alns) ||
@@ -3084,7 +3085,7 @@ void ParseArgumentsAndRun(int argc, char *argv[])
 			// compute relaxation just to get limits at root node.
 			bool use_valid_inequalities = false;
 			bool find_root_cuts = false;
-			CompactBaseline(inst, R0, Rn, time_limit, true, use_valid_inequalities, find_root_cuts, nullptr, nullptr, force_use_all_vehicles, export_model, root_cuts, sol);
+			CompactBaseline(inst, R0, Rn, time_limit, true, use_valid_inequalities, find_root_cuts, nullptr, initial_sol, force_use_all_vehicles, export_model, root_cuts, sol);
 
 			if (!solve_relaxed)
 				CompactBaseline(inst, R0, Rn, time_limit, false, use_valid_inequalities, find_root_cuts, nullptr, initial_sol, force_use_all_vehicles, export_model, root_cuts, sol);
@@ -3099,7 +3100,7 @@ void ParseArgumentsAndRun(int argc, char *argv[])
 			// compute relaxation just to get limits at root node.
 			bool use_valid_inequalities = false;
 			bool find_root_cuts = false;
-			CompactSingleCommodity(inst, R0, Rn, time_limit, true, use_valid_inequalities, find_root_cuts, nullptr, nullptr, force_use_all_vehicles, export_model, root_cuts, sol);
+			CompactSingleCommodity(inst, R0, Rn, time_limit, true, use_valid_inequalities, find_root_cuts, nullptr, initial_sol, force_use_all_vehicles, export_model, root_cuts, sol);
 
 			if (!solve_relaxed)
 				CompactSingleCommodity(inst, R0, Rn, time_limit, false, use_valid_inequalities, find_root_cuts, nullptr, initial_sol, force_use_all_vehicles, export_model, root_cuts, sol);
@@ -3119,7 +3120,7 @@ void ParseArgumentsAndRun(int argc, char *argv[])
 		{
 			bool use_valid_inequalities = false;
 			bool find_root_cuts = true;
-			CompactBaseline(inst, R0, Rn, time_limit, true, use_valid_inequalities, find_root_cuts, nullptr, nullptr, force_use_all_vehicles, export_model, root_cuts, sol);
+			CompactBaseline(inst, R0, Rn, time_limit, true, use_valid_inequalities, find_root_cuts, nullptr, initial_sol, force_use_all_vehicles, export_model, root_cuts, sol);
 
 			if (time_limit != -1)
 				time_limit = std::max(0.0, time_limit - sol.root_time_);
@@ -3138,7 +3139,7 @@ void ParseArgumentsAndRun(int argc, char *argv[])
 			bool use_valid_inequalities = false;
 			bool find_root_cuts = true;
 
-			CompactSingleCommodity(inst, R0, Rn, time_limit, true, use_valid_inequalities, find_root_cuts, nullptr, nullptr, force_use_all_vehicles, export_model, root_cuts, sol);
+			CompactSingleCommodity(inst, R0, Rn, time_limit, true, use_valid_inequalities, find_root_cuts, nullptr, initial_sol, force_use_all_vehicles, export_model, root_cuts, sol);
 
 			// std::cout << root_cuts->size() << std::endl;
 			// getchar();
@@ -3189,7 +3190,7 @@ void ParseArgumentsAndRun(int argc, char *argv[])
 			use_valid_inequalities = false;
 			find_root_cuts = true;
 
-			Benders(inst, formulation, R0, Rn, time_limit, solve_generic_callback, combine_feas_opt_cuts, separate_benders_cuts_relaxation, true, use_valid_inequalities, find_root_cuts, nullptr, nullptr, force_use_all_vehicles, export_model, root_cuts, sol);
+			Benders(inst, formulation, R0, Rn, time_limit, solve_generic_callback, combine_feas_opt_cuts, separate_benders_cuts_relaxation, true, use_valid_inequalities, find_root_cuts, nullptr, initial_sol, force_use_all_vehicles, export_model, root_cuts, sol);
 
 			if (time_limit != -1)
 				time_limit = std::max(0.0, time_limit - sol.root_time_);
@@ -3200,7 +3201,7 @@ void ParseArgumentsAndRun(int argc, char *argv[])
 		}
 		else if (solve_relaxed)
 		{
-			Benders(inst, formulation, R0, Rn, time_limit, solve_generic_callback, combine_feas_opt_cuts, separate_benders_cuts_relaxation, true, use_valid_inequalities, find_root_cuts, nullptr, nullptr, force_use_all_vehicles, export_model, root_cuts, sol);
+			Benders(inst, formulation, R0, Rn, time_limit, solve_generic_callback, combine_feas_opt_cuts, separate_benders_cuts_relaxation, true, use_valid_inequalities, find_root_cuts, nullptr, initial_sol, force_use_all_vehicles, export_model, root_cuts, sol);
 		}
 
 		if (!solve_relaxed)

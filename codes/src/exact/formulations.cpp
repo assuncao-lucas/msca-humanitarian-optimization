@@ -746,7 +746,7 @@ void optimize(IloCplex &cplex, IloEnv &env, IloModel &model, std::optional<Formu
   // if initial solution already proves the problem to be infeasible, return.
   if (initial_sol != nullptr && initial_sol->is_infeasible_)
   {
-    solution.milp_time_ += initial_sol->total_time_spent_;
+    solve_relax ? solution.root_time_ = 0 : solution.milp_time_ += initial_sol->total_time_spent_;
     solution.is_feasible_ = false;
     return;
   }
