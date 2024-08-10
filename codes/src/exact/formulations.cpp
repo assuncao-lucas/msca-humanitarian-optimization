@@ -1017,10 +1017,10 @@ void optimize(IloCplex &cplex, IloEnv &env, IloModel &model, std::optional<Formu
 
   if (!double_equals(total_time_limit, -1))
   {
-    std::cout << total_time_limit - instance.time_spent_in_preprocessing() << std::endl;
+    // std::cout << total_time_limit - instance.time_spent_in_preprocessing() << std::endl;
     cplex.setParam(IloCplex::Param::ClockType, 2);
     double time_left = total_time_limit - instance.time_spent_in_preprocessing() - timer->CurrentElapsedTime(ti);
-    std::cout << time_left << std::endl;
+    // std::cout << time_left << std::endl;
     cplex.setParam(IloCplex::Param::TimeLimit, time_left);
   }
 
@@ -1709,6 +1709,12 @@ void CompactSingleCommodity(Instance &inst, double *R0, double *Rn, double time_
   // IloCplex::LongAnnotation decomp = cplex.newLongAnnotation(IloCplex::BendersAnnotation,CPX_BENDERS_MASTERVALUE);
   // for (IloInt i = 0; i < f.getSize(); ++i)
   //     cplex.setAnnotation(decomp, f[i], CPX_BENDERS_MASTERVALUE+1);
+
+  // if (!solve_relax)
+  // {
+  //   cplex.exportModel("r-stop-dp-c25_2.lp");
+  //   std::cout << "exportou!" << std::endl;
+  // }
 
   optimize(cplex, env, model, std::nullopt, master_vars, inst, time_limit, solve_relax, false, false, false, false, use_valid_inequalities, find_root_cuts, R0, Rn, initial_cuts, initial_sol, export_model, root_cuts, solution);
 

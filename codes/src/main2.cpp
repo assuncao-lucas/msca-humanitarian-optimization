@@ -1030,7 +1030,7 @@ void GenerateKernelSearchLatexTable(std::string folder, bool add_exact_results)
 	output.close();
 }
 
-void GenerateLPImprovementsLatexTable()
+void GenerateLPImprovementsLatexTable(std::string folder)
 {
 	std::string curr_file;
 	std::vector<std::string> algorithms;
@@ -1038,9 +1038,9 @@ void GenerateLPImprovementsLatexTable()
 	std::vector<std::string> instance_types;
 	std::vector<std::string> instance_limit_quantiles;
 
-	std::vector<std::string> num_vehicles_vec{"2", "3", "4", "5"};
-	std::vector<std::string> service_time_deviation_vec{"0.10", "0.25", "0.50"};
-	std::vector<std::string> uncertainty_budget_vec{"0", "1", "5"};
+	std::vector<std::string> num_vehicles_vec{"2", "4"};
+	std::vector<std::string> service_time_deviation_vec{"0.10", "0.25"};
+	std::vector<std::string> uncertainty_budget_vec{"1", "5"};
 
 	std::vector<std::string> instances_terminations;
 
@@ -1050,9 +1050,13 @@ void GenerateLPImprovementsLatexTable()
 				instances_terminations.push_back("_v" + num_vehicles + "_d" + service_time_deviation + "_b" + uncertainty_budget + ".txt");
 
 	algorithms.push_back("relax_baseline");
-	algorithms.push_back("relax_cb_baseline");
+	algorithms.push_back("relax_cb_AVICs_baseline");
+	algorithms.push_back("relax_cb_CCCs_baseline");
+	algorithms.push_back("relax_cb_AVICs_CCCs_baseline");
 	algorithms.push_back("relax_csc");
-	algorithms.push_back("relax_cb_csc");
+	algorithms.push_back("relax_cb_AVICs_csc");
+	algorithms.push_back("relax_cb_CCCs_csc");
+	algorithms.push_back("relax_cb_AVICs_CCCs_csc");
 
 	instance_types.push_back("C");
 	instance_types.push_back("R");
@@ -1060,14 +1064,14 @@ void GenerateLPImprovementsLatexTable()
 
 	instance_sizes.push_back("25");
 	instance_sizes.push_back("50");
-	// instance_sizes.push_back("100");
+	instance_sizes.push_back("100");
 
 	instance_limit_quantiles.push_back("0.8");
 
-	// instance_limit_quantiles.push_back("1");
-	// instance_limit_quantiles.push_back("2");
-	// instance_limit_quantiles.push_back("3");
-	// instance_limit_quantiles.push_back("4");
+	instance_limit_quantiles.push_back("1");
+	instance_limit_quantiles.push_back("2");
+	instance_limit_quantiles.push_back("3");
+	instance_limit_quantiles.push_back("4");
 
 	std::fstream output;
 	std::string output_name = "..//tables//latex//table_LP_improvements.txt";
@@ -1109,7 +1113,7 @@ void GenerateLPImprovementsLatexTable()
 					for (size_t algo = 0; algo < algorithms.size(); ++algo)
 					{
 						double curr_improvement = 0.0;
-						curr_file = "..//solutions//";
+						curr_file = "..//solutions//" + folder + "//";
 						curr_file.append("s_");
 						curr_file.append(algorithms[algo]);
 						curr_file.append("_");
@@ -1239,13 +1243,13 @@ void GenerateLPImprovementsLatexTable()
 
 int main()
 {
-	std::string folder = "2024-05-13_07:54:26_all_kernel_search";
+	std::string folder = "2024-07-26_09:18:48_all_relax_new";
 	// std::string folder = "2024-06-23_13:01:07_all_kernel_search_less_time";
 	// try
 	// {
 	// GenerateAlgorithmsLatexTablePerInstance(folder);
 	// return 1;
-	// GenerateLPImprovementsLatexTable();
+	// GenerateLPImprovementsLatexTable(folder);
 	// GenerateAlgorithmsLatexTable(folder);
 	// GenerateKernelSearchLatexTable(folder, false);
 	// return 0;
@@ -1254,7 +1258,7 @@ int main()
 	int uncertainty_budget = 10;
 	auto dev = 0.5;
 	int seed = 10;
-	std::string instance_name = "test.txt";
+	std::string instance_name = "R100_4.txt";
 	Instance inst("/home/lucas/Documentos/Research/msca-humanitarian-optimization/instances/R-STOP-DP/", instance_name, num_routes, dev, uncertainty_budget, false);
 
 	// std::cout << inst << std::endl;
