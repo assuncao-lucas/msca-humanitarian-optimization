@@ -1,0 +1,34 @@
+STATUS: FEASIBLE
+LP: 336.20
+Lb: 208.59
+Ub: 332.32
+Root time(s): 0.23
+MILP time(s): 3600.17
+Separation time(s): 0.00
+# iterations of cutting plane at root: 1
+# cuts added/found via callback (LP): 
+type 0: 0/0
+type 1: 0/0
+type 2: 0/0
+type 3: 0/0
+type 4: 0/0
+type 5: 0/0
+type 6: 0/0
+type 7: 0/0
+type 8: 600/600
+# calls to callback: 0
+# cuts added/found via callback (MILP): 
+type 0: 0/0
+type 1: 0/0
+type 2: 0/0
+type 3: 0/0
+type 4: 0/0
+type 5: 0/0
+type 6: 0/0
+type 7: 0/0
+type 8: 600/0
+# nodes explored: 4338232
+# tailing offs treated: 0
+# maximal cliques: 26
+Pre Processing time (s): 0.00
+# num conflicts: 0

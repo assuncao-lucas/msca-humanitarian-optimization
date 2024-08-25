@@ -1712,7 +1712,7 @@ void CompactSingleCommodity(Instance &inst, double *R0, double *Rn, double time_
 
   // if (!solve_relax)
   // {
-  //   cplex.exportModel("r-stop-dp-c25_2.lp");
+  //   cplex.exportModel("infeasible.lp");
   //   std::cout << "exportou!" << std::endl;
   // }
 

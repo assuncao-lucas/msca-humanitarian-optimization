@@ -193,7 +193,7 @@ void GenerateAlgorithmsLatexTable(std::string folder)
 	std::vector<std::string> instance_limit_quantiles;
 
 	std::vector<std::string> num_vehicles_vec{"2", "4"};
-	std::vector<std::string> service_time_deviation_vec{"0.50"};
+	std::vector<std::string> service_time_deviation_vec{"0.10", "0.25"};
 	std::vector<std::string> uncertainty_budget_vec{"1", "5"};
 
 	std::vector<std::string> instances_terminations;
@@ -203,10 +203,10 @@ void GenerateAlgorithmsLatexTable(std::string folder)
 			for (auto uncertainty_budget : uncertainty_budget_vec)
 				instances_terminations.push_back("_v" + num_vehicles + "_d" + service_time_deviation + "_b" + uncertainty_budget + ".txt");
 
-	algorithms.push_back("baseline");
+	// algorithms.push_back("baseline");
 	// algorithms.push_back("cb_baseline");
 	algorithms.push_back("csc");
-	// algorithms.push_back("cb_csc");
+	algorithms.push_back("cb_AVICs_CCCs_csc");
 
 	instance_types.push_back("C");
 	instance_types.push_back("R");
@@ -214,13 +214,13 @@ void GenerateAlgorithmsLatexTable(std::string folder)
 
 	instance_sizes.push_back("25");
 	instance_sizes.push_back("50");
-	// instance_sizes.push_back("100");
+	instance_sizes.push_back("100");
 
 	instance_limit_quantiles.push_back("0.8");
 	instance_limit_quantiles.push_back("1");
-	// instance_limit_quantiles.push_back("2");
+	instance_limit_quantiles.push_back("2");
 	instance_limit_quantiles.push_back("3");
-	// instance_limit_quantiles.push_back("4");
+	instance_limit_quantiles.push_back("4");
 
 	std::fstream output;
 	std::string output_name;
@@ -1243,22 +1243,23 @@ void GenerateLPImprovementsLatexTable(std::string folder)
 
 int main()
 {
-	std::string folder = "2024-07-26_09:18:48_all_relax_new";
+	// std::string folder = "2024-07-26_09:18:48_all_relax_new";
 	// std::string folder = "2024-06-23_13:01:07_all_kernel_search_less_time";
+	std::string folder = "all_exact";
 	// try
 	// {
 	// GenerateAlgorithmsLatexTablePerInstance(folder);
 	// return 1;
 	// GenerateLPImprovementsLatexTable(folder);
-	// GenerateAlgorithmsLatexTable(folder);
+	GenerateAlgorithmsLatexTable(folder);
 	// GenerateKernelSearchLatexTable(folder, false);
-	// return 0;
+	return 0;
 	int time_limit = -1;
 	int num_routes = 5;
 	int uncertainty_budget = 10;
 	auto dev = 0.5;
 	int seed = 10;
-	std::string instance_name = "R100_4.txt";
+	std::string instance_name = "R100_1.txt";
 	Instance inst("/home/lucas/Documentos/Research/msca-humanitarian-optimization/instances/R-STOP-DP/", instance_name, num_routes, dev, uncertainty_budget, false);
 
 	// std::cout << inst << std::endl;
