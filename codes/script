@@ -213,10 +213,12 @@ do
 				then
 					echo "* "$curr_instance
 					# Compact 
-					./bin/stop --solution-dir $dir_solutions --compact --baseline --warm-start --time-limit $time_limit --instance $file --num-vehicles $num_vehicles --uncertainty-budget $uncertainty_budget --service-time-deviation $service_time_deviation
+					# ./bin/stop --solution-dir $dir_solutions --compact --baseline --warm-start --time-limit $time_limit --instance $file --num-vehicles $num_vehicles --uncertainty-budget $uncertainty_budget --service-time-deviation $service_time_deviation
 					# ./bin/stop --solution-dir $dir_solutions --compact --capacity-based --warm-start --time-limit $time_limit --instance $file --num-vehicles $num_vehicles --uncertainty-budget $uncertainty_budget --service-time-deviation $service_time_deviation
+					
 					# # Cut and branch
 					# ./bin/stop --solution-dir $dir_solutions --cutting-plane --AVICs --CCCs --capacity-based --warm-start --simulated-annealing --sa-temperature-decay-rate 0.98 --metaheuristic-multi-threading --time-limit $time_limit --instance $file --num-vehicles $num_vehicles --uncertainty-budget $uncertainty_budget --service-time-deviation $service_time_deviation
+					./bin/stop --solution-dir $dir_solutions --cutting-plane --AVICs --CCCs --baseline --warm-start --simulated-annealing --sa-temperature-decay-rate 0.98 --metaheuristic-multi-threading --time-limit $time_limit --instance $file --num-vehicles $num_vehicles --uncertainty-budget $uncertainty_budget --service-time-deviation $service_time_deviation
 
 					# Kernel Search
 					# # ./bin/stop --solution-dir $dir_solutions --kernel-search --baseline --instance $file --num-vehicles $num_vehicles --uncertainty-budget $uncertainty_budget --service-time-deviation $service_time_deviation --ks-max-size-bucket 5 --ks-min-time-limit 19 --ks-max-time-limit 84 --ks-decay-factor 0.96 --ks-feasibility-emphasis 1

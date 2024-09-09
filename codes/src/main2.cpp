@@ -203,8 +203,8 @@ void GenerateAlgorithmsLatexTable(std::string folder)
 			for (auto uncertainty_budget : uncertainty_budget_vec)
 				instances_terminations.push_back("_v" + num_vehicles + "_d" + service_time_deviation + "_b" + uncertainty_budget + ".txt");
 
-	// algorithms.push_back("baseline");
-	// algorithms.push_back("cb_baseline");
+	algorithms.push_back("baseline");
+	// algorithms.push_back("cb_AVICs_CCCs_baseline");
 	algorithms.push_back("csc");
 	algorithms.push_back("cb_AVICs_CCCs_csc");
 
@@ -448,7 +448,7 @@ void GenerateAlgorithmsLatexTable(std::string folder)
 	output.close();
 }
 
-void GenerateKernelSearchLatexTable(std::string folder, bool add_exact_results)
+void GenerateHeuristicsLatexTable(std::string folder_exact, std::string folder_heuristic, bool add_exact_results)
 {
 	std::string curr_file;
 	std::vector<std::string> algorithms;
@@ -457,11 +457,9 @@ void GenerateKernelSearchLatexTable(std::string folder, bool add_exact_results)
 	std::vector<std::string> instance_types;
 	std::vector<std::string> instance_limit_quantiles;
 
-	std::vector<std::string> num_vehicles_vec{"2", "3", "4", "5"};
-	std::vector<std::string> service_time_deviation_vec{"0.10", "0.25", "0.50"};
-	std::vector<std::string> uncertainty_budget_vec{"0",
-													"1",
-													"5", "10"};
+	std::vector<std::string> num_vehicles_vec{"2", "4"};
+	std::vector<std::string> service_time_deviation_vec{"0.10", "0.25"};
+	std::vector<std::string> uncertainty_budget_vec{"1", "5"};
 
 	std::vector<std::string> instances_terminations;
 
@@ -472,11 +470,12 @@ void GenerateKernelSearchLatexTable(std::string folder, bool add_exact_results)
 
 	// exact_algorithms.push_back("baseline");
 	// algorithms.push_back("cb_baseline");
-	// exact_algorithms.push_back("csc");
-	// algorithms.push_back("cb_csc");
+	exact_algorithms.push_back("csc");
+	// exact_algorithms.push_back("cb_AVICs_CCCs_csc");
 
-	algorithms.push_back("baseline_ks_b2_[84,19]_d0.96_feas");
-	algorithms.push_back("csc_ks_b3_[72,25]_d0.86");
+	// algorithms.push_back("baseline_ks_b5_[84,19]_d0.96_feas");
+	algorithms.push_back("csc_ks_b5_[72,25]_d0.86");
+	// algorithms.push_back("sa_MT_df_0.98");
 
 	instance_types.push_back("C");
 	instance_types.push_back("R");
@@ -494,7 +493,7 @@ void GenerateKernelSearchLatexTable(std::string folder, bool add_exact_results)
 
 	std::fstream output;
 	std::string output_name;
-	output_name = "..//tables//latex//table_kernel_search.txt";
+	output_name = "..//tables//latex//table_heuristics.txt";
 	output.open(output_name.c_str(), std::fstream::out);
 
 	if (!output.is_open())
@@ -571,14 +570,14 @@ void GenerateKernelSearchLatexTable(std::string folder, bool add_exact_results)
 				{
 					std::string instance = instance_prefix + instances_termination;
 					// std::cout << instance << std::endl;
-					double best_lb = 1;
+					double best_lb = -1;
 					bool is_infeasible = false;
 					bool has_optimal_bound = false;
 
 					// compute the best known primal bound among the exact algorithms.
 					for (size_t algo = 0; algo < exact_algorithms.size(); ++algo)
 					{
-						curr_file = "..//solutions//" + folder + "//";
+						curr_file = "..//solutions//" + folder_exact + "//";
 						curr_file.append("s_");
 						curr_file.append(exact_algorithms[algo]);
 						curr_file.append("_");
@@ -670,7 +669,7 @@ void GenerateKernelSearchLatexTable(std::string folder, bool add_exact_results)
 					double original_lp = 0.0;
 					for (size_t algo = 0; algo < exact_algorithms.size(); ++algo)
 					{
-						curr_file = "..//solutions//" + folder + "//";
+						curr_file = "..//solutions//" + folder_exact + "//";
 						curr_file.append("s_");
 						curr_file.append(exact_algorithms[algo]);
 						curr_file.append("_");
@@ -787,7 +786,7 @@ void GenerateKernelSearchLatexTable(std::string folder, bool add_exact_results)
 
 					for (size_t algo = 0; algo < algorithms.size(); ++algo)
 					{
-						curr_file = "..//solutions//" + folder + "//";
+						curr_file = "..//solutions//" + folder_heuristic + "//";
 						curr_file.append("s_");
 						curr_file.append(algorithms[algo]);
 						curr_file.append("_");
@@ -800,7 +799,7 @@ void GenerateKernelSearchLatexTable(std::string folder, bool add_exact_results)
 
 						if (!input.is_open())
 						{
-							// std::cout << "Could not open file " << curr_file << std::endl;
+							std::cout << "Could not open file " << curr_file << std::endl;
 							continue;
 							// throw 4;
 						}
@@ -868,9 +867,9 @@ void GenerateKernelSearchLatexTable(std::string folder, bool add_exact_results)
 								++(total_num_best_known_bound[algo]);
 								improvement = 100;
 							}
-							else if ((double_equals(heuristic_lb, -1) && !double_equals(best_lb, -1)) || (is_infeasible && (status != "INFEASIBLE")))
+							else if (((double_equals(heuristic_lb, -1) || double_equals(heuristic_lb, 0)) && !double_equals(best_lb, -1)) || (is_infeasible && (status != "INFEASIBLE")))
 							{
-								improvement = -100; // means that the exact found a bound (or proved infeasibility) and the heuristic found nothing.
+								improvement = -100; // means that the exact found a bound (or proved infeasibility) and the heuristic found nothing or zero bound.
 							}
 							else if ((double_equals(best_lb, -1) || double_equals(best_lb, 0)) && !double_less(heuristic_lb, 0)) // also make improvement = 100 if best_lb = 0 and heuristic_lb is >= 0.
 							{
@@ -882,7 +881,7 @@ void GenerateKernelSearchLatexTable(std::string folder, bool add_exact_results)
 							else
 							{
 								improvement = (100 * (heuristic_lb - best_lb)) / best_lb;
-								// std::cout << best_lb << " " << heuristic_lb << " " << status << std::endl;
+								std::cout << best_lb << " " << heuristic_lb << " " << status << std::endl;
 								if (!double_less(improvement, 0.0))
 								{
 									++(num_best_known_bound_inst_size[algo]);
@@ -1245,14 +1244,15 @@ int main()
 {
 	// std::string folder = "2024-07-26_09:18:48_all_relax_new";
 	// std::string folder = "2024-06-23_13:01:07_all_kernel_search_less_time";
-	std::string folder = "all_exact";
+	std::string folder_heuristic_sol = "all_heuristic";
+	std::string folder_exact_sol = "all_exact";
 	// try
 	// {
 	// GenerateAlgorithmsLatexTablePerInstance(folder);
 	// return 1;
 	// GenerateLPImprovementsLatexTable(folder);
-	GenerateAlgorithmsLatexTable(folder);
-	// GenerateKernelSearchLatexTable(folder, false);
+	GenerateAlgorithmsLatexTable(folder_exact_sol);
+	// GenerateHeuristicsLatexTable(folder_exact_sol, folder_heuristic_sol, false);
 	return 0;
 	int time_limit = -1;
 	int num_routes = 5;
