@@ -61,7 +61,7 @@ private:
 public:
 	explicit Instance(std::string dir_path, std::string file_name, int num_vehicles, double service_time_deviation, int uncertainty_budged, bool pre_process_graph);
 	virtual ~Instance();
-	std::string GetInstanceName() const;
+	std::string GetInstanceName(bool add_format_termination = true) const;
 	void FillInstanceFromFile(std::string dir_path, std::string file_name, double service_time_deviation);
 	void AddMandatoryVertices(double mandatory_percentage);
 	void WriteToFile(std::string dir_path, std::string curr_file);

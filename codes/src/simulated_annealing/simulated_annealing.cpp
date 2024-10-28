@@ -69,7 +69,6 @@ MetaHeuristicSolution *SimulatedAnnealing::RunOneStep(MetaHeuristicSolution *cur
             }
         } while (continue_search);
 
-        // IMPORTANT: ShiftingAndInsertion might lead to a worse solution, so we should check BEFORE if the current solution is better than the best found so far as to not lose track of it!
         CheckUpdateBestSolution(possibly_improved_solution);
     } while (LocalSearches::ShiftingAndInsertion(*curr_instance_, possibly_improved_solution));
 

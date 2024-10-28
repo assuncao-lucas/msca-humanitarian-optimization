@@ -204,7 +204,7 @@ Instance::~Instance()
     }
 }
 
-std::string Instance::GetInstanceName() const
+std::string Instance::GetInstanceName(bool add_format_termination) const
 {
     std::ostringstream stream;
     stream << std::fixed;
@@ -216,7 +216,9 @@ std::string Instance::GetInstanceName() const
     std::string raw_file_name_without_txt = raw_file_name_.substr(0, pos);
     // std::cout << raw_file_name_without_txt << std::endl;
 
-    return raw_file_name_without_txt + "_v" + std::to_string(num_vehicles_) + "_d" + stream.str() + "_b" + std::to_string(uncertainty_budget_) + ".txt";
+    std::string termination = add_format_termination ? ".txt" : "";
+
+    return raw_file_name_without_txt + "_v" + std::to_string(num_vehicles_) + "_d" + stream.str() + "_b" + std::to_string(uncertainty_budget_) + termination;
 }
 
 void Instance::set_graph(Graph *graph)

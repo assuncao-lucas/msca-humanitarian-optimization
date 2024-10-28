@@ -203,9 +203,9 @@ void GenerateAlgorithmsLatexTable(std::string folder)
 			for (auto uncertainty_budget : uncertainty_budget_vec)
 				instances_terminations.push_back("_v" + num_vehicles + "_d" + service_time_deviation + "_b" + uncertainty_budget + ".txt");
 
-	algorithms.push_back("baseline");
-	// algorithms.push_back("cb_AVICs_CCCs_baseline");
-	algorithms.push_back("csc");
+	// algorithms.push_back("baseline");
+	algorithms.push_back("cb_AVICs_CCCs_baseline");
+	// algorithms.push_back("csc");
 	algorithms.push_back("cb_AVICs_CCCs_csc");
 
 	instance_types.push_back("C");
@@ -388,7 +388,7 @@ void GenerateAlgorithmsLatexTable(std::string folder)
 					// getchar();getchar();
 				}
 
-				output << instance_type + instance_size + "Q" + instance_limit_quantile;
+				output << instance_type + instance_size + "Q" + instance_limit_quantile << " & & " << instance_size;
 
 				for (size_t algo = 0; algo < algorithms.size(); ++algo)
 				{
@@ -408,7 +408,7 @@ void GenerateAlgorithmsLatexTable(std::string folder)
 				output << "\\\\" << std::endl;
 			}
 		}
-		output << "Sub-total";
+		output << "Sub-total & & ";
 
 		for (size_t algo = 0; algo < algorithms.size(); ++algo)
 		{
@@ -428,7 +428,7 @@ void GenerateAlgorithmsLatexTable(std::string folder)
 		output << "\\\\" << std::endl;
 	}
 
-	output << "Total";
+	output << "Total & & ";
 	for (size_t algo = 0; algo < algorithms.size(); ++algo)
 	{
 		// std::cout << total_improvement_per_algo[j].size() << std::endl;
@@ -451,7 +451,7 @@ void GenerateAlgorithmsLatexTable(std::string folder)
 void GenerateHeuristicsLatexTable(std::string folder_exact, std::string folder_heuristic, bool add_exact_results)
 {
 	std::string curr_file;
-	std::vector<std::string> algorithms;
+	std::vector<std::pair<int, std::string>> algorithms;
 	std::vector<std::string> exact_algorithms;
 	std::vector<std::string> instance_sizes;
 	std::vector<std::string> instance_types;
@@ -468,14 +468,14 @@ void GenerateHeuristicsLatexTable(std::string folder_exact, std::string folder_h
 			for (auto uncertainty_budget : uncertainty_budget_vec)
 				instances_terminations.push_back("_v" + num_vehicles + "_d" + service_time_deviation + "_b" + uncertainty_budget + ".txt");
 
-	// exact_algorithms.push_back("baseline");
+	exact_algorithms.push_back("baseline");
 	// algorithms.push_back("cb_baseline");
 	exact_algorithms.push_back("csc");
 	// exact_algorithms.push_back("cb_AVICs_CCCs_csc");
 
 	// algorithms.push_back("baseline_ks_b5_[84,19]_d0.96_feas");
-	algorithms.push_back("csc_ks_b5_[72,25]_d0.86");
-	// algorithms.push_back("sa_MT_df_0.98");
+	algorithms.push_back(std::pair<int, std::string>(0, "csc_ks_b5_[72,25]_d0.86"));
+	algorithms.push_back(std::pair<int, std::string>(10, "sa_MT_df_0.98"));
 
 	instance_types.push_back("C");
 	instance_types.push_back("R");
@@ -786,126 +786,266 @@ void GenerateHeuristicsLatexTable(std::string folder_exact, std::string folder_h
 
 					for (size_t algo = 0; algo < algorithms.size(); ++algo)
 					{
-						curr_file = "..//solutions//" + folder_heuristic + "//";
-						curr_file.append("s_");
-						curr_file.append(algorithms[algo]);
-						curr_file.append("_");
-						curr_file.append(instance);
 
-						// std::cout << curr_file << std::endl;
+						int num_seeds = algorithms[algo].first;
 
-						std::fstream input;
-						input.open(curr_file.c_str(), std::fstream::in);
-
-						if (!input.is_open())
+						if (num_seeds == 0)
 						{
-							std::cout << "Could not open file " << curr_file << std::endl;
-							continue;
-							// throw 4;
-						}
-						else
-						{
-							std::cout << instance << " " << algorithms[algo] << std::endl;
-						}
+							curr_file = "..//solutions//" + folder_heuristic + "//";
+							curr_file.append("s_");
+							curr_file.append(algorithms[algo].second);
+							curr_file.append("_");
+							curr_file.append(instance);
 
-						std::stringstream s_lb1, s_t1, s_max_improve_iter;
-						std::string line, status;
-						double heuristic_lb = -1, heuristic_time = 0, improvement = 0;
+							// std::cout << curr_file << std::endl;
 
-						getline(input, line);
-						size_t pos = line.find_first_of(":");
-						status = line.substr(pos + 2);
+							std::fstream input;
+							input.open(curr_file.c_str(), std::fstream::in);
 
-						std::string::iterator end_pos = std::remove(status.begin(), status.end(), ' ');
-						status.erase(end_pos, status.end());
-
-						// std::cout << status << std::endl;
-						getline(input, line);
-						getline(input, line);
-
-						pos = line.find_first_of(":");
-						s_t1 << line.substr(pos + 2);
-						s_t1 >> heuristic_time;
-
-						if (status != "INFEASIBLE")
-						{
-							getline(input, line);
-							getline(input, line);
-							pos = line.find_first_of(":");
-							s_lb1 << line.substr(pos + 2);
-							s_lb1 >> heuristic_lb;
-							heuristic_lb = round_decimals(heuristic_lb, 2); // IMPORTANT because I saved heuristic solutions file without 2 decimal precision.
-						}
-
-						// if (double_greater(heuristic_time, 1500))
-						// std::cout << heuristic_time << std::endl;
-
-						time_per_algo_inst_size[algo].push_back(heuristic_time);
-						time_per_algo_quantile[algo].push_back(heuristic_time);
-						total_time_per_algo[algo].push_back(heuristic_time);
-
-						total_avg_time[algo] += heuristic_time;
-						avg_time_inst_size[algo] += heuristic_time;
-						avg_time_quantile[algo] += heuristic_time;
-
-						// if ((status == "INFEASIBLE") && !is_infeasible)
-						// 	std::cout << "Heuristica provou inviabilidade nova" << std::endl;
-
-						if (((status == "INFEASIBLE") && is_infeasible) || double_equals(best_lb, heuristic_lb))
-						{
-							++(num_best_known_bound_inst_size[algo]);
-							++(num_best_known_bound_quantile[algo]);
-							++(total_num_best_known_bound[algo]);
-							improvement = 0;
-						}
-						else
-						{
-							if ((status == "INFEASIBLE") && !is_infeasible)
+							if (!input.is_open())
 							{
-								++(num_best_known_bound_inst_size[algo]);
-								++(num_best_known_bound_quantile[algo]);
-								++(total_num_best_known_bound[algo]);
-								improvement = 100;
-							}
-							else if (((double_equals(heuristic_lb, -1) || double_equals(heuristic_lb, 0)) && !double_equals(best_lb, -1)) || (is_infeasible && (status != "INFEASIBLE")))
-							{
-								improvement = -100; // means that the exact found a bound (or proved infeasibility) and the heuristic found nothing or zero bound.
-							}
-							else if ((double_equals(best_lb, -1) || double_equals(best_lb, 0)) && !double_less(heuristic_lb, 0)) // also make improvement = 100 if best_lb = 0 and heuristic_lb is >= 0.
-							{
-								improvement = 100.0;
-								++(num_best_known_bound_inst_size[algo]);
-								++(num_best_known_bound_quantile[algo]);
-								++(total_num_best_known_bound[algo]);
+								std::cout << "Could not open file " << curr_file << std::endl;
+								continue;
+								// throw 4;
 							}
 							else
 							{
-								improvement = (100 * (heuristic_lb - best_lb)) / best_lb;
-								std::cout << best_lb << " " << heuristic_lb << " " << status << std::endl;
-								if (!double_less(improvement, 0.0))
+								std::cout << instance << " " << algorithms[algo].second << std::endl;
+							}
+
+							std::stringstream s_lb1, s_t1, s_max_improve_iter;
+							std::string line, status;
+							double heuristic_lb = -1, heuristic_time = 0, improvement = 0;
+
+							getline(input, line);
+							size_t pos = line.find_first_of(":");
+							status = line.substr(pos + 2);
+
+							std::string::iterator end_pos = std::remove(status.begin(), status.end(), ' ');
+							status.erase(end_pos, status.end());
+
+							// std::cout << status << std::endl;
+							getline(input, line);
+							getline(input, line);
+
+							pos = line.find_first_of(":");
+							s_t1 << line.substr(pos + 2);
+							s_t1 >> heuristic_time;
+
+							if (status != "INFEASIBLE")
+							{
+								getline(input, line);
+								getline(input, line);
+								pos = line.find_first_of(":");
+								s_lb1 << line.substr(pos + 2);
+								s_lb1 >> heuristic_lb;
+								heuristic_lb = round_decimals(heuristic_lb, 2); // IMPORTANT because I saved heuristic solutions file without 2 decimal precision.
+							}
+
+							// if (double_greater(heuristic_time, 1500))
+							// std::cout << heuristic_time << std::endl;
+
+							time_per_algo_inst_size[algo].push_back(heuristic_time);
+							time_per_algo_quantile[algo].push_back(heuristic_time);
+							total_time_per_algo[algo].push_back(heuristic_time);
+
+							total_avg_time[algo] += heuristic_time;
+							avg_time_inst_size[algo] += heuristic_time;
+							avg_time_quantile[algo] += heuristic_time;
+
+							// if ((status == "INFEASIBLE") && !is_infeasible)
+							// 	std::cout << "Heuristica provou inviabilidade nova" << std::endl;
+
+							if (((status == "INFEASIBLE") && is_infeasible) || double_equals(best_lb, heuristic_lb))
+							{
+								++(num_best_known_bound_inst_size[algo]);
+								++(num_best_known_bound_quantile[algo]);
+								++(total_num_best_known_bound[algo]);
+								improvement = 0;
+							}
+							else
+							{
+								if ((status == "INFEASIBLE") && !is_infeasible)
 								{
 									++(num_best_known_bound_inst_size[algo]);
 									++(num_best_known_bound_quantile[algo]);
 									++(total_num_best_known_bound[algo]);
+									improvement = 100;
+								}
+								else if (((double_equals(heuristic_lb, -1) || double_equals(heuristic_lb, 0)) && !double_equals(best_lb, -1)) || (is_infeasible && (status != "INFEASIBLE")))
+								{
+									improvement = -100; // means that the exact found a bound (or proved infeasibility) and the heuristic found nothing or zero bound.
+								}
+								else if ((double_equals(best_lb, -1) || double_equals(best_lb, 0)) && !double_less(heuristic_lb, 0)) // also make improvement = 100 if best_lb = 0 and heuristic_lb is >= 0.
+								{
+									improvement = 100.0;
+									++(num_best_known_bound_inst_size[algo]);
+									++(num_best_known_bound_quantile[algo]);
+									++(total_num_best_known_bound[algo]);
+								}
+								else
+								{
+									improvement = (100 * (heuristic_lb - best_lb)) / best_lb;
+									std::cout << best_lb << " " << heuristic_lb << " " << status << std::endl;
+									if (!double_less(improvement, 0.0))
+									{
+										++(num_best_known_bound_inst_size[algo]);
+										++(num_best_known_bound_quantile[algo]);
+										++(total_num_best_known_bound[algo]);
+									}
 								}
 							}
+
+							// if (!double_equals(improvement, 100))
+							// {
+							// 	std::cout << improvement << std::endl;
+							// 	getchar();
+							// 	getchar();
+							// }
+							gap_per_algo_inst_size[algo].push_back(improvement);
+							gap_per_algo_quantile[algo].push_back(improvement);
+							total_gap_per_algo[algo].push_back(improvement);
+
+							avg_gap_quantile[algo] += improvement;
+							avg_gap_inst_size[algo] += improvement;
+							total_avg_gap[algo] += improvement;
+
+							input.close();
 						}
+						else
+						{
+							double avg_all_seeds_heuristic_time = 0.0;
+							double avg_all_seeds_improvement = 0.0;
+							double avg_all_num_best_known_bound_inst_size = 0.0;
+							double avg_all_num_best_known_bound_quantile = 0.0;
+							double avg_all_total_num_best_known_bound = 0.0;
+							double avg_all_improvement = 0.0;
 
-						// if (!double_equals(improvement, 100))
-						// {
-						// 	std::cout << improvement << std::endl;
-						// 	getchar();
-						// 	getchar();
-						// }
-						gap_per_algo_inst_size[algo].push_back(improvement);
-						gap_per_algo_quantile[algo].push_back(improvement);
-						total_gap_per_algo[algo].push_back(improvement);
+							for (int seed = 1; seed <= num_seeds; ++seed)
+							{
+								curr_file = "..//solutions//" + folder_heuristic + "//";
+								curr_file.append("s_");
+								curr_file.append(algorithms[algo].second);
+								curr_file.append("_seed_");
+								curr_file.append(std::to_string(seed));
+								curr_file.append("_");
+								curr_file.append(instance);
 
-						avg_gap_quantile[algo] += improvement;
-						avg_gap_inst_size[algo] += improvement;
-						total_avg_gap[algo] += improvement;
+								// std::cout << curr_file << std::endl;
 
-						input.close();
+								std::fstream input;
+								input.open(curr_file.c_str(), std::fstream::in);
+
+								if (!input.is_open())
+								{
+									std::cout << "Could not open file " << curr_file << std::endl;
+									continue;
+									// throw 4;
+								}
+								else
+								{
+									std::cout << instance << " " << algorithms[algo].second << std::endl;
+								}
+
+								std::stringstream s_lb1, s_t1, s_max_improve_iter;
+								std::string line, status;
+								double heuristic_lb = -1, heuristic_time = 0, improvement = 0;
+
+								getline(input, line);
+								size_t pos = line.find_first_of(":");
+								status = line.substr(pos + 2);
+
+								std::string::iterator end_pos = std::remove(status.begin(), status.end(), ' ');
+								status.erase(end_pos, status.end());
+
+								getline(input, line);
+								pos = line.find_first_of(":");
+								s_lb1 << line.substr(pos + 2);
+								s_lb1 >> heuristic_lb;
+								heuristic_lb = round_decimals(heuristic_lb, 2); // IMPORTANT because I saved heuristic solutions file without 2 decimal precision.
+
+								// std::cout << status << std::endl;
+								getline(input, line);
+								getline(input, line);
+								getline(input, line);
+
+								pos = line.find_first_of(":");
+								s_t1 << line.substr(pos + 2);
+								s_t1 >> heuristic_time;
+
+								avg_all_seeds_heuristic_time += heuristic_time;
+
+								if (((status == "INFEASIBLE") && is_infeasible) || double_equals(best_lb, heuristic_lb))
+								{
+									avg_all_num_best_known_bound_inst_size += 1.0;
+									avg_all_num_best_known_bound_quantile += 1.0;
+									avg_all_total_num_best_known_bound += 1.0;
+									improvement = 0;
+								}
+								else
+								{
+									if ((status == "INFEASIBLE") && !is_infeasible)
+									{
+										avg_all_num_best_known_bound_inst_size += 1.0;
+										avg_all_num_best_known_bound_quantile += 1.0;
+										avg_all_total_num_best_known_bound += 1.0;
+										improvement = 100.0;
+									}
+									else if (((double_equals(heuristic_lb, -1) || double_equals(heuristic_lb, 0)) && !double_equals(best_lb, -1)) || (is_infeasible && (status != "INFEASIBLE")))
+									{
+										improvement = -100.0; // means that the exact found a bound (or proved infeasibility) and the heuristic found nothing or zero bound.
+									}
+									else if ((double_equals(best_lb, -1) || double_equals(best_lb, 0)) && !double_less(heuristic_lb, 0)) // also make improvement = 100 if best_lb = 0 and heuristic_lb is >= 0.
+									{
+										improvement = 100.0;
+										avg_all_num_best_known_bound_inst_size += 1.0;
+										avg_all_num_best_known_bound_quantile += 1.0;
+										avg_all_total_num_best_known_bound += 1.0;
+									}
+									else
+									{
+										improvement = (100 * (heuristic_lb - best_lb)) / best_lb;
+										std::cout << best_lb << " " << heuristic_lb << " " << status << std::endl;
+										if (!double_less(improvement, 0.0))
+										{
+											avg_all_num_best_known_bound_inst_size += 1.0;
+											avg_all_num_best_known_bound_quantile += 1.0;
+											avg_all_total_num_best_known_bound += 1.0;
+										}
+									}
+								}
+
+								avg_all_seeds_improvement += improvement;
+
+								input.close();
+							}
+
+							avg_all_seeds_heuristic_time /= num_seeds;
+							time_per_algo_inst_size[algo].push_back(avg_all_seeds_heuristic_time);
+							time_per_algo_quantile[algo].push_back(avg_all_seeds_heuristic_time);
+							total_time_per_algo[algo].push_back(avg_all_seeds_heuristic_time);
+
+							total_avg_time[algo] += avg_all_seeds_heuristic_time;
+							avg_time_inst_size[algo] += avg_all_seeds_heuristic_time;
+							avg_time_quantile[algo] += avg_all_seeds_heuristic_time;
+
+							avg_all_seeds_improvement /= num_seeds;
+							gap_per_algo_inst_size[algo].push_back(avg_all_seeds_improvement);
+							gap_per_algo_quantile[algo].push_back(avg_all_seeds_improvement);
+							total_gap_per_algo[algo].push_back(avg_all_seeds_improvement);
+
+							avg_gap_quantile[algo] += avg_all_seeds_improvement;
+							avg_gap_inst_size[algo] += avg_all_seeds_improvement;
+							total_avg_gap[algo] += avg_all_seeds_improvement;
+
+							avg_all_num_best_known_bound_inst_size /= num_seeds;
+							avg_all_num_best_known_bound_quantile /= num_seeds;
+							avg_all_total_num_best_known_bound /= num_seeds;
+
+							num_best_known_bound_inst_size[algo] += 1.0;
+							num_best_known_bound_quantile[algo] += 1.0;
+							total_num_best_known_bound[algo] += 1.0;
+						}
 
 						// std::cout << algorithms[algo] << " " << heuristic_lb << " " << heuristic_time << " " << improvement << std::endl;
 					}
@@ -913,7 +1053,7 @@ void GenerateHeuristicsLatexTable(std::string folder_exact, std::string folder_h
 					// getchar();getchar();
 				}
 
-				output << instance_type + instance_size + "Q" + instance_limit_quantile << " & " << instance_size;
+				output << instance_type + instance_size + "Q" + instance_limit_quantile << " & & " << instance_size;
 
 				if (add_exact_results)
 				{
@@ -952,7 +1092,7 @@ void GenerateHeuristicsLatexTable(std::string folder_exact, std::string folder_h
 				output << "\\\\" << std::endl;
 			}
 		}
-		output << "Sub-total &";
+		output << "Sub-total & &";
 
 		if (add_exact_results)
 		{
@@ -991,7 +1131,7 @@ void GenerateHeuristicsLatexTable(std::string folder_exact, std::string folder_h
 		output << "\\\\" << std::endl;
 	}
 
-	output << "Total & ";
+	output << "Total & &";
 
 	if (add_exact_results)
 	{
@@ -1049,12 +1189,12 @@ void GenerateLPImprovementsLatexTable(std::string folder)
 				instances_terminations.push_back("_v" + num_vehicles + "_d" + service_time_deviation + "_b" + uncertainty_budget + ".txt");
 
 	algorithms.push_back("relax_baseline");
-	algorithms.push_back("relax_cb_AVICs_baseline");
-	algorithms.push_back("relax_cb_CCCs_baseline");
+	// algorithms.push_back("relax_cb_AVICs_baseline");
+	// algorithms.push_back("relax_cb_CCCs_baseline");
 	algorithms.push_back("relax_cb_AVICs_CCCs_baseline");
 	algorithms.push_back("relax_csc");
-	algorithms.push_back("relax_cb_AVICs_csc");
-	algorithms.push_back("relax_cb_CCCs_csc");
+	// algorithms.push_back("relax_cb_AVICs_csc");
+	// algorithms.push_back("relax_cb_CCCs_csc");
 	algorithms.push_back("relax_cb_AVICs_CCCs_csc");
 
 	instance_types.push_back("C");
@@ -1088,6 +1228,7 @@ void GenerateLPImprovementsLatexTable(std::string folder)
 
 	std::vector<std::vector<double>> total_improvement_per_algo(algorithms.size(), std::vector<double>());
 	std::vector<double> total_avg_improvement(algorithms.size(), 0.0);
+	int total_num_instances = 0;
 
 	for (auto instance_size : instance_sizes)
 	{
@@ -1196,7 +1337,7 @@ void GenerateLPImprovementsLatexTable(std::string folder)
 					// getchar();getchar();
 				}
 
-				output << instance_type + instance_size + "Q" + instance_limit_quantile;
+				output << instance_type + instance_size + "Q" + instance_limit_quantile << " & & " << instance_size << " & " << instances_terminations.size();
 
 				for (size_t algo = 1; algo < algorithms.size(); ++algo)
 				{
@@ -1210,7 +1351,10 @@ void GenerateLPImprovementsLatexTable(std::string folder)
 				output << "\\\\" << std::endl;
 			}
 		}
-		output << "Subtotal";
+		int subtotal_num_instances = instance_types.size() * instance_limit_quantiles.size() * instances_terminations.size();
+		total_num_instances += subtotal_num_instances;
+
+		output << "Subtotal & & & " << subtotal_num_instances;
 
 		for (size_t algo = 1; algo < algorithms.size(); ++algo)
 		{
@@ -1224,7 +1368,7 @@ void GenerateLPImprovementsLatexTable(std::string folder)
 		output << "\\\\" << std::endl;
 	}
 
-	output << "Total";
+	output << "Total & & & " << total_num_instances;
 	for (size_t algo = 1; algo < algorithms.size(); algo++)
 	{
 		// std::cout << total_improvement_per_algo[j].size() << std::endl;
@@ -1232,7 +1376,7 @@ void GenerateLPImprovementsLatexTable(std::string folder)
 			total_avg_improvement[algo] /= (1.0 * ((total_improvement_per_algo[algo]).size()));
 		else
 			total_avg_improvement[algo] = -1;
-		output << "& & " << total_avg_improvement[algo] << " & " << StDev(total_improvement_per_algo[algo], total_avg_improvement[algo]);
+		output << " & & " << total_avg_improvement[algo] << " & " << StDev(total_improvement_per_algo[algo], total_avg_improvement[algo]);
 	}
 
 	output << "\\\\" << std::endl;
@@ -1246,13 +1390,14 @@ int main()
 	// std::string folder = "2024-06-23_13:01:07_all_kernel_search_less_time";
 	std::string folder_heuristic_sol = "all_heuristic";
 	std::string folder_exact_sol = "all_exact";
+	std::string folder_relax = "2024-07-26_09:18:48_all_relax_new";
 	// try
 	// {
 	// GenerateAlgorithmsLatexTablePerInstance(folder);
 	// return 1;
-	// GenerateLPImprovementsLatexTable(folder);
-	GenerateAlgorithmsLatexTable(folder_exact_sol);
-	// GenerateHeuristicsLatexTable(folder_exact_sol, folder_heuristic_sol, false);
+	// GenerateLPImprovementsLatexTable(folder_relax);
+	// GenerateAlgorithmsLatexTable(folder_exact_sol);
+	GenerateHeuristicsLatexTable(folder_exact_sol, folder_heuristic_sol, false);
 	return 0;
 	int time_limit = -1;
 	int num_routes = 5;

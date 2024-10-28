@@ -2833,6 +2833,7 @@ static const struct option longOpts[] = {
 	{"sa-temperature-decay-rate", required_argument, NULL, 'G'},
 	{"sa-sampling-size", required_argument, NULL, 'H'},
 	{"sa-target-acceptance-probability", required_argument, NULL, 'I'},
+	{"generate-export-model", no_argument, NULL, 'J'},
 	{NULL, no_argument, NULL, 0}};
 
 void ParseArgumentsAndRun(int argc, char *argv[])
@@ -2842,6 +2843,7 @@ void ParseArgumentsAndRun(int argc, char *argv[])
 	int seed = 0;
 	int num_vehicles = 0, uncertainty_budget = 0;
 	bool solve_compact = false, solve_cb = false, solve_bc = false, baseline = false, capacity_based = false, generate_convex_hull = false;
+	bool generate_export_model = false;
 	bool solve_relaxed = false, solve_benders = false, solve_generic_callback = false, combine_feas_opt_cuts = false;
 	double time_limit = -1.0, service_time_deviation = 0.0;
 	bool force_use_all_vehicles = false;
@@ -2982,6 +2984,9 @@ void ParseArgumentsAndRun(int argc, char *argv[])
 			if (optarg)
 				sa_target_acceptance_probability = std::atof(optarg);
 			break;
+		case 'J':
+			generate_export_model = true;
+			break;
 		}
 	}
 
@@ -3016,7 +3021,7 @@ void ParseArgumentsAndRun(int argc, char *argv[])
 	double *Rn = Dijkstra(graph, true, false);
 
 	// std::cout << inst << std::endl;
-	if (compute_initial_solution_heuristic)
+	if (compute_initial_solution_heuristic || generate_export_model)
 	{
 		if (solve_kernel_search)
 		{
@@ -3071,6 +3076,36 @@ void ParseArgumentsAndRun(int argc, char *argv[])
 			std::cout << "generating DEFAULT initial sol" << std::endl;
 			initial_sol = InitalSolutionGenerator::GenerateInitialSolution(inst, true);
 		}
+	}
+
+	if ((generate_export_model) && (!initial_sol->is_infeasible_))
+	{
+		const Graph *graph = inst.graph();
+		int num_arcs = graph->num_arcs();
+		int num_routes = inst.num_vehicles();
+		int budget = inst.uncertainty_budget();
+		double time_dev = inst.service_time_deviation();
+
+		std::string instance_file_name = "r-stop-dp-" + inst.GetInstanceName(false) + ".mps";
+		std::cout << instance_file_name << std::endl;
+
+		IloEnv env;
+		IloCplex cplex(env);
+		IloModel model(env);
+		cplex.extract(model);
+
+		MasterVariables master_vars{};
+
+		AllocateMasterVariablesSingleCommodity(env, master_vars, inst, force_use_all_vehicles, false);
+		// budget + 1 to consider level 0 of budget! 0,..., budget
+		IloNumVarArray f(env, num_arcs * (budget + 1), 0, IloInfinity, ILOFLOAT);
+
+		PopulateByRowCompactSingleCommodity(cplex, env, model, master_vars, f, inst, R0, Rn, force_use_all_vehicles, export_model);
+		std::string instance_file_name_dir = "/home/lucas/Documents/Research/msca-humanitarian-optimization/problems/" + instance_file_name;
+		cplex.exportModel(instance_file_name_dir.c_str());
+
+		cplex.end();
+		env.end();
 	}
 
 	if (solve_compact)
