@@ -105,7 +105,8 @@ time_limit=3600
 
 num_vehicles_vec=(2 4)
 service_time_deviation_vec=(0.10 0.25)
-uncertainty_budget_vec=(1 5)
+uncertainty_budget_vec=(0)
+# uncertainty_budget_vec=(1 5)
 
 cont=0
 for file in $dir0/*.txt
@@ -229,41 +230,7 @@ readarray -t sorted < <(printf '%s\0' "${files[@]}" | sort -z | xargs -0n1)
 # 	done 
 # done
 
-# Metaheuristics
-# for file in ${sorted[@]}
-# do
-# 	substr=$(echo $file | rev | cut -d'/' -f 1 | rev)
-# 	substr=${substr//".txt"/}
-
-# 	for num_vehicles in ${num_vehicles_vec[@]}
-# 	do
-# 		for service_time_deviation in ${service_time_deviation_vec[@]}
-# 		do
-# 			for uncertainty_budget in ${uncertainty_budget_vec[@]}
-# 			do
-# 				# echo $num_vehicles
-# 				# echo $service_time_deviation
-# 				# echo $uncertainty_budget
-# 				curr_instance=$substr"_v"${num_vehicles}"_d"${service_time_deviation}"_b"${uncertainty_budget}
-# 				if [[ "$curr_instance" > "$start_instance" ]];
-# 				then
-# 					echo "* "$curr_instance
-# 					for seed in ${seeds[@]}
-# 					do
-# 						# Simulated Annealing 
-# 						# ./bin/stop --solution-dir $dir_solutions --alns --instance $file --num-vehicles $num_vehicles --uncertainty-budget $uncertainty_budget --service-time-deviation $service_time_deviation --seed $seed --alns-num-iterations 1000 --alns-pool-size 20 --multi-threading
-# 						./bin/stop --solution-dir $dir_solutions --simulated-annealing  --seed $seed --sa-temperature-decay-rate 0.98 --metaheuristic-multi-threading --instance $file --num-vehicles $num_vehicles --uncertainty-budget $uncertainty_budget --service-time-deviation $service_time_deviation
-# 					done
-# 				fi
-# 			done
-# 		done
-# 	done 
-# done
-
-# ./bin/stop --solution-dir "../solutions/test" --compact --capacity-based --warm-start --time-limit 3600 --instance "/home/lucas/Documents/Research/msca-humanitarian-optimization/instances/R-STOP-DP/R100_4.txt" --num-vehicles 3 --uncertainty-budget 5 --service-time-deviation 0.1
-
-
-# Generate .mps files
+Metaheuristics
 for file in ${sorted[@]}
 do
 	substr=$(echo $file | rev | cut -d'/' -f 1 | rev)
@@ -282,12 +249,46 @@ do
 				if [[ "$curr_instance" > "$start_instance" ]];
 				then
 					echo "* "$curr_instance
-					./bin/stop --generate-export-model --instance $file --num-vehicles $num_vehicles --uncertainty-budget $uncertainty_budget --service-time-deviation $service_time_deviation
+					for seed in ${seeds[@]}
+					do
+						# Simulated Annealing 
+						# ./bin/stop --solution-dir $dir_solutions --alns --instance $file --num-vehicles $num_vehicles --uncertainty-budget $uncertainty_budget --service-time-deviation $service_time_deviation --seed $seed --alns-num-iterations 1000 --alns-pool-size 20 --multi-threading
+						./bin/stop --solution-dir $dir_solutions --simulated-annealing  --seed $seed --sa-temperature-decay-rate 0.98 --metaheuristic-multi-threading --instance $file --num-vehicles $num_vehicles --uncertainty-budget $uncertainty_budget --service-time-deviation $service_time_deviation
+					done
 				fi
 			done
 		done
 	done 
 done
+
+# ./bin/stop --solution-dir "../solutions/test" --compact --capacity-based --warm-start --time-limit 3600 --instance "/home/lucas/Documents/Research/msca-humanitarian-optimization/instances/R-STOP-DP/R100_4.txt" --num-vehicles 3 --uncertainty-budget 5 --service-time-deviation 0.1
+
+
+# # Generate .mps files
+# for file in ${sorted[@]}
+# do
+# 	substr=$(echo $file | rev | cut -d'/' -f 1 | rev)
+# 	substr=${substr//".txt"/}
+
+# 	for num_vehicles in ${num_vehicles_vec[@]}
+# 	do
+# 		for service_time_deviation in ${service_time_deviation_vec[@]}
+# 		do
+# 			for uncertainty_budget in ${uncertainty_budget_vec[@]}
+# 			do
+# 				# echo $num_vehicles
+# 				# echo $service_time_deviation
+# 				# echo $uncertainty_budget
+# 				curr_instance=$substr"_v"${num_vehicles}"_d"${service_time_deviation}"_b"${uncertainty_budget}
+# 				if [[ "$curr_instance" > "$start_instance" ]];
+# 				then
+# 					echo "* "$curr_instance
+# 					./bin/stop --generate-export-model --instance $file --num-vehicles $num_vehicles --uncertainty-budget $uncertainty_budget --service-time-deviation $service_time_deviation
+# 				fi
+# 			done
+# 		done
+# 	done 
+# done
 
 # ./bin/stop  --generate-export-model --instance "/home/lucas/Documents/Research/msca-humanitarian-optimization/instances/R-STOP-DP/R100_4.txt" --num-vehicles 3 --uncertainty-budget 5 --service-time-deviation 0.1
 

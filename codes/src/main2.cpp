@@ -3,6 +3,7 @@
 #include <dirent.h>
 #include <sstream>
 #include <fstream>
+#include <algorithm>
 #include "src/instance.h"
 #include "src/graph.h"
 #include "src/general.h"
@@ -330,6 +331,8 @@ void GenerateAlgorithmsLatexTable(std::string folder)
 						s_time << line.substr(pos + 2);
 						s_time >> time;
 
+						time = std::min(time, 3600.0);
+
 						if ((status == "OPTIMAL") || (status == "INFEASIBLE"))
 							std::cout << instance << std::endl;
 
@@ -342,13 +345,13 @@ void GenerateAlgorithmsLatexTable(std::string folder)
 									++(num_optimal_inst_size[algo]);
 									++(num_optimal_quantile[algo]);
 									++(total_num_optimal[algo]);
-									time_per_algo_inst_size[algo].push_back(time);
-									time_per_algo_quantile[algo].push_back(time);
-									total_time_per_algo[algo].push_back(time);
+									// time_per_algo_inst_size[algo].push_back(time);
+									// time_per_algo_quantile[algo].push_back(time);
+									// total_time_per_algo[algo].push_back(time);
 
-									total_avg_time[algo] += time;
-									avg_time_inst_size[algo] += time;
-									avg_time_quantile[algo] += time;
+									// total_avg_time[algo] += time;
+									// avg_time_inst_size[algo] += time;
+									// avg_time_quantile[algo] += time;
 								}
 								else
 									gap = (100.0 * (ub - lb)) / ub;
@@ -361,27 +364,35 @@ void GenerateAlgorithmsLatexTable(std::string folder)
 							++(num_optimal_inst_size[algo]);
 							++(num_optimal_quantile[algo]);
 							++(total_num_optimal[algo]);
-							time_per_algo_inst_size[algo].push_back(time);
-							time_per_algo_quantile[algo].push_back(time);
-							total_time_per_algo[algo].push_back(time);
+							// time_per_algo_inst_size[algo].push_back(time);
+							// time_per_algo_quantile[algo].push_back(time);
+							// total_time_per_algo[algo].push_back(time);
 
-							total_avg_time[algo] += time;
-							avg_time_inst_size[algo] += time;
-							avg_time_quantile[algo] += time;
+							// total_avg_time[algo] += time;
+							// avg_time_inst_size[algo] += time;
+							// avg_time_quantile[algo] += time;
 						}
+
+						time_per_algo_inst_size[algo].push_back(time);
+						time_per_algo_quantile[algo].push_back(time);
+						total_time_per_algo[algo].push_back(time);
+
+						total_avg_time[algo] += time;
+						avg_time_inst_size[algo] += time;
+						avg_time_quantile[algo] += time;
 
 						// std::cout << "lp: " << lp << " improvement: " << curr_improvement << std::endl;
 
-						if (!double_equals(gap, 0.0))
-						{
-							gap_per_algo_inst_size[algo].push_back(gap);
-							gap_per_algo_quantile[algo].push_back(gap);
-							total_gap_per_algo[algo].push_back(gap);
+						// if (!double_equals(gap, 0.0))
+						// {
+						gap_per_algo_inst_size[algo].push_back(gap);
+						gap_per_algo_quantile[algo].push_back(gap);
+						total_gap_per_algo[algo].push_back(gap);
 
-							total_avg_gap[algo] += gap;
-							avg_gap_quantile[algo] += gap;
-							avg_gap_inst_size[algo] += gap;
-						}
+						total_avg_gap[algo] += gap;
+						avg_gap_quantile[algo] += gap;
+						avg_gap_inst_size[algo] += gap;
+						// }
 						input.close();
 					}
 
@@ -1396,8 +1407,8 @@ int main()
 	// GenerateAlgorithmsLatexTablePerInstance(folder);
 	// return 1;
 	// GenerateLPImprovementsLatexTable(folder_relax);
-	// GenerateAlgorithmsLatexTable(folder_exact_sol);
-	GenerateHeuristicsLatexTable(folder_exact_sol, folder_heuristic_sol, false);
+	GenerateAlgorithmsLatexTable(folder_exact_sol);
+	// GenerateHeuristicsLatexTable(folder_exact_sol, folder_heuristic_sol, false);
 	return 0;
 	int time_limit = -1;
 	int num_routes = 5;

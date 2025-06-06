@@ -8,10 +8,10 @@ go to folder of scenario, and run $irace --check
 run test: go to folder of scenario, and run $irace
 
 
-* Connect VM: ssh litis@litis113.ad.univ-lehavre.fr
+* Connect VM: ssh litis@litis113.ulhn-ad.univ-lehavre.fr
 pass: litis!$
 
-* Connect VM Thiago: ssh litis@litis119.ad.univ-lehavre.fr
+* Connect VM Thiago: ssh litis@litis119.ulhn-ad.univ-lehavre.fr
 pass: litis$!$!
 
 
