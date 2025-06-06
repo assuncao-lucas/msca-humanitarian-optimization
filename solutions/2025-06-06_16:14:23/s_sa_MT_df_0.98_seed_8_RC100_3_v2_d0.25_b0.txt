@@ -1,0 +1,11 @@
+STATUS: FEASIBLE
+profits sum: 254.21447
+initial profits sum: 220.00000
+# iterations: 1042
+time(s): 0.79354
+last iteration of improvement: 203
+***********************************
+Total profit sum: 254.21447
+Num routes: 2
+142.35550 919.78000 10 11 22 19 76 51 52 
+111.85897 924.65000 70 4 2 36 35 34 90 
