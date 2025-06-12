@@ -1180,6 +1180,144 @@ void GenerateHeuristicsLatexTable(std::string folder_exact, std::string folder_h
 	output.close();
 }
 
+void GenerateHeuristicsSensitivityAnalysisPlot(std::string folder_heuristic)
+{
+	std::string curr_file;
+	std::vector<std::pair<int, std::string>> algorithms;
+	std::vector<std::string> exact_algorithms;
+	std::vector<std::string> instance_sizes;
+	std::vector<std::string> instance_types;
+	std::vector<std::string> instance_limit_quantiles;
+
+	std::vector<std::string> num_vehicles_vec{"2", "4"};
+	std::vector<std::string> service_time_deviation_vec{"0.10", "0.25"};
+	std::vector<std::string> uncertainty_budget_vec{"0", "1", "5"};
+	std::vector<std::string> instance_sizes_vec{"25", "50", "100"};
+
+	std::vector<std::string> instances_terminations;
+
+	for (auto num_vehicles : num_vehicles_vec)
+		for (auto service_time_deviation : service_time_deviation_vec)
+			instances_terminations.push_back("_v" + num_vehicles + "_d" + service_time_deviation);
+
+	const int num_seeds = 10;
+	const std::string algorithm = "sa_MT_df_0.98";
+
+	instance_types.push_back("C");
+	instance_types.push_back("R");
+	instance_types.push_back("RC");
+
+	instance_limit_quantiles.push_back("0.8");
+	instance_limit_quantiles.push_back("1");
+	instance_limit_quantiles.push_back("2");
+	instance_limit_quantiles.push_back("3");
+	instance_limit_quantiles.push_back("4");
+
+	std::fstream output;
+	std::string output_name;
+	output_name = "..//tables//latex//plot_robustness_price.txt";
+	output.open(output_name.c_str(), std::fstream::out);
+
+	if (!output.is_open())
+	{
+		std::cout << "Could not open file " << output_name << std::endl;
+		throw 1;
+	}
+
+	// std::cout << output_name << std::endl;
+
+	output << std::setprecision(2) << std::fixed;
+
+	for (auto instance_size : instance_sizes_vec)
+	{
+		for (auto uncertainty_budget : uncertainty_budget_vec)
+		{
+			output << "* vertices: " << instance_size << " | budget: " << uncertainty_budget << std::endl;
+			for (int quantile_index = 0; quantile_index < instance_limit_quantiles.size(); ++quantile_index)
+			{
+				std::string instance_limit_quantile = instance_limit_quantiles[quantile_index];
+				double total_avg_objective_quantile = 0.0;
+				for (auto instance_type : instance_types)
+				{
+					std::string instance_prefix = instance_type + instance_size + "_" + instance_limit_quantile;
+
+					for (auto instances_termination : instances_terminations)
+					{
+						std::string instance = instance_prefix + instances_termination + "_b" + uncertainty_budget + ".txt";
+
+						double total_objective_sum = 0.0;
+						for (int seed = 1; seed <= num_seeds; ++seed)
+						{
+							curr_file = "..//solutions//" + folder_heuristic + "//";
+							curr_file.append("s_");
+							curr_file.append(algorithm);
+							curr_file.append("_seed_");
+							curr_file.append(std::to_string(seed));
+							curr_file.append("_");
+							curr_file.append(instance);
+
+							// std::cout << curr_file << std::endl;
+
+							std::fstream input;
+							input.open(curr_file.c_str(), std::fstream::in);
+
+							if (!input.is_open())
+							{
+								std::cout << "Could not open file " << curr_file << std::endl;
+								continue;
+								// throw 4;
+							}
+
+							std::stringstream s_lb1, s_t1, s_max_improve_iter;
+							std::string line, status;
+							double heuristic_lb = -1, heuristic_time = 0, improvement = 0;
+
+							getline(input, line);
+							size_t pos = line.find_first_of(":");
+							status = line.substr(pos + 2);
+
+							std::string::iterator end_pos = std::remove(status.begin(), status.end(), ' ');
+							status.erase(end_pos, status.end());
+
+							getline(input, line);
+							pos = line.find_first_of(":");
+							s_lb1 << line.substr(pos + 2);
+							s_lb1 >> heuristic_lb;
+							heuristic_lb = round_decimals(heuristic_lb, 2); // IMPORTANT because I saved heuristic solutions file without 2 decimal precision.
+
+							// std::cout << status << std::endl;
+							getline(input, line);
+							getline(input, line);
+							getline(input, line);
+
+							pos = line.find_first_of(":");
+							s_t1 << line.substr(pos + 2);
+							s_t1 >> heuristic_time;
+
+							if (status != "INFEASIBLE")
+							{
+								total_objective_sum += heuristic_lb;
+							}
+
+							input.close();
+						}
+
+						total_avg_objective_quantile += (total_objective_sum /= num_seeds);
+					}
+				}
+
+				output << "(" << total_avg_objective_quantile / 1000.0 << "," << instance_limit_quantile << ")";
+				if (quantile_index < instance_limit_quantiles.size() - 1)
+					output << " ";
+				else
+					output << ";" << std::endl;
+			}
+		}
+	}
+
+	output.close();
+}
+
 void GenerateLPImprovementsLatexTable(std::string folder)
 {
 	std::string curr_file;
@@ -1407,8 +1545,9 @@ int main()
 	// GenerateAlgorithmsLatexTablePerInstance(folder);
 	// return 1;
 	// GenerateLPImprovementsLatexTable(folder_relax);
-	GenerateAlgorithmsLatexTable(folder_exact_sol);
+	// GenerateAlgorithmsLatexTable(folder_exact_sol);
 	// GenerateHeuristicsLatexTable(folder_exact_sol, folder_heuristic_sol, false);
+	GenerateHeuristicsSensitivityAnalysisPlot(folder_heuristic_sol);
 	return 0;
 	int time_limit = -1;
 	int num_routes = 5;
