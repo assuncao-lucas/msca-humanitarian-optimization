@@ -1,0 +1,6 @@
+valgrind --leak-check=yes --track-origins=yes
+./bin/stop --solution-dir teste --alns --instance ../instances/R-STOP-DP/R25_3.txt --num-vehicles 5 --uncertainty-budget 5 --service-time-deviation 0.1 --seed 10 --alns-num-iterations 10 --alns-pool-size 20 --metaheuristic-multi-threading
+./bin/stop --solution-dir teste --simulated-annealing --instance ../instances/R-STOP-DP/R25_3.txt --num-vehicles 5 --uncertainty-budget 5 --service-time-deviation 0.1 --seed 10 --sa-temperature-decay-rate 0.99 --metaheuristic-multi-threading
+
+
+./bin/stop --solution-dir "teste" --instance  "../instances/R-STOP-DP/test.txt" --num-vehicles 1 --uncertainty-budget 5 --service-time-deviation 0.1 --cutting-plane --capacity-based --CCCs

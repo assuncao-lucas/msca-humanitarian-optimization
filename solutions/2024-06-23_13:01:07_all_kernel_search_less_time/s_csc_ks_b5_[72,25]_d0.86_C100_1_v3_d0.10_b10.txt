@@ -1,0 +1,6 @@
+STATUS: FAILED TO FIND A FEASIBLE SOLUTION
+time building kernel and buckets (s): 87.41350
+total time (s): 729.48739
+***********************************
+Total profit sum: 0.00000
+Num routes: 0

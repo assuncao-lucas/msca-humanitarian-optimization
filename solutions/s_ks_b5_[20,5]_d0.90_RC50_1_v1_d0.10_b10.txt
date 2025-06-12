@@ -1,0 +1,3 @@
+STATUS: INFEASIBLE
+time building kernel and buckets (s): 5.63642
+total time (s): 6.10363

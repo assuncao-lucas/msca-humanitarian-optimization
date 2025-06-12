@@ -1,0 +1,5 @@
+ks_max_size_bucket          "--ks-max-size-bucket "          i  (1, 10)
+ks_min_time_limit          "--ks-min-time-limit "          i  (5, 30)
+ks_max_time_limit          "--ks-max-time-limit "          i  (30, 90)
+ks_decay_factor          "--ks-decay-factor "          r  (0.75, 0.99)
+ks_feasibility_emphasis          "--ks-feasibility-emphasis "          i  (0, 1)

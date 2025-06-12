@@ -30,3 +30,13 @@
 *.exe
 *.out
 *.app
+*/bin/*
+
+# solutions
+# solutions/*
+
+# cplex models
+*.lp
+*.dua
+*.log
+*.mps

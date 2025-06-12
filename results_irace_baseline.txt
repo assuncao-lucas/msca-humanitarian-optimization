@@ -1,0 +1,12 @@
+# Total CPU user time: 1722880, CPU sys time: 2377.213, Wall-clock time: 165659.7
+# Best configurations (first number is the configuration ID; listed from best to worst according to the sum of ranks):
+   ks_max_size_bucket ks_min_time_limit ks_max_time_limit ks_decay_factor ks_feasibility_emphasis
+46                  1                20                70          0.8746                       1
+36                  2                19                84          0.9653                       1
+41                  1                20                78          0.8717                       1
+44                  1                23                85          0.9471                       1
+# Best configurations as commandlines (first number is the configuration ID; same order as above):
+46  --ks-max-size-bucket 1 --ks-min-time-limit 20 --ks-max-time-limit 70 --ks-decay-factor 0.8746 --ks-feasibility-emphasis 1
+36  --ks-max-size-bucket 2 --ks-min-time-limit 19 --ks-max-time-limit 84 --ks-decay-factor 0.9653 --ks-feasibility-emphasis 1
+41  --ks-max-size-bucket 1 --ks-min-time-limit 20 --ks-max-time-limit 78 --ks-decay-factor 0.8717 --ks-feasibility-emphasis 1
+44  --ks-max-size-bucket 1 --ks-min-time-limit 23 --ks-max-time-limit 85 --ks-decay-factor 0.9471 --ks-feasibility-emphasis 1

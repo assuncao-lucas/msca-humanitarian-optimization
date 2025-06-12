@@ -1,0 +1,6 @@
+STATUS: INFEASIBLE
+time building kernel and buckets (s): 6.94743
+total time (s): 23.90861
+***********************************
+Total profit sum: 0.00000
+Num routes: 0

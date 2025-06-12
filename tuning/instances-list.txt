@@ -1,0 +1,21 @@
+## This is an example of specifying a list of instances.
+
+# Each line is an instance relative to trainInstancesDir/testInstancesdir
+# unless set to "" (see scenario.txt.tmpl) and an optional sequence of
+# instance-specific parameters that will be passed to target-runner when
+# invoked on that instance.
+
+# Empty lines and comments are ignored.
+
+C25_2.txt --num-vehicles 1 --uncertainty-budget 5 --service-time-deviation 0.25
+C50_3.txt --num-vehicles 2 --uncertainty-budget 1 --service-time-deviation 0.1
+C100_4.txt --num-vehicles 2 --uncertainty-budget 10 --service-time-deviation 0.1
+C100_1.txt --num-vehicles 1 --uncertainty-budget 5 --service-time-deviation 0.25
+R25_4.txt --num-vehicles 5 --uncertainty-budget 1 --service-time-deviation 0.5
+R50_3.txt --num-vehicles 4 --uncertainty-budget 10 --service-time-deviation 0.5
+R100_2.txt --num-vehicles 4 --uncertainty-budget 5 --service-time-deviation 0.5
+R100_1.txt --num-vehicles 1 --uncertainty-budget 5 --service-time-deviation 0.25
+RC25_2.txt --num-vehicles 3 --uncertainty-budget 5 --service-time-deviation 0.25
+RC50_2.txt --num-vehicles 1 --uncertainty-budget 10 --service-time-deviation 0.1
+RC100_3.txt --num-vehicles 1 --uncertainty-budget 1 --service-time-deviation 0.1
+RC100_1.txt --num-vehicles 1 --uncertainty-budget 5 --service-time-deviation 0.25

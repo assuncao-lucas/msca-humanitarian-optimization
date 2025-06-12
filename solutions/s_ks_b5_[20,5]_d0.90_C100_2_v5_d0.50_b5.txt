@@ -1,0 +1,3 @@
+STATUS: FOUND ARC INTEGER FEASIBLE
+time building kernel and buckets (s): 18.12546
+total time (s): 173.32739
